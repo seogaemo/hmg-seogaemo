@@ -555,6 +555,27 @@ sg_revert_all
     # Problem report: logs=ours keeps only our area of the Android log and adds NEMESIS log and a summary.
     script(fake / "logcat", 'echo "I/HMG-Seogaemo( 1): ours"; echo "I/SomeVendorApp( 2): other"\n')
     script(fake / "nemesis", 'case "$1" in log) echo "nemesis log line";; *) exit 0;; esac\n')
+    # Wi-Fi/USB facts for a USB dongle: interface bus and driver, USB ids, modules, kernel log, kernel config.
+    wroot = base / "wifi-root"
+    iface = wroot / "sys/devices/usb1/1-1/1-1:1.0"
+    (iface / "net/wlan1").mkdir(parents=True)
+    (iface / "uevent").write_text("DRIVER=rtl8192cu\nPRODUCT=bda/8176/200\n")
+    (iface / "driver").symlink_to("../../../../bus/usb/drivers/rtl8192cu")
+    (iface / "net/wlan1/device").symlink_to("../..")
+    (iface / "net/wlan1/operstate").write_text("up\n")
+    (iface.parent / "idVendor").write_text("0bda\n")
+    (iface.parent / "idProduct").write_text("8176\n")
+    (iface.parent / "serial").write_text("private-serial\n")
+    (wroot / "sys/class/net").mkdir(parents=True)
+    (wroot / "sys/class/net/wlan1").symlink_to("../../devices/usb1/1-1/1-1:1.0/net/wlan1")
+    (wroot / "sys/bus/usb/devices").mkdir(parents=True)
+    (wroot / "sys/bus/usb/devices/1-1").symlink_to("../../../devices/usb1/1-1")
+    (wroot / "proc").mkdir()
+    (wroot / "proc/modules").write_text("8192cu 500000 0 - Live 0x00000000\n")
+    (wroot / "proc/config.gz").write_bytes(b"\x1f\x8bkernel-config")
+    script(fake / "dmesg", 'echo "usb 1-1: new high-speed USB device"; echo "wlan1: SSID home-net"; '
+                           'echo "wlan1: 00:e0:4c:00:00:01 up"\n')
+    env["HMG_SEOGAEMO_WIFI_ROOT"] = str(wroot)
     time.sleep(1.1)
     report = run(base / "bin/hmg-seogaemo-root", "export", "adb", "ours", env=env)
     assert "info.export_safe=adb" in report.stdout, report.stdout
@@ -563,6 +584,13 @@ sg_revert_all
     assert "ours" in logcat and "other" not in logcat, logcat
     assert "nemesis log line" in (folder / "logs/nemesis.txt").read_text()
     assert "HMG-Seogaemo problem report" in (folder / "summary.txt").read_text()
+    wifi = (folder / "wifi-usb.txt").read_text()
+    assert "net=wlan1 path=../../devices/usb1/1-1/1-1:1.0/net/wlan1" in wifi, wifi
+    assert "driver=../../../../bus/usb/drivers/rtl8192cu" in wifi and "DRIVER=rtl8192cu" in wifi, wifi
+    assert "usb=1-1 idVendor=0bda idProduct=8176" in wifi and "8192cu 500000" in wifi, wifi
+    assert "new high-speed USB device" in wifi, wifi
+    assert "home-net" not in wifi and "00:e0:4c" not in wifi and "private-serial" not in wifi, wifi
+    assert (folder / "kernel-config.gz").read_bytes() == b"\x1f\x8bkernel-config"
     time.sleep(1.1)
     full = run(base / "bin/hmg-seogaemo-root", "export", "adb", "all", env=env)
     full_log = (Path(full.stdout.split("detail=", 1)[1].split()[0]) / "diagnostics/logs/logcat.txt").read_text()

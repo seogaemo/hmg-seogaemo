@@ -2075,6 +2075,21 @@ sg_vm_cleanup() (
     sg_path_safe "$vm" && [ -d "$vm" ] || exit 3
     rm -rf "$vm" && [ ! -e "$vm" ]
 )
+sg_redact() {
+    while IFS= read -r sg_rd_line || [ -n "$sg_rd_line" ]; do
+        case "$sg_rd_line" in
+            *wifimac:' 'EMPTY|*wifimac:' 'SET) sg_print "$sg_rd_line" ;;
+            *wifimac*"[]") sg_print 'ro.boot.wifimac: EMPTY' ;;
+            *wifimac*"[]"*|*wifimac=) sg_print 'wifimac: EMPTY' ;;
+            *wifimac*) sg_print 'wifimac: SET' ;;
+            *[Ss][Ee][Rr][Ii][Aa][Ll]*|*[Bb][Tt][Aa][Dd][Dd][Rr]*|*[Ss][Ss][Ii][Dd]*|*[Pp][Ss][Kk]*|*[Pp][Aa][Ss][Ss][Ww]*|*[Ss][Ee][Cc][Rr][Ee][Tt]*|*[Tt][Oo][Kk][Ee][Nn]*|*[Cc][Rr][Ee][Dd][Ee][Nn]*|*[Ii][Mm][Ee][Ii]*|*[Ii][Mm][Ss][Ii]*|*[Ii][Cc][Cc][Ii][Dd]*|*[Vv][Ii][Nn]=*|*[Hh][Ww][Aa][Dd][Dd][Rr]*|*link/ether*|*[Pp][Hh][Oo][Nn][Ee]?[Nn][Uu][Mm]*)
+                sg_print '[redacted]' ;;
+            *[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]*)
+                sg_print '[redacted]' ;;
+            *) sg_print "$sg_rd_line" ;;
+        esac
+    done
+}
 sg_owner_present() {
     case "$1" in
         nemesis-adb-tcp) [ -d /data/nemesis/apps/adb.tcp ] || [ -d /data/nemesis/backup/adb.tcp ] ;;

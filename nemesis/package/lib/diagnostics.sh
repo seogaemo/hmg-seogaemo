@@ -23,6 +23,48 @@ hmg_seogaemo_diag_descendants() {
     echo $diag_found
 }
 
+# Read-only Wi-Fi and USB facts for supporting other radios (e.g. a USB Wi-Fi dongle):
+# kernel, loaded modules, network interfaces with their bus and driver, USB ids,
+# driver/firmware file names, Wi-Fi init services, Wi-Fi properties and kernel log lines.
+# Fixed paths only; HMG_SEOGAEMO_WIFI_ROOT prefixes them for host tests. The caller redacts.
+hmg_seogaemo_diag_wifi() {
+    wr=${HMG_SEOGAEMO_WIFI_ROOT:-}
+    sg_print '# kernel'
+    cat "$wr/proc/version"
+    sg_print '# modules'
+    cat "$wr/proc/modules"
+    sg_print '# net'
+    for wn in "$wr"/sys/class/net/*; do
+        [ -e "$wn" ] || continue
+        sg_print "net=${wn##*/} path=$(readlink "$wn") driver=$(readlink "$wn/device/driver")"
+        [ ! -f "$wn/operstate" ] || sg_print "operstate=$(cat "$wn/operstate")"
+        [ ! -f "$wn/device/uevent" ] || cat "$wn/device/uevent"
+    done
+    sg_print '# usb'
+    for wd in "$wr"/sys/bus/usb/devices/*; do
+        [ -e "$wd" ] || continue
+        wl="usb=${wd##*/}"
+        for wk in idVendor idProduct bDeviceClass bInterfaceClass manufacturer product speed; do
+            [ ! -f "$wd/$wk" ] || wl="$wl $wk=$(cat "$wd/$wk")"
+        done
+        sg_print "$wl"
+        [ ! -f "$wd/uevent" ] || grep -e '^DRIVER=' -e '^PRODUCT=' -e '^MODALIAS=' "$wd/uevent"
+    done
+    sg_print '# files'
+    ls -l "$wr/system/lib/modules" "$wr/lib/modules" "$wr/system/wifi" "$wr/system/etc/wifi" \
+        "$wr/system/etc/firmware" "$wr/vendor/firmware" "$wr/system/vendor/firmware"
+    ls -l "$wr/system/bin/wpa_supplicant" "$wr/system/bin/hostapd" "$wr/system/bin/dhcpcd" \
+        "$wr/system/bin/iw" "$wr/system/xbin/iw"
+    ls "$wr/system/etc/permissions"
+    sg_print '# init'
+    grep -h -i -e wpa_supplicant -e p2p_supplicant -e hostapd -e dhcpcd -e insmod -e wlan -e wifi \
+        -e firmware "$wr"/init*.rc
+    sg_print '# properties'
+    getprop | grep -i -e wifi -e wlan -e wpa -e hostapd -e p2p -e dhcp -e usb -e tcc
+    sg_print '# dmesg'
+    dmesg | grep -i -e usb -e wlan -e wifi -e 80211 -e firmware -e rtl -e rtw -e mt7 -e ath -e bcm -e dhd
+}
+
 hmg_seogaemo_diagnostics() (
     diag=$1/diagnostics
     # Raw (unredacted) bytes are staged only in a private 0700 directory under
@@ -203,6 +245,14 @@ hmg_seogaemo_diagnostics() (
         nemesis log dump > "$stage/nemesis.txt" 2>&1 < /dev/null || :
         copy_log "$stage/nemesis.txt" logs/nemesis.txt 32 || exit 1
         rm -f "$stage/nemesis.txt"
+        hmg_seogaemo_diag_wifi > "$stage/raw" 2>&1 < /dev/null || :
+        redact < "$stage/raw" > "$stage/stage"
+        sg_redact < "$stage/stage" > "$stage/raw"
+        dd if="$stage/raw" bs=4096 count=16 2>/dev/null > "$diag/wifi-usb.txt"
+        rm -f "$stage/raw" "$stage/stage"
+        # Kernel build options (which Wi-Fi/USB drivers could load); compressed binary, no personal data.
+        [ ! -f "${HMG_SEOGAEMO_WIFI_ROOT:-}/proc/config.gz" ] ||
+            dd if="${HMG_SEOGAEMO_WIFI_ROOT:-}/proc/config.gz" bs=4096 count=64 2>/dev/null > "$diag/kernel-config.gz"
         copy_log "${HMG_SEOGAEMO_APP_STATE:-/data/data/com.seogaemo.hmg/files/report/app-state.txt}" app/app-state.txt || exit 1
         {
             sg_print "HMG-Seogaemo problem report" "time=$(date)" "logs=$HMG_SEOGAEMO_EXPORT_LOGS"
@@ -216,7 +266,7 @@ hmg_seogaemo_diagnostics() (
                 done < "$status"
             done
         } > "$diag/summary.txt"
-        sg_print "report logs: $HMG_SEOGAEMO_EXPORT_LOGS (logcat 512 KiB, NEMESIS 128 KiB)" >> "$diag/manifest.txt" ;;
+        sg_print "report logs: $HMG_SEOGAEMO_EXPORT_LOGS (logcat 512 KiB, NEMESIS 128 KiB, Wi-Fi/USB 64 KiB, kernel config 256 KiB)" >> "$diag/manifest.txt" ;;
     esac
     sg_print 'limits: 32 logs, 64 KiB each; status 64 KiB/10 seconds each; metadata 8 KiB/module; properties 64 KiB; turn-by-turn records 1 MiB + 64 KiB each' >> "$diag/manifest.txt"
 )
