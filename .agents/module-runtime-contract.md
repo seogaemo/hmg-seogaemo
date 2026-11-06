@@ -113,6 +113,12 @@ the full artifact list: `tmp/overlap-inventory.md` (2026-11-06, upstream source 
   `hmgapi`, `projection.cardata` before `wireless.carplay.aa`), or `/data/hmgapi/uninstall.sh`
   for a standalone HMG-API, then reports `pending-restart`/`head_unit`. `delete` removes only
   the catalogue paths. Every step is a ledger row (`foreign_remove`/`foreign_delete`).
+  `hmgapi-wifi` (`delete`, overlaps `wifi-client`): with no HMG-API installed and no wifi-client
+  record, `android.hardware.wifi.xml` byte-identical to the wifi-client payload and/or
+  `persist.wifi.state=3` are HMG-API Wi-Fi client leftovers (NEEV KOR stock has neither; seen on a
+  migrated car 2026-11-06). Clean backs up the XML, deletes it under remount, clears the property
+  and its `/data/property` file, then requires a restart. wifi-client reports these leftovers as
+  `conflict` pointing to the Car tab.
   `report` items are refused. Calling `nemesis uninstall` from our root verb is unverified on
   the car. The app shows the findings on the Car tab and cleans them only after a confirm.
 

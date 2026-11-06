@@ -102,10 +102,12 @@ unowned_changes() {
     if external_owner; then result conflict none 'Another package owns Wi-Fi feature files'; fi
     if sg_applied "$xml" || sg_applied "$prop"; then return 0; fi
     if [ -e "$xml" ]; then
-        if xml_ours; then result conflict none 'Wi-Fi feature XML changed outside this module'; fi
+        if xml_ours; then result conflict none 'Wi-Fi settings left by another package; clean them up in the Car tab'; fi
         result conflict none 'Existing Wi-Fi feature XML differs'
     fi
     if [ -n "$(getprop "$prop" 2>/dev/null)" ]; then
+        [ "$(getprop "$prop" 2>/dev/null)" != "$value" ] ||
+            result conflict none 'Wi-Fi settings left by another package; clean them up in the Car tab'
         result conflict none 'persist.wifi.state is set outside this module'
     fi
 }
@@ -127,10 +129,12 @@ status() {
         result conflict none 'Wi-Fi client changes are only partly applied'
     fi
     if [ -e "$xml" ]; then
-        if xml_ours; then result conflict none 'Wi-Fi feature XML changed outside this module'; fi
+        if xml_ours; then result conflict none 'Wi-Fi settings left by another package; clean them up in the Car tab'; fi
         result conflict none 'Existing Wi-Fi feature XML differs'
     fi
     if [ -n "$(getprop "$prop" 2>/dev/null)" ]; then
+        [ "$(getprop "$prop" 2>/dev/null)" != "$value" ] ||
+            result conflict none 'Wi-Fi settings left by another package; clean them up in the Car tab'
         result conflict none 'persist.wifi.state is set outside this module'
     fi
     if pm_wifi; then

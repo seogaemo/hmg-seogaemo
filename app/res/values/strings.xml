@@ -235,6 +235,7 @@
     <string name="foreign_item_pkg_hmgapi">HMG-API</string>
     <string name="foreign_item_hmgapi_standalone">HMG-API (installed outside NEMESIS)</string>
     <string name="foreign_item_hmgapi_residue">System files left by HMG-API</string>
+    <string name="foreign_item_hmgapi_wifi">Wi-Fi settings left by HMG-API</string>
     <string name="foreign_item_hmgapi_data">HMG-API data folder</string>
     <string name="foreign_item_pkg_leafia">HMG Leafia Plus</string>
     <string name="foreign_item_leafia_orphan">Backups left by HMG Leafia Plus</string>

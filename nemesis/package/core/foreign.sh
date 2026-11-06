@@ -36,6 +36,25 @@ hmgapi_residue() {
     done
     grep -q '^# HMGAPI_HOOK begin' "$sys/system/etc/install-recovery.sh" "$sys/system/etc/qb_runtime.sh" 2>/dev/null
 }
+# HMG-API's Wi-Fi client mod writes the same feature XML and persist.wifi.state=3 as our wifi-client.
+# Once HMG-API is gone they stay behind with no wifi-client record, and wifi-client refuses to touch them.
+wifi_xml=$sys/system/etc/permissions/android.hardware.wifi.xml
+wifi_prop=${SG_PROPERTY_ROOT:-/data/property}/persist.wifi.state
+wifi_ref=$base/modules/wifi-client.d/android.hardware.wifi.xml
+wifi_recorded() {
+    for fg_rec in "$SG_DATA_ROOT"/modules/wifi-client/file.*/applied "$SG_DATA_ROOT"/modules/wifi-client/prop.*/applied; do
+        [ -e "$fg_rec" ] && return 0
+    done
+    return 1
+}
+wifi_xml_left() { [ -f "$wifi_xml" ] && [ -f "$wifi_ref" ] && cmp "$wifi_ref" "$wifi_xml" > /dev/null 2>&1; }
+wifi_prop_left() { [ -f "$wifi_prop" ] && [ "$(cat "$wifi_prop" 2>/dev/null)" = 3 ]; }
+hmgapi_wifi() {
+    has_pkg hmgapi && return 1
+    hmgapi_installed && return 1
+    wifi_recorded && return 1
+    wifi_xml_left || wifi_prop_left
+}
 leafia_parts='wireless.carplay.bt carplay.wifi.audio projection.menu'
 leafia_orphan() {
     has_pkg wireless.carplay.aa && return 1
@@ -66,6 +85,7 @@ scan() {
     elif hmgapi_installed && [ -f "$hmgapi/uninstall.sh" ]; then sg_print 'hmgapi-standalone remove'; fi
     if hmgapi_residue; then sg_print 'hmgapi-residue report'
     elif [ -d "$hmgapi" ] && ! hmgapi_installed; then sg_print 'hmgapi-data delete'; fi
+    hmgapi_wifi && sg_print 'hmgapi-wifi delete'
     has_pkg wireless.carplay.aa && sg_print 'pkg-leafia remove'
     leafia_orphan && sg_print 'leafia-orphan report'
     { ! has_pkg wireless.carplay.aa && [ -f "$nroot/wireless.carplay.aa.stopped" ]; } && sg_print 'leafia-disabled-apps report'
@@ -89,6 +109,7 @@ overlap() {
         pkg-adb-tcp) sg_print wireless-adb wireless-carplay-and-aa ;;
         pkg-wireless-projection|pkg-carplay-session) sg_print wireless-carplay-and-aa wifi-client ;;
         pkg-vr-gates) sg_print wireless-carplay-and-aa ;;
+        hmgapi-wifi) sg_print wifi-client ;;
         pkg-factory82) sg_print skip-consent-screen ;;
     esac
 }
@@ -155,6 +176,21 @@ case "$item" in
     pkg-factory82) uninstall_pkg local.hkmc.factory82 ;;
     pkg-carplay-session) uninstall_pkg carplay.session ;;
     pkg-vr-gates) uninstall_pkg voicehandler.vr-gates ;;
+    hmgapi-wifi)
+        if wifi_xml_left; then
+            cp "$wifi_xml" "$HMG_SEOGAEMO_STATE/hmgapi-wifi.xml" || { sg_status failed none 'Could not back up the Wi-Fi feature XML'; exit 1; }
+            sg_remount rw || { sg_status failed none 'Could not remount /system'; exit 1; }
+            rm -f "$wifi_xml"
+            fg_code=$?
+            sg_remount_ro
+            [ "$fg_code" -eq 0 ] && [ ! -e "$wifi_xml" ] || { sg_status failed none 'Could not delete the Wi-Fi feature XML'; exit 1; }
+            sg_ledger foreign_delete "$wifi_xml" "$HMG_SEOGAEMO_STATE/hmgapi-wifi.xml" /dev/null '' ok || :
+        fi
+        if wifi_prop_left; then
+            setprop persist.wifi.state '' 2> /dev/null || :
+            rm -f "$wifi_prop" && [ ! -e "$wifi_prop" ] || { sg_status failed none 'Could not clear persist.wifi.state'; exit 1; }
+            sg_ledger foreign_delete "$wifi_prop" /dev/null /dev/null '' ok || :
+        fi ;;
     hmgapi-data|foreign-logs|factory82-state)
         case "$item" in
             hmgapi-data) paths=$hmgapi ;;

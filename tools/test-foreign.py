@@ -37,7 +37,8 @@ def main():
         script(fake / "nemesis", f'echo "$@" >> "{calls}"\n[ "$1" = uninstall ] && rm -rf "{nemesis}/apps/$2"\nexit 0\n')
         env = car_env(dict(os.environ, PATH=f"{fake}:{os.environ['PATH']}", SG_DATA_ROOT=str(data),
                            SG_NEMESIS_ROOT=str(nemesis), SG_SYSTEM_ROOT=str(system), SG_HMGAPI_ROOT=str(hmgapi),
-                           SG_LOCAL_TMP=str(local), SG_BOOT_ID_FILE=str(temp / "boot_id")))
+                           SG_LOCAL_TMP=str(local), SG_BOOT_ID_FILE=str(temp / "boot_id"),
+                           SG_PROPERTY_ROOT=str(temp / "property")))
         (temp / "boot_id").write_text("boot-1\n")
 
         def root(*args, code=0):
@@ -93,6 +94,33 @@ def main():
         assert not hmgapi.exists()
         out = root("foreign", "status")
         assert "info.count=2" in out, out
+
+        # HMG-API's Wi-Fi client leftovers: identical feature XML and persist.wifi.state=3, no wifi-client record.
+        (temp / "property").mkdir()
+        payload = (ROOT / "modules/wifi-client/payload/android.hardware.wifi.xml").read_bytes()
+        (base / "modules/wifi-client.d").mkdir(parents=True)
+        (base / "modules/wifi-client.d/android.hardware.wifi.xml").write_bytes(payload)
+        xml = system / "system/etc/permissions/android.hardware.wifi.xml"
+        xml.parent.mkdir(parents=True)
+        xml.write_bytes(payload)
+        (temp / "property/persist.wifi.state").write_text("3")
+        record = data / "modules/wifi-client/prop.persist.wifi.state"
+        record.mkdir(parents=True)
+        (record / "applied").write_text("3")
+        assert "hmgapi-wifi" not in root("foreign", "status")
+        shutil.rmtree(data / "modules/wifi-client")
+        assert "hmgapi-wifi,delete" in root("foreign", "status")
+        (data / "desired").mkdir(exist_ok=True)
+        (data / "desired/wifi-client").write_text("on")
+        assert "Turn off wifi-client first" in root("foreign", "clean", "hmgapi-wifi", code=3)
+        (data / "desired/wifi-client").write_text("off")
+        assert "state=pending-restart" in root("foreign", "clean", "hmgapi-wifi")
+        assert not xml.exists() and not (temp / "property/persist.wifi.state").exists()
+        assert "remount rw" in calls.read_text()
+        assert "hmgapi-wifi" not in root("foreign", "status")
+        # A Wi-Fi XML that differs from ours is not ours to judge.
+        xml.write_text("<permissions/>")
+        assert "hmgapi-wifi" not in root("foreign", "status")
     print("foreign package tests passed")
     return 0
 
