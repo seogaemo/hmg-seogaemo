@@ -138,6 +138,15 @@ Turn it off with `setprop persist.hmg_seogaemo.owner 0` (restart DiPO's process 
 - [ ] Delete the connected phone in Bluetooth settings: expect the stale state until stage 4 (`ProjectionDelete`); note what remains.
 - [ ] Kill switch `0`: behaviour identical to 0.1.47-beta.2; logs show `owner: off`.
 - [ ] Known gap to confirm: the `device_list` row survives the module's removal (owner decision in the design note).
+- [ ] **Delete the connected phone in the Bluetooth list (stage 4, `ProjectionDelete`).** Expect the order in logcat:
+  `delete: deletion ... held: disconnect sent`, then the session's finalize, then `status 4`, then
+  `deferred database deletion (matching end) completed`. Afterwards the row is gone from Phone Projection and CarPlay does not
+  reconnect by itself. Note the 15 s fallback line if the end did not come.
+- [ ] Delete a phone that is not connected: stock path (no `delete: deletion ... held` line), immediate row removal.
+- [ ] Delete the connected phone with USB CarPlay (wired) connected: stock path.
+- [ ] Delete a second, not connected phone while the first is in wireless CarPlay: first phone untouched.
+- [ ] Re-pair right after a delete: a connect cancels the deletion (`connected again after its end`); the row is kept.
+- [ ] Kill switch `0`: no `delete:` lines, stock delete behaviour.
 
 ## 2. Older open items
 

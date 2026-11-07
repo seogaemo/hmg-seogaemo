@@ -255,6 +255,33 @@ Status: implemented as stage 3 of [carplay-connection-owner.md](carplay-connecti
 - **Stock behavior still to verify on car.** Phone Projection's own reaction to status 3 and 4 (popups, auto-connect after an end,
   Android Auto start while a CarPlay row is connected) is traced only from the stock code and r8.2's behavior.
 
+### Deleting the connected CarPlay phone
+
+Status: implemented as stage 4 of [carplay-connection-owner.md](carplay-connection-owner.md) (item 10); host-tested
+(`test/projectiondelete`, 22 cases); off-car only.
+
+- **Stock order (the bug).** BtSettings `aW.l` (the Bluetooth list's delete) disconnects the connected CarPlay phone and deletes its
+  Phone Projection row at once. The row is gone when the session's end arrives, so Phone Projection keeps a stale connected device.
+- **Now.** `ProjectionDelete` (pure Java, `hmgapi.mods.wireless`) holds the request only for the connected wireless CarPlay phone with
+  DiPO active and a matching wireless CarPlay row. Held: the stock disconnect (`btsettings.pp_bt.send_disconnect`) is sent first, the
+  stock delete is skipped (`aW.l` returns false, as it already does when Phone Projection defers a delete), and the row is deleted once,
+  after the matching end (status 4): a binder barrier, then DiPO inactive, then a row identity check.
+- **Reconnect.** A connect (2 or 3) after that end cancels the deletion and keeps the row. A connect before the end is Phone
+  Projection's own state and does not cancel.
+- **15 s fallback (ours; r8.2 has none for CarPlay).** Without a matching end within 15 s, the held deletion runs anyway, so a deleted
+  phone does not linger. It runs whatever DiPO's state is (Phone Projection itself postpones a delete by 300 ms while connectivity is
+  active).
+- **Stock everywhere else.** Kill switch, wired or other phone, Android Auto, no or other-type row, a changed profile (at the end),
+  any read failure before the disconnect is sent, or a listener that cannot be registered: `aW.l` runs unchanged. A failure after the
+  disconnect is sent holds (the fallback applies). A failed deletion call is logged and not retried.
+- **Where it runs.** The decision runs in BtSettings on the request's thread; the listener is registered once per process
+  (`ProjectionDeleteEnv`, reflection on PPManager/DiPOManager/UserProfileManager, self-contained because DiPO's part is not visible
+  there). The hook is installed only when `btsettings.pp_bt`, `.request_delete` and `.send_disconnect` are mapped and the kill switch
+  `persist.hmg_seogaemo.owner` is not `0` (read at BtSettings start; the same switch as the DiPO owner).
+- **Known limits.** The row is looked up with a null serial, as r8.2 does (`getWLDeviceInfo(addr, null, user)`); this is unverified on a
+  car. The deletion is claimed once. The row identity check uses address, profile, type, transfer and serial (not the MAC). Car checks:
+  `backlog.md` section 1c.
+
 ## Switching from wireless CarPlay to Android Auto
 
 Status: implemented, off-car tested only (`test/projectionswitch`); needs the on-car check in `backlog.md`.

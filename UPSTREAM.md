@@ -112,7 +112,10 @@ which status Phone Projection receives for a wireless CarPlay session (ready, co
 read from its decompiled owner class and written again as our own state machine, names and tests. No smali, Java or
 structure was copied, and its owner class is not ported. Where we differ on purpose: an owed end waits for DiPO to go inactive
 (with a 30 s cap) instead of being sent at the next session start, and activation is polled with a cap. Stock NEEV KOR smali
-is the evidence for our hook points (`dipo.carplay.*`, `btsettings.pp_bt*`). See [.agents/wireless-carplay-and-aa.md](.agents/wireless-carplay-and-aa.md).
+is the evidence for our hook points (`dipo.carplay.*`, `btsettings.pp_bt*`). The same build's delete order for the connected
+phone (disconnect first, row deleted after the matching end, with a binder barrier and a fallback) was the behavioral reference
+for `ProjectionDelete` (item 10); we add a 15 s fallback it does not have for CarPlay. Behavior only, nothing copied.
+See [.agents/wireless-carplay-and-aa.md](.agents/wireless-carplay-and-aa.md).
 
 ## Startup consent screen reference
 

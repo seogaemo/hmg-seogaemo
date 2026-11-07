@@ -148,7 +148,7 @@ Stage 3b (explicit switch, the riskiest part, only if 3a is clean in review):
 1. This note (+ index entry). **Status: written.**
 2. Catalogue + KOR map: the five DiPO points and three BtSettings points, host evidence only.
 3. Item 9: `ProjectionOwner` + `OwnerEnv` + hooks + kill switch + tests (`test/projectionowner`) + docs. **Status: implemented (publish only; host-tested, not on car).**
-4. Item 10: `ProjectionDelete` + BtSettings hook + tests.
+4. Item 10: `ProjectionDelete` + BtSettings hook + tests. **Status: implemented (host-tested, not on car).**
 5. Item 11a: `Bridge` gating, address fixes, bond receiver + tests. 11b only if time and review allow.
 Each stage: full `make test` green; one commit; no push/merge.
 
