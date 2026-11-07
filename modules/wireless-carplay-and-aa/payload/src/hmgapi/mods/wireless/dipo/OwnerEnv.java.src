@@ -1,0 +1,203 @@
+package hmgapi.mods.wireless.dipo;
+// HMG-Seogaemo: Android side of ProjectionOwner. Framework APIs by reflection only (see .agents/carplay-connection-owner.md).
+
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.Context;
+import android.os.SystemClock;
+import java.lang.reflect.Constructor;
+
+/**
+ * ProjectionOwner's environment on the head unit: Phone Projection (PPManager and WLDeviceInfo, by
+ * getSystemService("phoneprojection")), DiPO (DiPOManager, by getSystemService("dipo")), the profile
+ * (UserProfileManager, only when the profile feature exists, else user type 0) and the Bluetooth bond state.
+ *
+ * Every call is guarded. The first failure logs once and makes the environment unusable, so the owner
+ * turns itself off; nothing here throws into DiPO. Not unit-tested: it is a thin reflection layer.
+ */
+final class OwnerEnv implements ProjectionOwner.Env {
+    static final String PP_SERVICE = "phoneprojection", DIPO_SERVICE = "dipo";
+    static final String PROFILE_FEATURE = "com.hkmc.software.user.profile";
+    static final String INFO_CLASS = "android.phoneprojection.WLDeviceInfo";
+    static final String PROFILE_CLASS = "com.hkmc.userprofile.UserProfileManager";
+    static final String FEATURE_CLASS = "com.hkmc.Feature";
+
+    private final Context context;
+    private volatile boolean broken;
+    private Object profile;
+    private Class<?> infoClass;
+
+    OwnerEnv(Context context) {
+        this.context = context;
+    }
+
+    @Override
+    public boolean usable() {
+        return !broken;
+    }
+
+    @Override
+    public long now() {
+        return SystemClock.uptimeMillis();
+    }
+
+    @Override
+    public void post(Runnable r) {
+        Bridge.handler().post(r);
+    }
+
+    @Override
+    public void postDelayed(Runnable r, long delayMs) {
+        Bridge.handler().postDelayed(r, delayMs);
+    }
+
+    @Override
+    public void log(String message) {
+        Dipo.log(message);
+    }
+
+    @Override
+    public boolean isActivated() {
+        try {
+            Object dipo = context.getSystemService(DIPO_SERVICE);
+            if (dipo == null) {
+                broke("no dipo service", null);
+                return false;
+            }
+            return Boolean.TRUE.equals(dipo.getClass().getMethod("isDiPOActivated").invoke(dipo));
+        } catch (Throwable t) {
+            broke("isDiPOActivated", t);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean isBonded(String addr) {
+        try {
+            BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+            if (adapter == null) {
+                broke("no Bluetooth adapter", null);
+                return false;
+            }
+            return adapter.getRemoteDevice(addr).getBondState() == BluetoothDevice.BOND_BONDED;
+        } catch (IllegalArgumentException notAnAddress) {
+            return false;
+        } catch (Throwable t) {
+            broke("bond state", t);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean usbAttached() {
+        return Bridge.sUsb;
+    }
+
+    @Override
+    public int userType() {
+        try {
+            Class<?> feature = Class.forName(FEATURE_CLASS);
+            if (!Boolean.TRUE.equals(feature.getMethod("hasFeature", String.class).invoke(null, PROFILE_FEATURE))) return 0;
+            if (profile == null) profile = Class.forName(PROFILE_CLASS).getConstructor(Context.class).newInstance(context);
+            return ((Integer) profile.getClass().getMethod("getUserType").invoke(profile)).intValue();
+        } catch (Throwable t) {
+            broke("user profile", t);
+            return -1;
+        }
+    }
+
+    @Override
+    public ProjectionOwner.Record getRecord(String addr, String serial, int user) {
+        try {
+            Object pp = phoneProjection();
+            if (pp == null) return null;
+            Object info = pp.getClass().getMethod("getWLDeviceInfo", String.class, String.class, int.class).invoke(pp, addr, serial, user);
+            return info == null ? null : toRecord(info);
+        } catch (Throwable t) {
+            broke("getWLDeviceInfo", t);
+            return null;
+        }
+    }
+
+    @Override
+    public void addRecord(ProjectionOwner.Record r) {
+        sendInfo("requestWLDeviceInfoAdd", r, -1);
+    }
+
+    @Override
+    public void reportReady(ProjectionOwner.Record r, int status) {
+        sendInfo("requestWLDeviceReadyStatusUpdate", r, status);
+    }
+
+    @Override
+    public void reportConnect(ProjectionOwner.Record r, int status) {
+        sendInfo("requestWLDeviceConnectStatusUpdate", r, status);
+    }
+
+    /** one request to Phone Projection: status < 0 for the plain (record-only) calls */
+    private void sendInfo(String method, ProjectionOwner.Record r, int status) {
+        try {
+            Object pp = phoneProjection();
+            if (pp == null) {
+                broke("no phoneprojection service", null);
+                return;
+            }
+            Object info = newInfo(r);
+            if (status < 0) pp.getClass().getMethod(method, infoClass()).invoke(pp, info);
+            else pp.getClass().getMethod(method, infoClass(), int.class).invoke(pp, info, status);
+        } catch (Throwable t) {
+            broke(method, t);
+        }
+    }
+
+    private Object phoneProjection() {
+        return context.getSystemService(PP_SERVICE);
+    }
+
+    private Class<?> infoClass() throws ClassNotFoundException {
+        if (infoClass == null) infoClass = Class.forName(INFO_CLASS);
+        return infoClass;
+    }
+
+    /** WLDeviceInfo(btAddr, name, mac, serial, user, ppType, transfer, autoConnection, onOff, initPopup) */
+    private Object newInfo(ProjectionOwner.Record r) throws Exception {
+        Constructor<?> k = infoClass().getConstructor(String.class, String.class, String.class, String.class,
+                int.class, int.class, int.class, boolean.class, boolean.class, boolean.class);
+        return k.newInstance(r.addr, r.name, r.mac, r.serial, r.user, r.ppType, r.transfer, r.auto, r.onOff, r.initPopup);
+    }
+
+    private static ProjectionOwner.Record toRecord(Object info) throws Exception {
+        return new ProjectionOwner.Record(text(info, "getWLDevBtAddr"), text(info, "getWLDevName"),
+                text(info, "getWLDevMacAddr"), text(info, "getWLDevSerialNum"),
+                integer(info, "getWLDevUserType"), integer(info, "getWLDType"), integer(info, "getWLTransferType"),
+                flag(info, "getWLDAutoConnection"), flag(info, "getWLDOnOff"), flag(info, "getWLDInitPopup"));
+    }
+
+    private static Object call(Object target, String name) throws Exception {
+        return target.getClass().getMethod(name).invoke(target);
+    }
+
+    private static String text(Object target, String name) throws Exception {
+        Object v = call(target, name);
+        return v == null ? null : v.toString();
+    }
+
+    private static int integer(Object target, String name) throws Exception {
+        return ((Integer) call(target, name)).intValue();
+    }
+
+    private static boolean flag(Object target, String name) throws Exception {
+        return Boolean.TRUE.equals(call(target, name));
+    }
+
+    /** the first failure: log the cause once and stop using the framework */
+    private void broke(String what, Throwable t) {
+        if (broken) return;
+        broken = true;
+        try {
+            Dipo.log("owner: " + what + " failed" + (t == null ? "" : ": " + t));
+        } catch (Throwable ignored) {
+            // logging must not throw into DiPO
+        }
+    }
+}

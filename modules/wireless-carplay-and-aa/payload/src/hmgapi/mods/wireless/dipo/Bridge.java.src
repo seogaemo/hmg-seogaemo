@@ -18,6 +18,7 @@ import com.tcc.iap2.Iap2ListenerInfo;
 import com.tcc.iap2.Iap2NotiMsg;
 
 import java.lang.reflect.Method;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 
 import hmgapi.hook.Points;
@@ -67,6 +68,8 @@ final class Bridge {
     /** the phone's Bluetooth address from its last iAP2 session (DiPO's first-connect notice) */
     static volatile String sLastBtId;
     static final ProjectionSwitch SWITCH = new ProjectionSwitch();
+    /** the CarPlay connection owner (ProjectionOwner); null when off (kill switch, or points missing) */
+    static volatile ProjectionOwner sOwner;
     static ClassLoader cl;
     static Context context;
     private static int sCpFail, sCpSent;
@@ -236,7 +239,35 @@ final class Bridge {
         }, SPP_CONNECT_DELAY_MS);
     }
 
+    /** the kill switch persist.hmg_seogaemo.owner (default on; "0" off), read once when DiPO's bridge starts */
+    static boolean ownerWanted() {
+        return !"0".equals(prop("persist.hmg_seogaemo.owner", "1"));
+    }
+
+    static void startOwner() {
+        sOwner = new ProjectionOwner(new OwnerEnv(context));
+    }
+
+    static void ownerCreated() {
+        ProjectionOwner o = sOwner;
+        if (o != null) o.serviceCreated();
+    }
+
+    static void ownerDestroyed() {
+        ProjectionOwner o = sOwner;
+        if (o != null) o.serviceDestroyed();
+    }
+
+    /** CarPlayService.onSessionDetails: the native session's device id, MAC address and name bytes */
+    static void onCpSessionDetails(String deviceId, String mac, byte[] name) {
+        ProjectionOwner o = sOwner;
+        if (o == null) return;
+        o.details(deviceId, mac, name == null ? "" : new String(name, Charset.forName("UTF-8")));
+    }
+
     static void onCpSessionCreated(Object cp) {
+        ProjectionOwner owner = sOwner;
+        if (owner != null) owner.created(sAddr);
         if (cp != null) sCp = cp;
         log("CarPlay session created (usb=" + sUsb + " btAddr=" + sAddr + ")");
         if ("created".equals(prop("persist.ev6.cpwl.handover", "data")) && !sUsb && sAddr != null) {
@@ -245,6 +276,8 @@ final class Bridge {
     }
 
     static void onCpSessionStarted(int transport) {
+        ProjectionOwner owner = sOwner;
+        if (owner != null) owner.started(transport);
         sCpWireless = transport == 1 && !sUsb;
         SWITCH.sessionEnded();
         log("CarPlay session started transport=" + transport + " wireless=" + sCpWireless);
@@ -326,6 +359,8 @@ final class Bridge {
     }
 
     static void onCpSessionFinalized(int type) {
+        ProjectionOwner owner = sOwner;
+        if (owner != null) owner.finalized(type);
         try {
             log("CarPlay session finalized type=" + type + " cpClient=" + sCpClient);
             boolean client = sCpClient, wireless = sCpWireless;
@@ -666,6 +701,8 @@ final class Bridge {
 
         @Override
         public void runningPP() {
+            ProjectionOwner owner = sOwner;
+            if (owner != null) owner.runningPP();
         }
     }
 

@@ -1,0 +1,649 @@
+package hmgapi.mods.wireless.dipo;
+// HMG-Seogaemo: CarPlay connection owner, publish-only stage (item 9 of .agents/carplay-connection-owner.md).
+// Reports a wireless CarPlay session to Phone Projection's record: ready (1), connected (3), ended (4).
+// Pure Java; the Android side is OwnerEnv. Written from the stock evidence and the behavior described in
+// the design note; no upstream code is used.
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * The single judge of what Phone Projection hears about the bridged CarPlay phone.
+ *
+ * Inputs come from DiPO's CarPlayService callbacks (created, session details, started, finalized), Phone
+ * Projection's runningPP and the head unit's own service lifecycle. All of them run on one owner thread (Env.post)
+ * and in arrival order. Delayed work carries the generation it was scheduled in and is dropped when it is stale.
+ *
+ * Rules (see the design note): connected only for an attributed, bonded, not blocked or deleted peer while native
+ * started and not finalized, DiPO active, and no earlier end owed. Ended only after native finalization and DiPO
+ * inactive, once per generation; an end still owed when a new session starts is carried and the new connected is
+ * held until it is sent. Wired and USB sessions are never reported. Every submission is logged with its generation.
+ */
+final class ProjectionOwner {
+    static final int PP_CARPLAY = 1, TRANSFER_WIRELESS = 1, TRANSPORT_WIRELESS = 1;
+    static final int STATUS_READY = 1, STATUS_CONNECTED = 3, STATUS_ENDED = 4;
+    static final long POLL_MS = 250L, WAIT_CAP_MS = 30000L;
+
+    /** What the owner needs from the device. OwnerEnv implements it over the framework; tests use a fake. */
+    interface Env {
+        /** false once the environment failed: the owner logs once and stays inactive */
+        boolean usable();
+        /** monotonic milliseconds */
+        long now();
+        /** runs on the owner thread, now */
+        void post(Runnable r);
+        /** runs on the owner thread after delayMs */
+        void postDelayed(Runnable r, long delayMs);
+        void log(String message);
+        /** DiPOManager.isDiPOActivated() */
+        boolean isActivated();
+        /** the Bluetooth address is bonded */
+        boolean isBonded(String addr);
+        /** a wired (USB) CarPlay phone is attached */
+        boolean usbAttached();
+        /** the profile's user type, -1 when unknown */
+        int userType();
+        /** Phone Projection's device row for (address, serial, user), or null */
+        Record getRecord(String addr, String serial, int user);
+        /** requestWLDeviceInfoAdd */
+        void addRecord(Record r);
+        /** requestWLDeviceReadyStatusUpdate(r, status) */
+        void reportReady(Record r, int status);
+        /** requestWLDeviceConnectStatusUpdate(r, status) */
+        void reportConnect(Record r, int status);
+    }
+
+    /** a Phone Projection device row (WLDeviceInfo fields) */
+    static final class Record {
+        final String addr, name, mac, serial;
+        final int user, ppType, transfer;
+        final boolean auto, onOff, initPopup;
+
+        Record(String addr, String name, String mac, String serial, int user, int ppType, int transfer,
+               boolean auto, boolean onOff, boolean initPopup) {
+            this.addr = addr;
+            this.name = name;
+            this.mac = mac;
+            this.serial = serial;
+            this.user = user;
+            this.ppType = ppType;
+            this.transfer = transfer;
+            this.auto = auto;
+            this.onOff = onOff;
+            this.initPopup = initPopup;
+        }
+    }
+
+    /** an attributed phone: its Bluetooth address, CarPlay device id and the profile at attribution */
+    static final class Peer {
+        final String addr, deviceId, mac, name;
+        final int user;
+        final long gen;
+
+        Peer(String addr, String deviceId, String mac, String name, int user, long gen) {
+            this.addr = addr;
+            this.deviceId = deviceId;
+            this.mac = mac;
+            this.name = name;
+            this.user = user;
+            this.gen = gen;
+        }
+    }
+
+    private static final class Details {
+        final String deviceId, mac, name;
+
+        Details(String deviceId, String mac, String name) {
+            this.deviceId = deviceId;
+            this.mac = mac;
+            this.name = name;
+        }
+    }
+
+    private final Env env;
+    private boolean off, closing;
+    /** bumped on each new native session and on each service stop; delayed work of an older value is dropped */
+    private long generation;
+    private boolean createdSeen, nativeStarted, nativeFinalized, wired, connectedPosted, endQueued;
+    private boolean removedInSession, disconnectRequested, gaveUp, tickScheduled;
+    /** the Bluetooth address the bridge served when the current native session was created */
+    private String bridgeAddr;
+    /** the phone attributed to the current native session, or null */
+    private Peer active;
+    /** native details that arrived before the session was created */
+    private Details early;
+    /** the owed end (status 4) of a finished session, waiting until DiPO is inactive (carried into a new session) */
+    private Peer pendingEnd;
+    private long endSince;
+    /** when the current connect started waiting for DiPO to become active (-1: not waiting) */
+    private long waitingSince = -1;
+    /** learned phones this boot: "user:ADDR" -> peer (memory only) */
+    private final Map<String, Peer> known = new HashMap<String, Peer>();
+    /** user disconnected or cancelled: "user:ADDR" (memory only) */
+    private final Set<String> blocked = new HashSet<String>();
+    /** bond removed: ADDR */
+    private final Set<String> deleted = new HashSet<String>();
+
+    ProjectionOwner(Env env) {
+        this.env = env;
+    }
+
+    // Entry points: called from any thread; they only queue work for the owner thread and never throw.
+
+    /** CarPlayService.onCreate */
+    void serviceCreated() {
+        enqueue("service created", new Runnable() {
+            @Override
+            public void run() {
+                onServiceCreated();
+            }
+        });
+    }
+
+    /** CarPlayService.onDestroy */
+    void serviceDestroyed() {
+        enqueue("service destroyed", new Runnable() {
+            @Override
+            public void run() {
+                onServiceDestroyed();
+            }
+        });
+    }
+
+    /** CarPlayService.onSessionCreated; bridgeAddr is the Bluetooth address the bridge serves now (null: none) */
+    void created(final String bridgeAddr) {
+        enqueue("session created", new Runnable() {
+            @Override
+            public void run() {
+                onCreated(bridgeAddr);
+            }
+        });
+    }
+
+    /** CarPlayService.onSessionDetails: the native device id, MAC address and name */
+    void details(final String deviceId, final String mac, final String name) {
+        enqueue("session details", new Runnable() {
+            @Override
+            public void run() {
+                onDetails(new Details(nz(deviceId), nz(mac), nz(name)));
+            }
+        });
+    }
+
+    /** CarPlayService.onSessionStarted */
+    void started(final int transport) {
+        enqueue("session started", new Runnable() {
+            @Override
+            public void run() {
+                onStarted(transport);
+            }
+        });
+    }
+
+    /** CarPlayService.onSessionFinalized */
+    void finalized(final int transport) {
+        enqueue("session finalized", new Runnable() {
+            @Override
+            public void run() {
+                onFinalized(transport);
+            }
+        });
+    }
+
+    /** Phone Projection's UI restarted (runningPP): republish the current state */
+    void runningPP() {
+        enqueue("runningPP", new Runnable() {
+            @Override
+            public void run() {
+                onRunningPP();
+            }
+        });
+    }
+
+    /** the user disconnected the phone or cancelled its connection: no connected for it until bond or boot */
+    void userDisconnected(final String addr) {
+        enqueue("user disconnected", new Runnable() {
+            @Override
+            public void run() {
+                onUserDisconnected(addr);
+            }
+        });
+    }
+
+    /** the phone's bond was removed: it is not reported until it is paired again */
+    void bondLost(final String addr) {
+        enqueue("bond lost", new Runnable() {
+            @Override
+            public void run() {
+                onBondLost(addr);
+            }
+        });
+    }
+
+    /** the phone was paired again: its blocks are cleared */
+    void bondRestored(final String addr) {
+        enqueue("bond restored", new Runnable() {
+            @Override
+            public void run() {
+                onBondRestored(addr);
+            }
+        });
+    }
+
+    // Owner thread.
+
+    private void enqueue(final String what, final Runnable step) {
+        try {
+            env.post(guard(what, step));
+        } catch (Throwable t) {
+            // the owner never throws into DiPO; the work is simply not done
+        }
+    }
+
+    private Runnable guard(final String what, final Runnable step) {
+        return new Runnable() {
+            @Override
+            public void run() {
+                if (off) return;
+                try {
+                    step.run();
+                } catch (Throwable t) {
+                    off = true;
+                    say("inactive after an error in " + what + ": " + t);
+                }
+            }
+        };
+    }
+
+    private void say(String message) {
+        try {
+            env.log("owner: " + message);
+        } catch (Throwable ignored) {
+            // logging must not break the owner
+        }
+    }
+
+    /** false once the owner is off (its environment failed, or it hit an error) */
+    private boolean usable() {
+        if (off) return false;
+        if (!env.usable()) {
+            off = true;
+            say("inactive, environment failed");
+        }
+        return !off;
+    }
+
+    private void onServiceCreated() {
+        closing = false;
+        say("service created, gen=" + generation);
+        evaluate();
+    }
+
+    private void onServiceDestroyed() {
+        closing = true;
+        generation++;
+        tickScheduled = false;
+        say("service destroyed, gen=" + generation);
+        evaluate();
+    }
+
+    private void onCreated(String addr) {
+        if (createdSeen && !nativeFinalized) endSession("created while the previous session was open");
+        generation++;
+        tickScheduled = false;
+        createdSeen = true;
+        nativeStarted = false;
+        nativeFinalized = false;
+        wired = false;
+        connectedPosted = false;
+        endQueued = false;
+        removedInSession = false;
+        disconnectRequested = false;
+        gaveUp = false;
+        active = null;
+        waitingSince = -1;
+        bridgeAddr = addr;
+        Details d = early;
+        early = null;
+        say("session created gen=" + generation + " bridge=" + mask(addr));
+        if (d != null) attribute(d);
+        evaluate();
+    }
+
+    private void onDetails(Details d) {
+        if (d.deviceId.length() == 0) {
+            say("session details without a device id, nothing attributed");
+            return;
+        }
+        if (!createdSeen) {
+            early = d;
+            return;
+        }
+        if (nativeFinalized) {
+            say("session details after the session ended, ignored");
+            return;
+        }
+        if (active != null) {
+            if (!active.deviceId.equals(d.deviceId)) say("gen=" + generation + " second device id ignored");
+            return;
+        }
+        attribute(d);
+        evaluate();
+    }
+
+    private void onStarted(int transport) {
+        if (!createdSeen || nativeFinalized) {
+            say("session started without an open session, ignored");
+            return;
+        }
+        if (nativeStarted) say("gen=" + generation + " duplicate started ignored");
+        nativeStarted = true;
+        wired = transport != TRANSPORT_WIRELESS;
+        evaluate();
+    }
+
+    private void onFinalized(int transport) {
+        if (!createdSeen || nativeFinalized) {
+            say("session finalized without an open session, ignored");
+            return;
+        }
+        endSession("finalized transport=" + transport);
+        evaluate();
+    }
+
+    private void onRunningPP() {
+        if (connectedPosted && active != null) republish();
+        else evaluate();
+    }
+
+    private void onUserDisconnected(String addr) {
+        Peer p = active;
+        int user = p != null && sameAddr(p.addr, addr) ? p.user : userTypeOrUnknown();
+        blocked.add(key(user, addr));
+        if (p != null && sameAddr(p.addr, addr)) disconnectRequested = true;
+        say("user disconnected " + mask(addr) + ", not reported until paired again");
+        evaluate();
+    }
+
+    private void onBondLost(String addr) {
+        deleted.add(upper(addr));
+        say("bond removed for " + mask(addr) + ", not reported until paired again");
+        evaluate();
+    }
+
+    private void onBondRestored(String addr) {
+        deleted.remove(upper(addr));
+        String suffix = ":" + upper(addr);
+        for (String k : new HashSet<String>(blocked)) {
+            if (k.endsWith(suffix)) blocked.remove(k);
+        }
+        say("paired again " + mask(addr) + ", blocks cleared");
+        evaluate();
+    }
+
+    /** attributes the native session to the bridge's phone when the native identity is consistent with what we know */
+    private void attribute(Details d) {
+        if (bridgeAddr == null) {
+            say("gen=" + generation + " session details with no bridge address, not attributed");
+            return;
+        }
+        int user = env.userType();
+        if (user < 0) {
+            say("gen=" + generation + " profile unknown, not attributed");
+            return;
+        }
+        String k = key(user, bridgeAddr);
+        Peer prior = known.get(k);
+        if (prior != null && !prior.deviceId.equals(d.deviceId)) {
+            say("gen=" + generation + " native identity differs from the learned peer " + mask(bridgeAddr) + ", not attributed");
+            return;
+        }
+        for (Peer other : known.values()) {
+            if (other.deviceId.equals(d.deviceId) && !sameAddr(other.addr, bridgeAddr)) {
+                say("gen=" + generation + " native identity belongs to another learned phone, not attributed");
+                return;
+            }
+        }
+        Peer p = new Peer(bridgeAddr, d.deviceId, d.mac, d.name, user, generation);
+        known.put(k, p);
+        active = p;
+        say("gen=" + generation + " session attributed to " + mask(bridgeAddr));
+    }
+
+    /** the session ends for the owner: an end is owed only for a phone that was reported connected */
+    private void endSession(String why) {
+        nativeFinalized = true;
+        nativeStarted = false;
+        Peer p = active;
+        active = null;
+        waitingSince = -1;
+        if (p == null) return;
+        if (connectedPosted && !endQueued && pendingEnd == null) {
+            endQueued = true;
+            pendingEnd = p;
+            endSince = env.now();
+            say("gen=" + p.gen + " " + why + ": end owed until DiPO is inactive");
+        } else {
+            say("gen=" + p.gen + " " + why + ": nothing to end");
+        }
+    }
+
+    /** re-evaluates everything that can publish now; waiting parts schedule a poll */
+    private void evaluate() {
+        if (!usable()) return;
+        if (pendingEnd != null && !evaluateEnd()) return;
+        evaluateConnect();
+    }
+
+    /** true when the owed end is settled (sent or dropped); false while it waits for DiPO */
+    private boolean evaluateEnd() {
+        Peer p = pendingEnd;
+        boolean activated = env.isActivated();
+        if (!usable()) return false;
+        if (activated && env.now() - endSince < WAIT_CAP_MS) {
+            schedule();
+            return false;
+        }
+        if (activated) say("gen=" + p.gen + " DiPO still active 30 s after the session ended; sending the end anyway");
+        if (env.userType() != p.user) {
+            pendingEnd = null;
+            say("gen=" + p.gen + " end not sent, profile changed");
+            return true;
+        }
+        sendEnd(p, activated);
+        return true;
+    }
+
+    private void sendEnd(Peer p, boolean forced) {
+        pendingEnd = null;
+        say("status " + STATUS_ENDED + " gen=" + p.gen + " peer=" + mask(p.addr) + (forced ? " (cap)" : ""));
+        env.reportConnect(localRecord(p), STATUS_ENDED);
+    }
+
+    private void evaluateConnect() {
+        Peer p = active;
+        if (p == null || !createdSeen || !nativeStarted || nativeFinalized || connectedPosted || closing) {
+            waitingSince = -1;
+            return;
+        }
+        if (wired || env.usbAttached() || disconnectRequested || isBlocked(p) || deleted.contains(upper(p.addr))) {
+            waitingSince = -1;
+            return;
+        }
+        if (!env.isBonded(p.addr)) {
+            waitingSince = -1;
+            return;
+        }
+        if (!env.isActivated()) {
+            if (!usable()) return;
+            if (waitingSince < 0) waitingSince = env.now();
+            if (env.now() - waitingSince >= WAIT_CAP_MS) {
+                if (!gaveUp) {
+                    gaveUp = true;
+                    say("gen=" + p.gen + " DiPO not active 30 s after the session started; not reported connected");
+                }
+                return;
+            }
+            schedule();
+            return;
+        }
+        if (!usable()) return;
+        waitingSince = -1;
+        publishConnected(p);
+    }
+
+    private void publishConnected(Peer p) {
+        if (env.userType() != p.user) {
+            say("gen=" + p.gen + " profile changed, not reported connected");
+            return;
+        }
+        Record r = recordFor(p);
+        if (!usable() || r == null) return;
+        if (env.userType() != p.user) {
+            say("gen=" + p.gen + " profile changed before ready, not reported connected");
+            return;
+        }
+        say("status " + STATUS_READY + " gen=" + p.gen + " peer=" + mask(p.addr));
+        env.reportReady(r, STATUS_READY);
+        if (env.userType() != p.user) {
+            say("gen=" + p.gen + " profile changed before connected, not reported");
+            return;
+        }
+        if (!env.isActivated()) {
+            if (!usable()) return;
+            if (waitingSince < 0) waitingSince = env.now();
+            schedule();
+            return;
+        }
+        say("status " + STATUS_CONNECTED + " gen=" + p.gen + " peer=" + mask(p.addr));
+        env.reportConnect(r, STATUS_CONNECTED);
+        connectedPosted = true;
+    }
+
+    /** the row to report: a missing row is added, a row that does not describe this wireless CarPlay phone is left alone */
+    private Record recordFor(Peer p) {
+        Record r = env.getRecord(p.addr, p.deviceId, p.user);
+        if (!usable()) return null;
+        if (r == null) {
+            if (env.userType() != p.user) {
+                say("gen=" + p.gen + " profile changed, no row added");
+                return null;
+            }
+            say("gen=" + p.gen + " no Phone Projection row for " + mask(p.addr) + ", adding one");
+            env.addRecord(localRecord(p));
+            if (!usable()) return null;
+            r = env.getRecord(p.addr, p.deviceId, p.user);
+            if (!usable()) return null;
+            if (r == null) {
+                say("gen=" + p.gen + " row not visible after the add, not reported");
+                return null;
+            }
+        }
+        if (!rowMatches(r, p)) {
+            say("gen=" + p.gen + " row for " + mask(p.addr) + " has ppType=" + r.ppType + " transferType=" + r.transfer
+                    + ", not reported and not rewritten");
+            return null;
+        }
+        return r;
+    }
+
+    /** Phone Projection republishes: connected again for the current session, or noticed that its row is gone */
+    private void republish() {
+        Peer p = active;
+        if (!usable()) return;
+        if (disconnectRequested || isBlocked(p) || deleted.contains(upper(p.addr)) || !env.isBonded(p.addr)) return;
+        if (!env.isActivated() || !usable()) return;
+        if (env.userType() != p.user) {
+            say("gen=" + p.gen + " profile changed, nothing republished");
+            return;
+        }
+        Record r = env.getRecord(p.addr, p.deviceId, p.user);
+        if (!usable()) return;
+        if (r == null) {
+            if (!removedInSession) {
+                removedInSession = true;
+                say("gen=" + p.gen + " row removed during the session, not registering again");
+            }
+            return;
+        }
+        if (!rowMatches(r, p)) {
+            say("gen=" + p.gen + " row for " + mask(p.addr) + " no longer matches, nothing republished");
+            return;
+        }
+        say("republish status " + STATUS_READY + " gen=" + p.gen + " peer=" + mask(p.addr));
+        env.reportReady(r, STATUS_READY);
+        say("republish status " + STATUS_CONNECTED + " gen=" + p.gen + " peer=" + mask(p.addr));
+        env.reportConnect(r, STATUS_CONNECTED);
+    }
+
+    private void schedule() {
+        if (tickScheduled) return;
+        tickScheduled = true;
+        final long gen = generation;
+        env.postDelayed(guard("poll", new Runnable() {
+            @Override
+            public void run() {
+                onTick(gen);
+            }
+        }), POLL_MS);
+    }
+
+    private void onTick(long gen) {
+        if (gen != generation) return;
+        tickScheduled = false;
+        evaluate();
+    }
+
+    private boolean isBlocked(Peer p) {
+        return blocked.contains(key(p.user, p.addr));
+    }
+
+    private int userTypeOrUnknown() {
+        try {
+            return env.userType();
+        } catch (Throwable t) {
+            return -1;
+        }
+    }
+
+    // Pure helpers.
+
+    /** the Phone Projection row a peer is reported with: wireless CarPlay, the phone's address and device id */
+    static Record localRecord(Peer p) {
+        return new Record(p.addr, p.name, p.mac, p.deviceId, p.user, PP_CARPLAY, TRANSFER_WIRELESS, false, true, true);
+    }
+
+    static boolean rowMatches(Record r, Peer p) {
+        return r.ppType == PP_CARPLAY && r.transfer == TRANSFER_WIRELESS && r.user == p.user && sameAddr(r.addr, p.addr)
+                && (empty(r.serial) || p.deviceId.equals(r.serial));
+    }
+
+    static String key(int user, String addr) {
+        return user + ":" + upper(addr);
+    }
+
+    static String upper(String s) {
+        return s == null ? "" : s.toUpperCase(Locale.ROOT);
+    }
+
+    static boolean sameAddr(String a, String b) {
+        return a != null && b != null && a.equalsIgnoreCase(b);
+    }
+
+    static boolean empty(String s) {
+        return s == null || s.length() == 0;
+    }
+
+    static String nz(String s) {
+        return s == null ? "" : s;
+    }
+
+    /** logs never carry a full address */
+    static String mask(String addr) {
+        if (addr == null || addr.length() < 2) return "**";
+        return "**:**:**:**:**:" + addr.substring(addr.length() - 2);
+    }
+}

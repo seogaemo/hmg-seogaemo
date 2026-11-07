@@ -121,6 +121,24 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   that the entry still behaves while a projection runs (stock popup, no crash), that choosing Android Auto there switches
   from CarPlay, and that module off restores the wireless page.
 
+## 1c. CarPlay connection owner (stage 3: publish only)
+
+Background: [carplay-connection-owner.md](carplay-connection-owner.md) ("Verification" and "Item 9 design"),
+[wireless-carplay-and-aa.md](wireless-carplay-and-aa.md) "CarPlay connection owner". Off-car tests pass; nothing ran on a car.
+Turn it off with `setprop persist.hmg_seogaemo.owner 0` (restart DiPO's process or the head unit) for the baseline run.
+
+- [ ] One iPhone, fresh boot: `owner: status 1` then `owner: status 3`, once each; Phone Projection lists the phone as connected
+  with its name (PP log `requestWLDeviceConnectStatusUpdate ... connectStatus (3) transferType = 1`). A USB CarPlay phone creates no
+  row and no status.
+- [ ] Unplug or disable the phone: `status 4` only after DiPO is inactive; Phone Projection clears its current device. Start, stop,
+  start inside 5 s: one `4`, then one `3`.
+- [ ] Delete the Phone Projection row while disconnected, then reconnect: it is added again.
+- [ ] Phone Projection's own reaction to 3 and 4: no unexpected popup, no auto-connect of another phone after the end, Android Auto
+  still starts. Record any PP log line that changes.
+- [ ] Delete the connected phone in Bluetooth settings: expect the stale state until stage 4 (`ProjectionDelete`); note what remains.
+- [ ] Kill switch `0`: behaviour identical to 0.1.47-beta.2; logs show `owner: off`.
+- [ ] Known gap to confirm: the `device_list` row survives the module's removal (owner decision in the design note).
+
 ## 2. Older open items
 
 - [ ] `nemesis root -c` with long commands fails with "daemon write failed"; find the

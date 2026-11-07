@@ -147,7 +147,7 @@ Stage 3b (explicit switch, the riskiest part, only if 3a is clean in review):
 
 1. This note (+ index entry). **Status: written.**
 2. Catalogue + KOR map: the five DiPO points and three BtSettings points, host evidence only.
-3. Item 9: `ProjectionOwner` + `OwnerEnv` + hooks + kill switch + tests (`test/projectionowner`) + docs.
+3. Item 9: `ProjectionOwner` + `OwnerEnv` + hooks + kill switch + tests (`test/projectionowner`) + docs. **Status: implemented (publish only; host-tested, not on car).**
 4. Item 10: `ProjectionDelete` + BtSettings hook + tests.
 5. Item 11a: `Bridge` gating, address fixes, bond receiver + tests. 11b only if time and review allow.
 Each stage: full `make test` green; one commit; no push/merge.
@@ -166,4 +166,4 @@ Each stage: full `make test` green; one commit; no push/merge.
 5. (3b) Pick B in Device Connections: A ends, about 1 s later B connects, one `3` for B; start-stop-start A inside 5 s; head-unit reboot with both
    present (never both connected).
 6. Kill switch `0`: behavior identical to 0.1.47-beta.2.
-Log tags: `EV6CPWL` (bridge) and the owner's own lines under the same tag prefix `owner:`.
+Log tag: `HMG-Seogaemo-Hook`, message prefix `[wireless-carplay-and-aa] bridge:` for the bridge and `[wireless-carplay-and-aa] owner:` for the owner (every status line carries `gen=`).
