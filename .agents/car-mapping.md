@@ -1,4 +1,4 @@
-Status: current — core mapping implemented off-car; on-car timing/reflection for the v1.0.1 and stock-guidance additions unverified.
+Status: current — core mapping implemented off-car; on-car timing/reflection for the v1.0.1, stock-guidance and CarPlay owner additions unverified.
 
 # Car mapping: NEEV.KOR.260902
 
@@ -36,8 +36,8 @@ The private Car Report is never committed. Operator workflow:
 - 6 iAP2 points in `/system/app/Iap2ServerApp.odex` (`a672fd0e0070414f2eb70a2807117a6f`); 12 framework points in
   `/system/framework/automotive.odex` (`c76b8209ef171739b177eb14e8df61dd`). Per-ID signatures in the bundled `evidence.json`.
   Keep the stock `iAP2UsedVehicelInformation` spelling. No module requires a new ID.
-- Bundle maps 348/349; `themesettings.split_item.type` stays missing. Only the original 324 points have owner-reported
-  on-car reflection (324/324, 2026-11-03); the 24 additions need it. The sidecar and generated `docs/hookpoints.md` distinguish these claims; the host validator checks
+- Bundle maps 356/357; `themesettings.split_item.type` stays missing. Only the original 324 points have owner-reported
+  on-car reflection (324/324, 2026-11-03); the 32 additions need it. The sidecar and generated `docs/hookpoints.md` distinguish these claims; the host validator checks
   consistency and optional exact-stock MD5s, not that a physical observation happened.
 
 ## Stock-guidance additions (2026-11-07)

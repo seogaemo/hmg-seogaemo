@@ -267,9 +267,107 @@
         "stock_files": {
           "/system/framework/automotive.odex": "c76b8209ef171739b177eb14e8df61dd"
         }
+      },
+      {
+        "date": "2026-11-07",
+        "points": {
+          "btsettings.pp_bt": {
+            "class": "com.android.settings2.bluetooth.aW",
+            "member": {
+              "class": "com.android.settings2.bluetooth.aW"
+            },
+            "stock_file": "/system/app/HKMC_BtSettings.odex"
+          },
+          "btsettings.pp_bt.request_delete": {
+            "class": "com.android.settings2.bluetooth.aW",
+            "member": {
+              "method": "l",
+              "params": [
+                "java.lang.String"
+              ],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_BtSettings.odex"
+          },
+          "btsettings.pp_bt.send_disconnect": {
+            "class": "com.android.settings2.bluetooth.aW",
+            "member": {
+              "method": "ch",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_BtSettings.odex"
+          },
+          "dipo.carplay.connect": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "connectCarPlay",
+              "params": [
+                "java.lang.String"
+              ],
+              "ret": "com.daudio.app.dipo.telechips.CarPlayReturn",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.disconnect": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "disconnectCarPlay",
+              "params": [],
+              "ret": "com.daudio.app.dipo.telechips.CarPlayReturn",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.on_create": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "onCreate",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.on_destroy": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "onDestroy",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.session_details": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "onSessionDetails",
+              "params": [
+                "java.lang.String",
+                "java.lang.String",
+                "java.lang.String",
+                "byte[]",
+                "java.lang.String",
+                "java.lang.String"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          }
+        },
+        "source": "kor-stock-dex-scan",
+        "stock_files": {
+          "/system/app/HKMC_BtSettings.odex": "dc56bcfe68ceb54371ce7e08c1153cad",
+          "/system/app/HKMC_DiPO.odex": "3b26cdcbf3c43f75623311f2bdfc3471"
+        }
       }
     ],
-    "points_sha256": "01269c109fc01c55d0b000e65252f12c052a549012bbc3ff8336aa136736f1cd"
+    "points_sha256": "c425aeabc90bced79a57ad6b487f22a94ca285ef12fc658555673f8d4c927648"
   },
   "physical_features": [
     {

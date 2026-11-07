@@ -35,7 +35,7 @@ python3 tools/map-car.py stock/system \
 ./tools/verify-map maps/hyundai/ioniq5/kor/260902
 ```
 
-Use the actual facts and target layout for the new firmware. `--strict` requires all 349 current points, including optional ones, so it is usually unsuitable when an unrelated point is unresolved. The normal run records unresolved IDs in `car.json`. Review every required point and every file MD5 before opening a PR.
+Use the actual facts and target layout for the new firmware. `--strict` requires all 357 current points, including optional ones, so it is usually unsuitable when an unrelated point is unresolved. The normal run records unresolved IDs in `car.json`. Review every required point and every file MD5 before opening a PR.
 
 ## Map on the head unit
 

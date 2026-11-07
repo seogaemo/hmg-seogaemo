@@ -13,6 +13,42 @@
   "group": "btsettings",
   "namespace": "com.android.btsettings",
   "points": {
+    "btsettings.pp_bt": {
+      "about": "BtSettings' PhoneProjection client (obfuscated name, found by the delete-request log literal): the Bluetooth delete and disconnect calls",
+      "match": {
+        "literals": [
+          "BtSetting RequestWLDeviceDeleteDB address = "
+        ],
+        "namespace": "com.android.settings2.bluetooth"
+      },
+      "type": "class"
+    },
+    "btsettings.pp_bt.request_delete": {
+      "about": "deletes a phone's PhoneProjection record by Bluetooth address (true: deleted); disconnects the phone first when it is the connected CarPlay or Android Auto device",
+      "match": {
+        "literals": [
+          "BtSetting RequestWLDeviceDeleteDB address = "
+        ],
+        "parameters": [
+          "java.lang.String"
+        ],
+        "returns": "boolean"
+      },
+      "owner": "btsettings.pp_bt",
+      "type": "method"
+    },
+    "btsettings.pp_bt.send_disconnect": {
+      "about": "sends the PhoneProjection disconnect for the connected phone's Bluetooth address (no address: logs only)",
+      "match": {
+        "literals": [
+          "sendDisconnectPPFromBT is null "
+        ],
+        "parameters": [],
+        "returns": "void"
+      },
+      "owner": "btsettings.pp_bt",
+      "type": "method"
+    },
     "btsettings.projection_helper": {
       "about": "BtSettings' static helper that opens the Phone Projection pages",
       "match": {
