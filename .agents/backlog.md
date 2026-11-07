@@ -24,7 +24,7 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   2026-11-06 by frame injection (`tmp/lane-probe/step.sh`): white/blue/grey slots in one
   lane, `updateRemainDis` 300 m / 1.2 km, an empty `0xF1` frame removes strip and box. Still open (needs real phone lane data): `CpTurns`
   (`LaneGlyphs`, `laneValues`, `sendLaneDist`) turns NAVER/Apple lanes into the right
-  pairs/colours, only the route arrow is blue, the box tracks the turn distance.
+  pairs/colours (status 1 route arrow white, blue only on NAVER's status 2 lane), the box tracks the turn distance.
 - [ ] **CarPlay altScreen (iOS-rendered cluster video) research record.** Kept separate
   from the junction view: document altScreen (display type 111) declaration,
   negotiation, stream format and what iOS renders, even if this cluster cannot
@@ -35,6 +35,14 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   sets `exit = 0` / `hasExit = false` before parsing, so an update without optional p11
   erases a cached exit angle (absent is now distinguishable from 0° via `hasExit`). Confirm
   against tests/dispatch, then preserve the cached value. Raised independently by the 2026-11-06 external-project comparisons.
+- [ ] **CarPlay turn-type gaps from the r8.2 comparison (verify on a drive).** Two small
+  behaviour changes in `CpGuidance.stock`, not seen on a car: a U-turn with an explicit exit
+  angle under 158 degrees keeps the projection icon, and a turn type 1/2 in a roundabout with an
+  explicit non-zero exit angle sends 32/33 at that clock position. No recorded NAVER maneuver
+  has either (exit angle always 0, roundabouts are type 0 / junction 1 / exit 180); an Apple
+  Maps drive through a roundabout would show them. Open, needs a car photo set: plain turns at
+  20, 30, 60, 75, 105 and 150 degrees (stock directions are 45 degree steps only), and whether
+  a NAVER roundabout (type 0) should draw the AR roundabout.
 - [ ] **Verify CarPlay stock-format guidance on a drive.** Implemented
   ([cluster-ar-view.md](cluster-ar-view.md), [hud-hologram.md](hud-hologram.md),
   [hud-junction-view.md](hud-junction-view.md)); the six guidance map points reflect on the car.
@@ -52,10 +60,23 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
 - [ ] **Verify Android Auto lanes on a drive (next beta).** Offline fix, see
   [wireless-carplay-and-aa.md](wireless-carplay-and-aa.md) "Android Auto lanes". With a phone
   that sends lanes (Google Maps; NAVER/T map/Kakao may send none): the strip appears on the
-  cluster and HUD and stays (refresh every 750 ms), the route arrow is blue and the other
-  arrows/lanes grey, multi-arrow lanes show pairs, the box beside it shows the turn distance,
+  cluster and HUD and stays (refresh every 750 ms), the route arrow is white, the other
+  arrows/lanes grey (like a CarPlay status 1 / status 0 lane; never blue), multi-arrow lanes show pairs, the box beside it shows the turn distance,
   everything clears at arrival and when the car's navigation takes over. If no strip: developer
   mode on, pull logcat (`AALANES event 34 [...]` per lane change, `NAVDUMP` the phone's state when the library dumps it) and the USB export.
+- [ ] **Verify Android Auto guidance stability on a drive (developer mode on).**
+  `AaTurns` heartbeat, guide-lost watchdog and `AATRACE` trace, see
+  [wireless-carplay-and-aa.md](wireless-carplay-and-aa.md) "Android Auto lanes" (Stability).
+  Pull logcat (`AATRACE`, `AALANES`, `NAVDUMP`) from one real route with each phone app:
+  (1) `flip n` lines and the cluster photo at that moment: if turns alternate, port the
+  arbitration (not before); (2) `quiet N ms, ended by ...` gaps while stopped at a light:
+  if gaps near or over 120 s occur on a live route, raise `GUIDE_LOST_MS`, if never over ~30 s consider
+  60 s; (3) stop at a light for a minute: the turn, lanes and HUD list stay (heartbeat resend),
+  the cluster does not blank; (4) end navigation on the phone without a status (kill the map app):
+  the cluster and HUD clear after 120 s, and show again if the app resumes; (5) lanes: if the
+  `NAVDUMP` text shows the steps, look whether lanes ever sit on a step after the first while step 0 has none
+  (then a native steps loop, same `test/aalanes` rigor, and a hidden lane box for later steps); (6) the
+  lane box equals the turn distance at three lane junctions.
 - [ ] **Verify Android Auto stock-format turns on a drive.** `AaGuidance` (policy in
   [cluster-ar-view.md](cluster-ar-view.md#android-auto-policy)): AR view and hologram near turns,
   U-turns, exits and roundabouts with the right direction; the bar falls with distance and gives

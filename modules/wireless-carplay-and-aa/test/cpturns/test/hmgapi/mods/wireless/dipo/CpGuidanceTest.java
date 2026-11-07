@@ -57,6 +57,22 @@ public final class CpGuidanceTest {
         mapping(3, 0, 13, 0); mapping(7, 180, 32, 180); mapping(28, -90, 32, 270);
         require(CpGuidance.stock(m(28, null)) == null, "roundabout ordinal is not an angle");
         require(CpGuidance.stock(m(2, -90)) == null, "contradictory direction fallback");
+        // a U-turn whose explicit exit angle is not a U-turn keeps the projection icon; no angle (NAVER) or a real one draws it
+        mapping(4, 180, 31, 270); mapping(4, -160, 31, 270); mapping(4, 158, 31, 270); mapping(4, 0, 31, 270); mapping(26, -170, 31, 270);
+        require(CpGuidance.stock(m(4, 157)) == null && CpGuidance.stock(m(4, -90)) == null && CpGuidance.stock(m(18, 30)) == null, "U-turn with a turn angle");
+        // a plain turn inside a roundabout (junction 1) is the exit at its explicit angle; 0 is the entry marker, no angle is no position
+        CpTurns.Maneuver inRound = m(2, 90); inRound.junction = 1;
+        require(CpGuidance.stock(inRound)[0] == 32 && CpGuidance.stock(inRound)[1] == 90, "right turn in a roundabout, right-hand traffic");
+        inRound = m(1, -120); inRound.junction = 1; inRound.side = 1;
+        require(CpGuidance.stock(inRound)[0] == 33 && CpGuidance.stock(inRound)[1] == 225, "left turn in a roundabout, left-hand traffic, rounded to 45");
+        inRound = m(2, 0); inRound.junction = 1;
+        require(CpGuidance.stock(inRound) == null, "roundabout entry marker 0 is no exit position");
+        inRound = m(2, null); inRound.junction = 1;
+        require(CpGuidance.stock(inRound) == null, "turn in a roundabout without an angle keeps the projection icon");
+        inRound = m(3, 90); inRound.junction = 1;
+        require(CpGuidance.stock(inRound) == null, "straight in a roundabout keeps the projection icon");
+        inRound = m(0, 180); inRound.junction = 1;
+        require(CpGuidance.stock(inRound) == null, "NAVER roundabout (type 0, junction 1, exit 180) keeps the projection icon 102");
         require(CpGuidance.stock(m(8, null)) == null, "unknown ramp side fallback");
         CpTurns.Maneuver straight = m(3, 0); straight.angles = new int[] {45};
         require(CpGuidance.stock(straight)[0] == 13 && CpGuidance.stock(straight)[1] == 0, "urban straight past side road");

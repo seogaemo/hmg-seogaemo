@@ -5,14 +5,14 @@ Status: current - field notes ported from the HMG-API wireless mod work. Nothing
 ## Code that came over
 `payload/src/hmgapi/mods/wireless/dipo/CpTurns.java.src` and `Dipo.java.src` (AGPL, adapted from HMG-API; marked in the file header). Host test: `modules/wireless-carplay-and-aa/test/cpturns/run.sh` (39 cases, part of the module test).
 - **Icons:** the exact table returned 0 for many iAP2 maneuver types and `turn()` then skipped the whole update (distance, HUD, trip). A banded fallback by angle and side picks the nearest confirmed basic arrow; sharp/slight keep their meaning; left-hand traffic handled. Only cluster bytes confirmed in the HMG-API cluster notes are sent: basic 0x41-0x49, highway exit 0x51/0x52, 0xac-0xae, roundabouts, arrival 0x70-0x72, ferry 0xb0. Unused: via-point arrival 0x73-0x75, highway ramp straight 0x56. Firmware cross-check: [cluster-tbt-icons.md](cluster-tbt-icons.md).
-- **Lanes:** colours mirror CarPlay per lane (status 0 not good = grey, 1 good = white, 2 preferred = blue; arrows off the highlight angle grey); no lane modes. NAVER usually sends no status 2, so nothing is blue (intended). Frame: [cluster-lane-frame.md](cluster-lane-frame.md).
+- **Lanes:** colours mirror CarPlay per lane (status 0 not good = grey, 1 good = white, 2 preferred = blue; arrows off the highlight angle grey); no lane modes. NAVER sends status 1 on most recommended lanes and status 2 only on the lane the driver must use, so only that lane's route arrow is blue (owner decision 2026-11-07). Android Auto uses the same rule (`CpLaneFrame`) as status 1 / 0 lanes and is never blue (no must-use signal). Frame: [cluster-lane-frame.md](cluster-lane-frame.md).
 - **HUD distance:** km/mi rounds to one decimal (cap 4095); decimal commas parse; null items and empty arrays guarded; `Dipo.post()` logs any Throwable.
 - **Trace:** `Dipo.trace()` (fixed on) logs numbers only (route guidance, maneuver, lane, `turn skip ... no icon for maneuver ... type X side Y junction Z exit E`), no road/destination names, to logcat tag `HMG-Seogaemo-Wireless`. HMG-API also copied it to a USB folder with a root service (not ported, below).
 
 ## Open problems (need a drive log)
 - Updates sometimes do not reach the cluster. Hypothesis: `Maneuver.read` resets the exit angle each update, icon becomes 0, `turn()` returns early. Fix idea: keep the previous angle for the same maneuver type.
 - Lanes are not cleared when the phone stops sending lane guidance (item 18 ignored).
-- Maneuver may arrive before the route update; Naver's real lane status values are unknown.
+- Maneuver may arrive before the route update; NAVER's lane statuses in the recorded drives are 0 (highlight 1000), 1 and 2 (highlight on a lane arrow); Apple Maps lane records are still missing.
 - NEEV.KOR hook map: if trace lines `T ...` never appear, the hooks are off.
 
 ## Not ported: trace export to USB

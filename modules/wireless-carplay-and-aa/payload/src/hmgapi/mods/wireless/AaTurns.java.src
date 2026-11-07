@@ -71,8 +71,55 @@ final class AaTurns {
             handler.postDelayed(this, RENEW_MS);
         }
     };
+    /**
+     * The heartbeat while a route is live: like CarPlay's CpTurns.refresh it sends the last turn again when
+     * the phone has been quiet for a moment (a car stopped at a light gets no new distances, and the cluster
+     * and HUD age stale data out), keeps the HUD turn list coming, and ends a route the phone stopped
+     * talking about without an end status (guide lost).
+     */
+    final Runnable beat = new Runnable() {
+        @Override
+        public void run() {
+            beating = false;
+            heartbeat();
+        }
+    };
     static final long RENEW_MS = 1000;
     static final long LANE_MS = 750, LANE_DIST_RESEND_MS = 2000;
+    static final long BEAT_MS = 1000, SEND_MS = 900, HUD_RESEND_MS = 2000;
+    /**
+     * No library callback of any kind (turn, distance, trip, lanes, dump, status) for this long while a route is
+     * live and the car's navigation has not taken over: the guidance goes. The phone's own end status normally
+     * comes first, and the connection ending (end()) clears too; this is for a phone app that stops without
+     * either. Long on purpose: a car waiting at a light sends no new distance, and 60 s (the HMG Leafia Plus
+     * r8.2 value) is shorter than a long red light; the developer trace ("quiet ... ms") records the real gaps.
+     */
+    static final long GUIDE_LOST_MS = 120000;
+    /** developer trace: a gap this long between callbacks is logged, the summary line comes every TRACE_SUMMARY_MS, a route logs at most TRACE_LINES lines */
+    static final long QUIET_LOG_MS = 5000, TRACE_SUMMARY_MS = 5000, FLIP_MS = 10000;
+    static final int TRACE_LINES = 600;
+    static final String DEV_PROP = "persist.hmg_seogaemo.dev";
+    static final int K_TURN = 0, K_DIST = 1, K_STATUS = 2, K_LANES = 3, K_DUMP = 4;
+    static final String[] KINDS = { "turn", "distance", "status", "lanes", "dump" };
+
+    /** the clock (milliseconds); the host test freezes it (frozen) and moves it with skew */
+    long skew;
+    boolean frozen;
+    /** the heartbeat is scheduled; the last library callback; the last turn sent; the HUD turn list sent last and when */
+    boolean beating;
+    long lastIn, lastSendAt;
+    byte[] lastHud;
+    long hudAt;
+    /** the guide-lost watchdog cleared a route that may still be live: any callback brings it back; the car's navigation has the cluster */
+    boolean lost, nativeFocus;
+    // developer trace (logcat AATRACE, only while persist.hmg_seogaemo.dev is 1)
+    int traceLeft, traceExtra;
+    long devAt, summaryAt, maxGap, quietLogged;
+    boolean devOn;
+    final int[] calls = new int[KINDS.length];
+    int flips, lastSig = -1;
+    final int[] sigs = new int[4];
+    final long[] sigAt = new long[4];
 
     // the next turn
     int event, turnSide, turnAngle, turnNumber, displayType, direction, unit;
@@ -113,9 +160,14 @@ final class AaTurns {
         this.handler = handler;
     }
 
+    long now() {
+        return (frozen ? 0L : System.currentTimeMillis()) + skew;
+    }
+
     // ---- from the AA library
 
     void nextTurn(String str, int side, int ev, int angle, int number) {
+        touch(ev == EV_DUMP ? K_DUMP : ev == EV_LANES ? K_LANES : K_TURN);
         if (ev == EV_DUMP) {
             Log.d("NAVDUMP", String.valueOf(str));
             // Modified by HMG-Seogaemo: no other mods consume navigation dumps.
@@ -154,9 +206,12 @@ final class AaTurns {
             return;
         }
         hudFresh = false;
+        nativeFocus = false;
         boolean first = road == null;
         // a changed maneuver needs a fresh distance before the approach window opens
-        if (ev != event || side != turnSide || angle != turnAngle || !String.valueOf(str).equals(String.valueOf(road))) meters = -1;
+        boolean changed = ev != event || side != turnSide || angle != turnAngle || !String.valueOf(str).equals(String.valueOf(road));
+        if (changed) meters = -1;
+        traceTurn(str, side, ev, angle, changed);
         rerouting = false;
         event = ev;
         road = str;
@@ -203,6 +258,7 @@ final class AaTurns {
     }
 
     void nextTurnDistance(int meters, int seconds, int e3, int unitFlags) {
+        touch(K_DIST);
         if ((unitFlags & FLAG_AHEAD) != 0) {
             int k = (unitFlags >> 10) & 3;
             if (k > 2) return;
@@ -232,8 +288,13 @@ final class AaTurns {
     }
 
     void status(int s) {
+        touch(K_STATUS);
+        if ((s == 1 || s == 3) && !navLive) { traceLeft = TRACE_LINES; traceExtra = 0; }
+        trace("status " + s, true);
         if (s == 1 || s == 3) {   // active, rerouting
             navLive = true;
+            lost = false;
+            startBeat();
             if (s == 1) {
                 rerouting = false;
                 if (lastLane != null) showLanes();
@@ -245,18 +306,29 @@ final class AaTurns {
             }
             return;
         }
+        lost = false;
+        clear();
+    }
+
+    /** The route is over (or taken to be): stop the timers, clear the turn, the remaining trip, the destination and the HUD. */
+    private void clear() {
         handler.removeCallbacks(tick);
+        handler.removeCallbacks(beat);
+        beating = false;
         rerouting = false;
         destName = null;
         navLive = false;
         tripMeters = -1;
         tripSeconds = -1;
         estPoint = 0;
+        lastSendAt = 0;
         release();
     }
 
     /** The car's navigation took over (focus native): forget the turn. */
     void stop() {
+        nativeFocus = true;
+        lastSendAt = 0;
         event = 0;
         road = null;
         turnSide = 0;
@@ -279,9 +351,122 @@ final class AaTurns {
     /** The connection ended: clear what we showed, if a route was on. */
     void end() {
         handler.removeCallbacks(tick);
+        handler.removeCallbacks(beat);
+        beating = false;
+        lost = false;
         if (navLive) status(2);
         forgetLanes();
         setApproach(-1);
+    }
+
+    // ---- heartbeat, guide-lost watchdog
+
+    private void startBeat() {
+        if (beating) return;
+        beating = true;
+        handler.postDelayed(beat, BEAT_MS);
+    }
+
+    /** one library callback arrived: restarts the quiet clock, and brings back a route the watchdog cleared */
+    private void touch(int kind) {
+        long t = now();
+        if (navLive && lastIn != 0) {
+            long gap = t - lastIn;
+            if (gap > maxGap) maxGap = gap;
+            if (gap >= QUIET_LOG_MS) trace("quiet " + gap + " ms, ended by " + KINDS[kind]);
+        }
+        lastIn = t;
+        quietLogged = 0;
+        calls[kind]++;
+        if (lost && kind != K_STATUS) {
+            lost = false;
+            navLive = true;
+            startBeat();
+            trace("phone is talking again: guidance back", true);
+        }
+    }
+
+    void heartbeat() {
+        if (!navLive) return;
+        long t = now();
+        long quiet = t - lastIn;
+        if (!nativeFocus) {
+            if (quiet >= GUIDE_LOST_MS) {
+                trace("guide lost: nothing from the phone for " + quiet + " ms", true);
+                lost = true;
+                clear();
+                return;
+            }
+            if (!rerouting && lastSendAt != 0 && t - lastSendAt >= SEND_MS) sendTurn();
+            if (lastHud != null && t - hudAt >= HUD_RESEND_MS) {
+                cluster.turnListNew(lastHud);
+                hudAt = t;
+            }
+        }
+        for (long mark = 30000; mark < GUIDE_LOST_MS; mark += 30000) {
+            if (quiet >= mark && quietLogged < mark) {
+                quietLogged = mark;
+                trace("quiet for " + quiet + " ms, the route is still live");
+            }
+        }
+        if (t - summaryAt >= TRACE_SUMMARY_MS && devOn()) {
+            summaryAt = t;
+            trace("state ev=" + event + " side=" + turnSide + " m=" + meters + " rerouting=" + rerouting + " focus=" + (nativeFocus ? "car" : "phone")
+                    + " calls turn/dist/status/lanes/dump=" + calls[K_TURN] + "/" + calls[K_DIST] + "/" + calls[K_STATUS] + "/" + calls[K_LANES] + "/" + calls[K_DUMP]
+                    + " quiet=" + quiet + " maxGap=" + maxGap);
+        }
+        startBeat();
+    }
+
+    // ---- developer trace
+
+    /** persist.hmg_seogaemo.dev is 1 (re-read every 3 s; the property is not in the public SDK) */
+    private boolean devOn() {
+        long t = now();
+        if (devAt != 0 && t - devAt < 3000L) return devOn;
+        devAt = t;
+        try {
+            devOn = "1".equals(Class.forName("android.os.SystemProperties").getMethod("get", String.class, String.class).invoke(null, DEV_PROP, "0"));
+        } catch (Throwable x) {
+            devOn = false;
+        }
+        return devOn;
+    }
+
+    /** logcat AATRACE: transitions only (a turn changing, a gap in the callbacks, a status, a flip), a summary every 5 s; at most TRACE_LINES per route, and as many again of the rare important ones */
+    void trace(String m) {
+        trace(m, false);
+    }
+
+    /** important: status, flip and guide-lost lines (rare) go out even when the route used up its lines */
+    void trace(String m, boolean important) {
+        if (!devOn()) return;
+        if (traceLeft > 0) traceLeft--;
+        else if (!important || ++traceExtra > TRACE_LINES) return;
+        Log.d("AATRACE", m);
+    }
+
+    /**
+     * A turn event. A turn that comes back after another one within FLIP_MS is a "flip": the feed alternating
+     * between two maneuvers (the HMG Leafia Plus r8.2 arbitrates this; here it is only counted, to see if the
+     * library's feed does it at all). Called for every turn event, so a turn that stays keeps its time fresh.
+     */
+    private void traceTurn(String road, int side, int ev, int angle, boolean changed) {
+        long t = now();
+        int sig = ev << 8 | side;
+        boolean seen = false;
+        for (int k = 0; k < sigs.length; k++) if (sigAt[k] != 0 && sigs[k] == sig && t - sigAt[k] <= FLIP_MS) seen = true;
+        if (sig != lastSig && seen) {
+            flips++;
+            trace("flip " + flips + ": ev=" + ev + " side=" + side + " is back after another turn within " + FLIP_MS + " ms", true);
+        }
+        int slot = 0;
+        for (int k = 1; k < sigs.length; k++) if (sigAt[k] < sigAt[slot]) slot = k;
+        for (int k = 0; k < sigs.length; k++) if (sigAt[k] != 0 && sigs[k] == sig) slot = k;
+        sigs[slot] = sig;
+        sigAt[slot] = t;
+        lastSig = sig;
+        if (changed) trace("turn ev=" + ev + " side=" + side + " angle=" + angle + " road=" + road);
     }
 
     // ---- the next turn
@@ -297,6 +482,7 @@ final class AaTurns {
         } else if (AaGuidance.approach(event, meters)) {
             stock = AaGuidance.stock(event, turnSide, turnAngle);
         }
+        lastSendAt = now();
         if (stock == null) {
             setApproach(-1);
             cluster.tbtInfo(displayType, 65535, direction, distance, 0, 0, unit, bar, barErr);
@@ -504,6 +690,8 @@ final class AaTurns {
         f[3] = (byte) next;
         System.arraycopy(name, 0, f, 5, n);
         cluster.turnListNew(f);
+        lastHud = f;
+        hudAt = now();
         hudType = type;
         hudNext = next;
         hudRoad = r;
@@ -530,6 +718,7 @@ final class AaTurns {
         hudNext = 0;
         hudFresh = false;
         hudRoad = null;
+        lastHud = null;
         cluster.turnListNew(new byte[] { HUD_LIST });
         cluster.turnListNew(new byte[] { HUD_LIST });
     }
@@ -550,8 +739,9 @@ final class AaTurns {
     }
 
     // ---- lanes: "nn" lane count, then per lane 8 hex digits: the route mask (bit k: arrow slot k is
-    // on the route), then three arrow bytes (direction classes 1..8, 0 unused). The cluster takes
-    // the lane values CarPlay uses (CpLaneFrame) and wants the frame again every 0.75 s.
+    // on the route), then three arrow bytes (direction classes 1..8, 0 unused). The lanes are
+    // drawn as the equivalent CarPlay lanes (CpLaneFrame, never blue: no must-use signal) and the
+    // cluster wants the frame again every 0.75 s.
 
     void sendLanes(String s) {
         if (s == null) s = "";
@@ -581,7 +771,9 @@ final class AaTurns {
         f[0] = LANES;
         f[1] = (byte) n;
         for (int k = 0; k < n; k++) {
-            int[] v = CpLaneFrame.lane(arrows[k], route[k], anyRoute ? CpLaneFrame.GREY : CpLaneFrame.WHITE);
+            // the equivalent CarPlay lane: a lane with a highlighted direction is status 1 (good), a lane without one is
+            // status 0 (not good) while another lane is highlighted, and with no highlight anywhere nothing is flagged (status 1)
+            int[] v = CpLaneFrame.lane(arrows[k], route[k], route[k] != 0 || !anyRoute ? 1 : 0);
             f[k + 3] = (byte) v[0];
             for (int j = 0; j < 3; j++) f[k * 3 + 19 + j] = (byte) v[1 + j];
         }
@@ -650,7 +842,7 @@ final class AaTurns {
             tenths = 0;
         }
         int[] v = { whole, u, tenths };
-        long now = System.currentTimeMillis();
+        long now = now();
         if (laneDist != null && java.util.Arrays.equals(laneDist, v) && now - laneDistAt < LANE_DIST_RESEND_MS) return;
         laneDist = v;
         laneDistAt = now;

@@ -61,10 +61,17 @@ five was recommended), and FORK_2 25 is never sent. Arrival maneuvers send 2 at 
 (destination on the left / right) or ARRIVED 3; route state Arrived sends 3. Straight past one side road sends SERVICE_ROAD 23 at 270 (branch right) or 24 at 90 (branch
 left), which draw the main road straight on, only with a highway road name or instruction;
 otherwise TURN 13 at 0. U-turns use the Korean
-left loop by default. Roundabouts send 32 (counter-clockwise travel, right-hand traffic) or 33
+left loop by default; an explicit exit angle other than 0 under 158 degrees either way contradicts
+the type and keeps the projection icon (no angle, as NAVER sends, draws the U-turn). Roundabouts send 32 (counter-clockwise travel, right-hand traffic) or 33
 (clockwise, left-hand traffic) by driving side, with the exit clock position measured clockwise
 from 12 o'clock as direction; positions require an explicit exit angle; ordinal exit numbers
-do not provide an angular position. Ambiguous or contradictory geometry retains the projection
+do not provide an angular position. A plain left or right turn (types 1 and 2) with the roundabout
+junction flag set and an explicit non-zero exit angle is the roundabout exit and sends 32 / 33 the
+same way (0 is the entry marker of the projection icon table, not a position; no angle keeps the
+projection icon). NAVER's own roundabouts arrive as type 0 with junction 1 and exit 180 (every
+recorded sighting, a likely placeholder) and keep the projection icon 102. Plain turns outside a
+roundabout still need the side's 45 degree band (225..315 / 45..135); wider angles keep the
+projection icon until the cluster is photographed at those directions. Ambiguous or contradictory geometry retains the projection
 icon. When the next maneuver is not known yet the projection icon is resent; the idle compass
 is only for stop and disconnect.
 The bar decreases linearly from 100 at entry to 0 at the maneuver. Route states Loading and

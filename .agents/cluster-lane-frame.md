@@ -97,6 +97,7 @@ Service-side `NaviCluster.updateLaneInfo(null)` calls `sendClearTP()` and clears
 
 ## 5. Our arrow codes and open question
 No named new-frame lane arrow enum or status unpacker exists in the inspected `com.hkmc.cluster` classes. Our `CpTurns.laneIcon()`: 0 none/unused, 1 straight, 2 slight right, 3 right, 4 sharp right, 5 U-turn either side, 6 sharp left, 7 left, 8 slight left (H our code; stock value space for simple lanes is 1..8, see [cluster-lane-arrows.md](cluster-lane-arrows.md)).
+- Rendering rule (owner decision 2026-11-07, `CpLaneFrame.lane`): draw what the phone sends. CarPlay LaneStatus 0 not good: every arrow grey; 1 good: highlighted arrows white, others grey; 2 preferred (must use): highlighted arrows blue, others grey; no valid highlight: every arrow the lane's colour (white for 1, blue for 2). Android Auto has a recommended bit and no must-use level, so a lane with a highlighted direction is drawn as status 1 and one without as status 0 while another lane is highlighted (status 1 when none is); AA is never blue.
 - Car-verified: status is two bits per arrow slot, least-significant slot first (`0x15` three normal arrows); `1`/`2` draws only slot 0; `11` is grey (inactive), `00` blank. See [cluster-lane-arrows.md](cluster-lane-arrows.md). The fourth group remains untested.
 
 ## 6. Stock engine lane log (input side only)

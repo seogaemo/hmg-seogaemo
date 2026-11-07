@@ -1,13 +1,18 @@
-// HMG-Seogaemo: independently implemented lane encoding for Android Auto, on the car-verified cluster lane format.
+// HMG-Seogaemo: independently implemented lane encoding shared by CarPlay and Android Auto, on the car-verified cluster lane format.
 package hmgapi.mods.wireless.dipo;
 
 /**
- * One Android Auto lane as the cluster's per-lane values: the status byte (2 bits per arrow slot,
- * 00 not drawn, 01 white, 10 blue, 11 grey) and up to three arrow image ids, the same encoding
- * CarPlay lanes use (CpTurns.laneValues, .agents/cluster-lane-arrows.md). The native AA patch
- * hands over each lane's direction classes (CpTurns.laneIcon values 1..8, the plain glyph ids)
- * and which of its arrow slots are recommended; this turns them into the overlaid component
- * glyphs a multi-direction lane needs.
+ * One lane as the cluster's per-lane values: the status byte (2 bits per arrow slot, 00 not
+ * drawn, 01 white, 10 blue, 11 grey) and up to three arrow image ids
+ * (.agents/cluster-lane-arrows.md). The single rendering rule for CarPlay (CpTurns.laneValues)
+ * and Android Auto (AaTurns.sendLanes): draw what the phone sends, through CarPlay's LaneStatus.
+ * Status 1 (good): the arrows on the route white, the other arrows of that lane grey; no arrow on
+ * the route (highlight 1000, or none matches): every arrow white. Status 2 (preferred, the lane
+ * the driver must use): the same, with blue instead of white. Status 0 (not good): every arrow
+ * grey. The caller hands over each lane's direction classes (CpTurns.laneIcon values 1..8, the
+ * plain glyph ids) and which of them are on the route; this turns them into the overlaid
+ * component glyphs a multi-direction lane needs. Blue exists only for CarPlay status 2: Android
+ * Auto has no must-use signal and never produces it.
  */
 public final class CpLaneFrame {
     public static final int WHITE = 1, BLUE = 2, GREY = 3;
@@ -15,27 +20,28 @@ public final class CpLaneFrame {
     private CpLaneFrame() {}
 
     /**
-     * @param arrows   the lane's arrow slots as direction classes 1..8 (0: unused), at most 3
-     * @param recMask  bit k set: the direction in slot k is on the route
-     * @param laneIdle the colour of every arrow of a lane with no recommended direction (WHITE, or GREY
-     *                 while other lanes of the frame are recommended)
+     * @param arrows  the lane's arrow slots as direction classes 1..8 (0: unused), at most 8
+     * @param onRoute bit k set: the direction in slot k is on the route (the phone's highlight)
+     * @param status  CarPlay's LaneStatus: 0 not good, 1 good, 2 preferred (anything else counts as 1)
      * @return {status byte, image id of slot 0, 1, 2}
      */
-    public static int[] lane(int[] arrows, int recMask, int laneIdle) {
-        int[] cls = new int[3];
-        boolean[] rec = new boolean[3];
+    public static int[] lane(int[] arrows, int onRoute, int status) {
+        int on = status == 2 ? BLUE : WHITE;
+        int[] cls = new int[8];
+        boolean[] rec = new boolean[8];
         int n = 0;
-        for (int k = 0; k < arrows.length && k < 3; k++) {
+        for (int k = 0; k < arrows.length && k < 8; k++) {
             int c = arrows[k];
             if (c < 1 || c > 8) continue;
             int i = 0;
             while (i < n && cls[i] != c) i++;
             if (i == n) cls[n++] = c;
-            if ((recMask >> k & 1) != 0) rec[i] = true;
+            if ((onRoute >> k & 1) != 0) rec[i] = true;
         }
         int[] r = new int[4];
+        int idle = status == 0 ? GREY : on;
         if (n == 0) {
-            r[0] = laneIdle;
+            r[0] = idle;
             return r;
         }
         boolean anyRec = false;
@@ -58,7 +64,7 @@ public final class CpLaneFrame {
         for (int j = 0; j < row[0].length; j++) {
             boolean slotRec = false;
             for (int i = 0; i < n; i++) if (rec[i] && CpTurns.LaneGlyphs.fold(cls[i], snap) == row[0][j]) slotRec = true;
-            int colour = !anyRec ? laneIdle : slotRec ? BLUE : GREY;
+            int colour = status == 0 ? GREY : !anyRec || slotRec ? on : GREY;
             r[0] |= colour << (2 * j);
             r[1 + j] = row[1][j];
         }

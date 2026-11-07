@@ -412,14 +412,9 @@ final class CpTurns {
      * angle sends the lane's value on slot 0 only.
      */
     static int[] laneValues(int status, int[] angles, int[] highlights) {
-        int[] r = new int[4];
-        // the colour of an arrow on the route (matching) and off it
-        int on = status == 2 ? 2 : status == 0 ? 3 : 1, off = 3;
-        // the lane's distinct direction classes (laneIcon values), in the phone's order, and which one the route takes
+        // the lane's distinct direction classes (laneIcon values), in the phone's order, and which ones the route takes
         int[] cls = new int[8];
-        boolean[] hit = new boolean[8];
-        int n = 0;
-        boolean anyHit = false;
+        int n = 0, onRoute = 0;
         if (angles != null) {
             for (int k = 0; k < angles.length; k++) {
                 int a = angles[k];
@@ -427,36 +422,10 @@ final class CpTurns {
                 int c = laneIcon(a), i = 0;
                 while (i < n && cls[i] != c) i++;
                 if (i == n) cls[n++] = c;
-                if (highlights != null) for (int h : highlights) if (h == a) hit[i] = anyHit = true;
+                if (highlights != null) for (int h : highlights) if (h == a) onRoute |= 1 << i;
             }
         }
-        if (n == 0) {
-            r[0] = on;
-            return r;
-        }
-        // the arrows that take the lane's colour: the highlighted ones, or all when none matches
-        boolean[] rec = new boolean[8];
-        for (int i = 0; i < n; i++) rec[i] = !anyHit || hit[i];
-        boolean snap = false;
-        int[][] row = LaneGlyphs.find(cls, n, false);
-        if (row == null) {
-            row = LaneGlyphs.find(cls, n, true);
-            snap = row != null;
-        }
-        if (row == null) {
-            // not a verified set (more than 3 directions, or none of the table's): only the
-            // highlighted arrow, else the first, as a single glyph
-            int pick = 0;
-            for (int i = n - 1; i >= 0; i--) if (rec[i]) pick = i;
-            row = new int[][] { { cls[pick] }, { cls[pick] } };
-        }
-        for (int j = 0; j < row[0].length; j++) {
-            boolean slotRec = false;
-            for (int i = 0; i < n; i++) if (rec[i] && LaneGlyphs.fold(cls[i], snap) == row[0][j]) slotRec = true;
-            r[0] |= (slotRec ? on : off) << (2 * j);
-            r[1 + j] = row[1][j];
-        }
-        return r;
+        return CpLaneFrame.lane(java.util.Arrays.copyOf(cls, n), onRoute, status);
     }
 
     /**

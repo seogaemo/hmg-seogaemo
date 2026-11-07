@@ -330,6 +330,25 @@ public final class CpTurnsTest {
         laneIs("four directions, not-good lane: the first arrow, grey", CpTurns.laneValues(0, i(-90, 0, 90, 180), i(1000)), 0x03, 7);
         laneIs("preferred without a highlight: every arrow blue", CpTurns.laneValues(2, i(0, -90), i(1000)), 0x0a, 9, 12);
         laneIs("good lane without a highlight: every arrow white", CpTurns.laneValues(1, i(0, -90), i(1000)), 0x05, 9, 12);
+        // Android Auto lanes are the equivalent CarPlay lanes: a highlighted direction is a status 1 lane with that highlight,
+        // a lane without one is status 0 (highlight 1000) while another lane is highlighted, status 1 when none is; never blue
+        int[] angleOf = { 0, 0, 45, 90, 135, 180, -135, -90, -45 };
+        boolean same = true, noBlue = true;
+        for (int c1 = 1; c1 <= 8; c1++) for (int c2 = 0; c2 <= 8; c2++) for (int mask = 0; mask < 4; mask++) {
+            if (c1 == c2) continue;
+            int[] arrows = c2 == 0 ? new int[] { c1 } : new int[] { c1, c2 };
+            if (mask >= 1 << arrows.length) continue;
+            int[] angles = arrows.length == 1 ? i(angleOf[c1]) : i(angleOf[c1], angleOf[c2]);
+            for (int other = 0; other < 2; other++) {   // another lane of the frame is highlighted, or none
+                int[] aa = CpLaneFrame.lane(arrows, mask, mask != 0 || other == 0 ? 1 : 0);
+                int[] high = mask == 0 ? i(1000) : mask == 3 ? i(angleOf[c1], angleOf[c2]) : mask == 1 ? i(angleOf[c1]) : i(angleOf[c2]);
+                int[] cpv = CpTurns.laneValues(mask != 0 || other == 0 ? 1 : 0, angles, high);
+                same &= java.util.Arrays.equals(aa, cpv);
+                for (int j = 0; j < 3; j++) noBlue &= (aa[0] >> 2 * j & 3) != 2;
+            }
+        }
+        check("Android Auto lanes equal the equivalent CarPlay lanes (status 1 highlighted, status 0 other lanes)", same);
+        check("Android Auto lanes are never blue (no must-use signal)", noBlue);
         laneIs("a highlight that matches no arrow counts as none", CpTurns.laneValues(1, i(0, -90), i(45)), 0x05, 9, 12);
         laneIs("single direction keeps the plain glyph; two angles of one direction are one arrow", CpTurns.laneValues(2, i(85, 95), i(95)), 0x02, 3);
         laneIs("a not-good single arrow is grey", CpTurns.laneValues(0, i(90), i(1000)), 0x03, 3);

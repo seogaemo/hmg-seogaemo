@@ -4,6 +4,8 @@ package hmgapi.mods.wireless.dipo;
 /** Pure policy; display units never determine the approach window. */
 final class CpGuidance {
     static final int TURN_WINDOW_M = 300, HIGHWAY_WINDOW_M = 600;
+    /** the smallest exit angle, in degrees either way, that still is a U-turn */
+    static final int U_TURN_MIN_ANGLE = 158;
 
     static boolean highway(int type) {
         return type == 8 || type == 9 || type == 13 || type == 14
@@ -62,13 +64,22 @@ final class CpGuidance {
     static int[] stock(CpTurns.Maneuver m, CpLaneDecoder.Info lanes) {
         if (m.hasExit && (m.exit < -180 || m.exit > 180)) return null;
         int t = m.type, a = m.hasExit ? direction(m.exit) : -1;
-        if (t == 4 || t == 18 || t == 26) return new int[] {31, m.side == 1 ? 90 : 270};
+        if (t == 4 || t == 18 || t == 26) {
+            // an explicit exit angle that is not a U-turn contradicts the type: keep the projection icon
+            if (m.hasExit && m.exit != 0 && Math.abs(m.exit) < U_TURN_MIN_ANGLE) return null;
+            return new int[] {31, m.side == 1 ? 90 : 270};
+        }
         if (t == 6 || t == 7 || t == 19 || t >= 28 && t <= 46) {
             // 32 = counter-clockwise travel (right-hand traffic), 33 = clockwise (left-hand); the
             // direction is the exit's clock position. Ordinal exit numbers are not positions.
             return a < 0 ? null : new int[] {m.side == 1 ? 33 : 32, a};
         }
-        if (m.junction == 1) return null;
+        if (m.junction == 1) {
+            // a plain left/right inside a roundabout is the exit; its explicit angle is the exit's
+            // clock position (0 is the entry marker of the projection icon table, not a position)
+            if ((t == 1 || t == 2) && m.hasExit && m.exit != 0) return new int[] {m.side == 1 ? 33 : 32, a};
+            return null;
+        }
         boolean left = t == 1 || t == 20 || t == 47 || t == 49;
         boolean right = t == 2 || t == 21 || t == 48 || t == 50;
         if (left || right) {
