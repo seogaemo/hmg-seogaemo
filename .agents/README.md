@@ -36,6 +36,7 @@ Target: Hyundai Ioniq 5 KOR, `ro.build.product=NEEV.KOR.0000.V039.001.260902` (p
 | [external-wifi.md](external-wifi.md) | USB Wi-Fi dongle support: constraints, report evidence, open questions. |
 | [wireless-adb.md](wireless-adb.md) | Implemented ADB properties, upstream facts, restart rule, checklist. |
 | [wireless-carplay-and-aa.md](wireless-carplay-and-aa.md) | AGPL projection port, hook points, change inventory, TBT behavior, zygote/runtime-record details. |
+| [carplay-connection-owner.md](carplay-connection-owner.md) | CarPlay connection owner: Phone Projection state, delete order, two-phone switching; failure paths, design, stages, car plan. |
 | [user-button-shortcut.md](user-button-shortcut.md) | Steering/head-unit shortcuts, reassertion, KOR evidence. |
 | [skip-consent-screen.md](skip-consent-screen.md) | Factory82 provenance, watcher behavior, checklist. |
 
