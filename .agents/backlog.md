@@ -147,6 +147,15 @@ Turn it off with `setprop persist.hmg_seogaemo.owner 0` (restart DiPO's process 
 - [ ] Delete a second, not connected phone while the first is in wireless CarPlay: first phone untouched.
 - [ ] Re-pair right after a delete: a connect cancels the deletion (`connected again after its end`); the row is kept.
 - [ ] Kill switch `0`: no `delete:` lines, stock delete behaviour.
+- [ ] **Two iPhones (stage 5, item 11a; needs two phones and the owner on).** Expect no change when B joins Bluetooth while A runs
+  (`kept <mask>` line naming A, B's SPP remembered only). Ending A while A is still eligible re-attaches A and leaves B up but
+  unattached. Ending A while A is not eligible (move A out of range or turn its Bluetooth off first) attaches B.
+- [ ] Disconnect B in Phone Projection while A runs: `ignored`, A keeps its session, nothing held. Disconnect A: A stops and is held;
+  B starts only after A's end and only if B's SPP is up and not held.
+- [ ] Cancel a connecting phone in Phone Projection: `connection of <mask> cancelled: held off`; its attach never runs.
+- [ ] Unpair A while it is connected: `bond removed` line, session stopped, A not attached until paired again; re-pair: `paired again`.
+- [ ] A user-disconnected phone (held) stays off until its Bluetooth link drops and it connects again, not for a timer.
+- [ ] Kill switch `0` with two phones: arbitration off, behaviour as 0.1.47-beta.2 (no `kept`, `ignored` or `bond` lines).
 
 ## 2. Older open items
 

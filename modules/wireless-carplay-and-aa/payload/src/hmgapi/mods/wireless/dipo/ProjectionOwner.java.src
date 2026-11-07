@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The single judge of what Phone Projection hears about the bridged CarPlay phone.
@@ -121,7 +122,9 @@ final class ProjectionOwner {
     /** when the current connect started waiting for DiPO to become active (-1: not waiting) */
     private long waitingSince = -1;
     /** learned phones this boot: "user:ADDR" -> peer (memory only) */
-    private final Map<String, Peer> known = new HashMap<String, Peer>();
+    private final Map<String, Peer> known = new ConcurrentHashMap<String, Peer>();
+    /** the attributed phone's address, for the bridge's CarPlay-channel handover (read from any thread) */
+    private volatile String activeAddr;
     /** user disconnected or cancelled: "user:ADDR" (memory only) */
     private final Set<String> blocked = new HashSet<String>();
     /** bond removed: ADDR */
@@ -201,6 +204,32 @@ final class ProjectionOwner {
                 onRunningPP();
             }
         });
+    }
+
+    /** the user released the phone's hold (Phone Projection chose CarPlay again, or the phone came back): its block ends */
+    void userConnected(final String addr) {
+        enqueue("user connected", new Runnable() {
+            @Override
+            public void run() {
+                onUserConnected(addr);
+            }
+        });
+    }
+
+    /** the attributed phone's Bluetooth address for the current native session, or null (any thread) */
+    String activeAddress() {
+        return activeAddr;
+    }
+
+    /** the phone is the attributed one or a learned one (any thread) */
+    boolean knowsAddress(String addr) {
+        if (addr == null) return false;
+        if (addr.equalsIgnoreCase(activeAddr)) return true;
+        String suffix = ":" + upper(addr);
+        for (String k : known.keySet()) {
+            if (k.endsWith(suffix)) return true;
+        }
+        return false;
     }
 
     /** the user disconnected the phone or cancelled its connection: no connected for it until bond or boot */
@@ -303,7 +332,7 @@ final class ProjectionOwner {
         removedInSession = false;
         disconnectRequested = false;
         gaveUp = false;
-        active = null;
+        setActive(null);
         waitingSince = -1;
         bridgeAddr = addr;
         Details d = early;
@@ -368,6 +397,20 @@ final class ProjectionOwner {
         evaluate();
     }
 
+    private void onUserConnected(String addr) {
+        String suffix = ":" + upper(addr);
+        for (String k : new HashSet<String>(blocked)) {
+            if (k.endsWith(suffix)) blocked.remove(k);
+        }
+        say("user connected " + mask(addr) + ", reported again");
+        evaluate();
+    }
+
+    private void setActive(Peer p) {
+        active = p;
+        activeAddr = p == null ? null : p.addr;
+    }
+
     private void onBondLost(String addr) {
         deleted.add(upper(addr));
         say("bond removed for " + mask(addr) + ", not reported until paired again");
@@ -409,7 +452,7 @@ final class ProjectionOwner {
         }
         Peer p = new Peer(bridgeAddr, d.deviceId, d.mac, d.name, user, generation);
         known.put(k, p);
-        active = p;
+        setActive(p);
         say("gen=" + generation + " session attributed to " + mask(bridgeAddr));
     }
 
@@ -418,7 +461,7 @@ final class ProjectionOwner {
         nativeFinalized = true;
         nativeStarted = false;
         Peer p = active;
-        active = null;
+        setActive(null);
         waitingSince = -1;
         if (p == null) return;
         if (connectedPosted && !endQueued && pendingEnd == null) {

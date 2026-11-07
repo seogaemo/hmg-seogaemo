@@ -376,6 +376,7 @@ public final class Dipo {
     /**
      * The CarPlay connection owner (ProjectionOwner): reports wireless CarPlay to Phone Projection. Off by the kill
      * switch, or when the three optional points are not mapped; then nothing here is hooked and the bridge is as before.
+     * The owner also switches on the two-phone arbitration (BridgePeers, bond receiver): one flag for all of item 11.
      * The optional points are not in hookpoints.required, so a map without them still runs everything else.
      */
     private static void ownerHooks(final ClassLoader cl) {
@@ -390,6 +391,7 @@ public final class Dipo {
         }
         try {
             Bridge.startOwner();
+            Bridge.registerBondReceiver(app.context);
             mod.hook(cl, "dipo.carplay.on_create", new MethodHook() {
                 @Override
                 protected void afterHookedMethod(Param p) {
@@ -410,7 +412,7 @@ public final class Dipo {
             });
             log("owner: on (wireless CarPlay state reported to Phone Projection)");
         } catch (Throwable t) {
-            Bridge.sOwner = null;
+            Bridge.stopOwner();
             error("owner: hooks", t);
         }
     }

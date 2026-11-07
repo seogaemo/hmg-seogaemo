@@ -1,6 +1,14 @@
 package hmgapi.mods.wireless.dipo;
 // HMG-Seogaemo: the stock Phone Projection switch between the bridge's wireless CarPlay and Android Auto.
 
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
 /**
  * Phone Projection's choice between CarPlay and Android Auto, for the bridge's wireless CarPlay.
  *
@@ -11,46 +19,90 @@ package hmgapi.mods.wireless.dipo;
  * GPM then answers the Android phone's start request with STATUS_PROJECTION_ALREADY_STARTED
  * while DiPO's status is above 0, which it stays from the bridged iPhone's first iAP2 session.
  *
- * Here: Android Auto chosen, or CarPlay disconnected, stops the bridged session and holds that
- * iPhone off (no automatic reconnect). CarPlay chosen again releases it, and so does the iPhone's
- * next Bluetooth connection after its link went down (the next drive).
+ * Here: Android Auto chosen stops the bridged session and holds that iPhone off (no automatic reconnect).
+ * A wireless CarPlay disconnect does the same for the bridged iPhone, when the request names it (or names
+ * no phone). CarPlay chosen again for a phone releases its hold, and so does that iPhone's next Bluetooth
+ * connection after its link went down (the next drive). Holds are kept per phone: two phones can be held.
  */
 final class ProjectionSwitch {
     static final int TYPE_CARPLAY = 1, TYPE_ANDROID_AUTO = 2, TRANSFER_WIRELESS = 1;
     /** what the bridge does with a request: nothing, stop its session, or connect the iPhone again */
     static final int IGNORE = 0, STOP = 1, RESUME = 2;
 
-    private String held;
-    private boolean heldGone, stopping;
+    /** held phones: key (upper case address) -> the address as given */
+    private final Map<String, String> held = new LinkedHashMap<String, String>();
+    /** held phones whose Bluetooth link went down (key) */
+    private final Set<String> gone = new HashSet<String>();
+    private String released;
+    private boolean stopping;
 
     /**
-     * A connectPP (connect) or disconnectPP from Phone Projection. iphone: the bridge's iPhone
-     * (null: none); active: a bridged iAP2 or CarPlay session is up.
+     * A connectPP (connect) or disconnectPP from Phone Projection. addr: the phone the request names (null or empty:
+     * none); iphone: the bridge's iPhone (null: none); active: a bridged iAP2 or CarPlay session is up.
+     * Disconnect of CarPlay acts on the bridged phone only when the request names it or names none. Connect of CarPlay
+     * releases the hold of the named phone, or of the single held phone when the name is not held; with two held
+     * phones and an unknown name nothing is released. Android Auto stops the bridged phone whatever the name.
      */
-    synchronized int request(boolean connect, int type, int transfer, String iphone, boolean active) {
+    synchronized int request(boolean connect, int type, int transfer, String addr, String iphone, boolean active) {
         if (transfer != TRANSFER_WIRELESS) return IGNORE;
         if ((connect && type == TYPE_ANDROID_AUTO) || (!connect && type == TYPE_CARPLAY)) {
             if (!active || iphone == null) return IGNORE;
-            held = iphone;
-            heldGone = false;
-            stopping = true;
+            if (!connect && !empty(addr) && !sameAddr(addr, iphone)) return IGNORE;
+            hold(iphone, true);
             return STOP;
         }
-        if (connect && type == TYPE_CARPLAY && held != null) {
-            held = null;
-            heldGone = false;
+        if (connect && type == TYPE_CARPLAY) {
+            String target = releaseTarget(addr);
+            if (target == null) return IGNORE;
+            release(target);
+            released = target;
             return RESUME;
         }
         return IGNORE;
     }
 
-    /** the held iPhone (null: none) */
+    /** the held phone a CarPlay connect releases (null: none) */
+    private String releaseTarget(String addr) {
+        if (held.isEmpty()) return null;
+        if (!empty(addr) && held.containsKey(upper(addr))) return held.get(upper(addr));
+        if (held.size() == 1) return held.values().iterator().next();
+        return null;
+    }
+
+    /**
+     * Holds a phone off. stopping: its session is live and must end (DiPO must see the bridge's sessions end).
+     * Also used for a cancelled connection, which may have no session yet.
+     */
+    synchronized void hold(String addr, boolean stopping) {
+        if (empty(addr)) return;
+        held.put(upper(addr), addr);
+        gone.remove(upper(addr));
+        released = null;
+        if (stopping) this.stopping = true;
+    }
+
+    private void release(String addr) {
+        held.remove(upper(addr));
+        gone.remove(upper(addr));
+    }
+
+    /** the phone the last CarPlay connect released (null: none) */
+    synchronized String released() {
+        return released;
+    }
+
+    /** the held phone when exactly one is held (null: none or several) */
     synchronized String held() {
-        return held;
+        return held.size() == 1 ? held.values().iterator().next() : null;
+    }
+
+    /** every held phone */
+    synchronized List<String> heldAll() {
+        return new ArrayList<String>(held.values());
     }
 
     synchronized boolean isHeld(String addr) {
-        return addr != null && addr.equalsIgnoreCase(held);
+        return !empty(addr) && held.containsKey(upper(addr));
     }
 
     /** a stop was asked and the session hasn't ended yet: DiPO must see the bridge's sessions end */
@@ -64,14 +116,25 @@ final class ProjectionSwitch {
 
     /** the held iPhone's Bluetooth link (or its SPP) went down */
     synchronized void linkDown(String addr) {
-        if (isHeld(addr)) heldGone = true;
+        if (isHeld(addr)) gone.add(upper(addr));
     }
 
     /** the iPhone connected over Bluetooth: true when that ends its hold (it went away first) */
     synchronized boolean connected(String addr) {
-        if (!isHeld(addr) || !heldGone) return false;
-        held = null;
-        heldGone = false;
+        if (!isHeld(addr) || !gone.contains(upper(addr))) return false;
+        release(addr);
         return true;
+    }
+
+    static boolean empty(String s) {
+        return s == null || s.length() == 0;
+    }
+
+    static boolean sameAddr(String a, String b) {
+        return a != null && b != null && a.equalsIgnoreCase(b);
+    }
+
+    static String upper(String s) {
+        return s.toUpperCase(Locale.ROOT);
     }
 }

@@ -654,7 +654,38 @@ public final class ProjectionOwnerTest {
         check(statuses == 5 && logged == statuses, "statuses " + statuses + " logged " + logged + " in " + e.log);
     }
 
+    static void userConnectedReleasesTheBlock() {
+        FakeEnv e = env();
+        e.activated = true;
+        e.rows.add(row(A, DA, 0, 1, 1));
+        ProjectionOwner o = new ProjectionOwner(e);
+        o.userDisconnected(A);
+        session(e, o, A, DA, 1);
+        sentIs(e);
+        o.userConnected(A);
+        e.settle();
+        sentIs(e, "ready 1 " + A, "connect 3 " + A);
+        check(e.logHas("user connected"), "release logged");
+    }
+
+    static void activeAddressAndKnownPeers() {
+        FakeEnv e = env();
+        e.activated = true;
+        e.rows.add(row(A, DA, 0, 1, 1));
+        ProjectionOwner o = new ProjectionOwner(e);
+        check(o.activeAddress() == null && !o.knowsAddress(A), "nothing attributed at first");
+        session(e, o, A, DA, 1);
+        check(A.equals(o.activeAddress()) && o.knowsAddress(A) && o.knowsAddress(A.toLowerCase()), "attributed phone");
+        check(!o.knowsAddress(B), "another phone is not known");
+        e.activated = false;
+        o.finalized(1);
+        e.settle();
+        check(o.activeAddress() == null && o.knowsAddress(A), "after the end the phone stays known, not active");
+    }
+
     public static void main(String[] args) {
+        userConnectedReleasesTheBlock();
+        activeAddressAndKnownPeers();
         normalPublishOnce();
         noPublishUntilActivatedPolls();
         finalizedWhileActiveWaitsForInactive();
@@ -679,6 +710,6 @@ public final class ProjectionOwnerTest {
         sameAddressOtherIdentityNotAttributed();
         serviceStopKeepsOwedEnd();
         everyStatusLoggedWithGeneration();
-        System.out.println("ok projectionowner 25 cases");
+        System.out.println("ok projectionowner 27 cases");
     }
 }

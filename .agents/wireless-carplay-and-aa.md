@@ -239,8 +239,8 @@ Status: implemented as stage 3 of [carplay-connection-owner.md](carplay-connecti
   Stale delayed work (an older generation) is dropped.
 - **Ordering.** A new session that starts before the owed end is sent carries the end; its connected status is held until the 4 is
   sent. Only one end is owed at a time.
-- **Block sets (memory only).** `userDisconnected`, `bondLost` and `bondRestored` update the blocked and deleted sets. Nothing drives
-  them in this stage (stage 3a does).
+- **Block sets (memory only).** `userDisconnected` (the bridge holds a phone off), `userConnected` (the hold is released), `bondLost`
+  and `bondRestored` update the blocked and deleted sets, driven by `Bridge` since stage 5 (the connect side waits for stage 3b).
 - **Kill switch.** `persist.hmg_seogaemo.owner`: default on, `0` off, read once when DiPO's bridge starts (DiPO process start).
   The owner is also off, with no hook installed, when `dipo.carplay.on_create`, `dipo.carplay.on_destroy` or
   `dipo.carplay.session_details` is not mapped (log `owner: points missing, off`). Then the bridge behaves as 0.1.47-beta.2.
@@ -284,7 +284,8 @@ Status: implemented as stage 4 of [carplay-connection-owner.md](carplay-connecti
 
 ## Switching from wireless CarPlay to Android Auto
 
-Status: implemented, off-car tested only (`test/projectionswitch`); needs the on-car check in `backlog.md`.
+Status: implemented, off-car tested only (`test/projectionswitch`, `test/bridgepeers`); two-phone behaviour below is
+implemented too (stage 5, owner on). Needs the on-car checks in `backlog.md`.
 
 - **Cause (stock NEEV KOR code, offline dump).** GPM answers a phone's wireless Android Auto start
   request with `STATUS_PROJECTION_ALREADY_STARTED` while `DiPOManager.getCurrentDiPOStat()` is above 0
@@ -305,11 +306,26 @@ Status: implemented, off-car tested only (`test/projectionswitch`); needs the on
   it again. So does its next Bluetooth connection after its link went down (the next drive). While
   `GpmManager.isGpmActivated()` is true, the bridge starts no session. This mirrors GPM's rule:
   one projection at a time.
+- **Two phones (owner on, stage 5).** Holds are per phone (`ProjectionSwitch`: two phones can be held). A wireless
+  `disconnectPP` for CarPlay acts only when it names the bridged phone or names none; for another phone it is
+  ignored and that phone is left alone. A `connectPP` for CarPlay releases the named phone's hold (or the single
+  held phone when the name is not held); with two held phones and an unknown name nothing is released. A wireless
+  `cancelConnectionPP` for CarPlay holds the bridged or connecting phone off and stops its live session (the one
+  deliberate single-phone change: the old cancel did nothing). A second phone's SPP coming up is remembered
+  but does not take the bridge's address from a phone with a live session (`BridgePeers.arbitrate`). When a
+  session ends, the previous phone is re-attached if it is eligible (SPP up, not held, not deleted, bonded, no
+  other phone live); otherwise the first other eligible phone that is up starts. A bond removal of a known phone
+  marks it and stops its live session; a re-pair clears the mark. Queued attach work is dropped by token when the
+  decision it was made for has changed (`tokenOk`), with the bridge's own `sSession`/`sCpClient` rolled back.
 - **Known limits.** Phone Projection may send a wireless Android Auto `connectPP` by itself
   (auto-connection when an Android phone's Bluetooth connects). With two phones in the car,
   the Android phone may then take the screen from CarPlay. The hold lives in DiPO's process, so a
   head-unit restart also releases it. GPM may receive the phone's start request before DiPO's status
   drops to 0. In that case, choose Android Auto again.
+- **Not verified on a car (two phones).** Every two-phone path above, including the order in which Phone Projection
+  reports a second phone, the bond events of the vendor's devices, and the 3 s re-attach of the other phone. The
+  host tests run the decisions and a replay of the bridge's sequences (`test/bridgepeers`); `Bridge` itself is not run
+  on the host, so its call sites are checked by reading and by the car.
 
 ## CarPlay turn-by-turn: lane fix, fallback icons, developer toggle
 

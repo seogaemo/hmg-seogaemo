@@ -134,6 +134,21 @@ Stage 3a (gating, no new connect behavior): the owner becomes the single judge o
 - `cpClientAddress(sAddr)`: the CarPlay-channel handover takes the owner's attributed peer.
 - Bond receiver (`BOND_STATE_CHANGED`): bond lost -> `deleted`, end that phone's session; re-bonded -> clear blocks.
 
+Implementation of stage 3a (stage 5; **status: implemented, host-tested, not on car**):
+- One flag: the two-phone arbitration runs only when the connection owner is on (`Bridge.sPeers` is set with `sOwner`, from the same
+  `persist.hmg_seogaemo.owner` switch). With the owner off, every call site runs the single-phone code as before.
+- Pure decisions in `BridgePeers` (arbitration of the served address, eligibility `denyReason`, next-phone `choose`, the phones whose SPP is
+  up, the deleted marks, the queue token). Jobs captured the token when queued (connect, BT_ATTACHED, CarPlay-channel handover, re-attach);
+  a dropped BT_ATTACHED or handover rolls back `sSession` / `sCpClient`. Stale: a hold, a cancel, a bond removal, a session end, the bridged
+  phone's link going down.
+- Re-attach at a session end: the previous phone if eligible; else the first other eligible phone whose SPP is up; else nothing.
+- `ProjectionSwitch` holds a set of phones. A disconnect acts on the bridged phone only when the request names it or no phone; a connect
+  releases the named phone's hold, or the single held phone when the name is not held (the one-phone behaviour); Android Auto stops the
+  bridged phone whatever the name.
+- Cancel (`cancelConnectionPP`, CarPlay, wireless) of the bridged or connecting phone holds it off (the first single-phone change, deliberate).
+- A bond removal of a known phone marks it deleted and stops its live session; a re-pair clears the mark.
+- The owner's blocks follow the holds: `userDisconnected` when the bridge holds a phone off, `userConnected` when the hold is released.
+
 Stage 3b (explicit switch, the riskiest part, only if 3a is clean in review):
 - `connectPP(CarPlay, B)` becomes `ProjectionOwner.connect(B)`: rejected unless B bonded, DiPO not activated, no USB, row present and on. A
   newer explicit connect supersedes one with no native session yet; a 40 s watchdog drops a lock that never produced a session.
@@ -149,7 +164,7 @@ Stage 3b (explicit switch, the riskiest part, only if 3a is clean in review):
 2. Catalogue + KOR map: the five DiPO points and three BtSettings points, host evidence only.
 3. Item 9: `ProjectionOwner` + `OwnerEnv` + hooks + kill switch + tests (`test/projectionowner`) + docs. **Status: implemented (publish only; host-tested, not on car).**
 4. Item 10: `ProjectionDelete` + BtSettings hook + tests. **Status: implemented (host-tested, not on car).**
-5. Item 11a: `Bridge` gating, address fixes, bond receiver + tests. 11b only if time and review allow.
+5. Item 11a: `Bridge` gating, address fixes, bond receiver + tests (11b's address filter included). **Status: implemented (host-tested, not on car); 3b not implemented.**
 Each stage: full `make test` green; one commit; no push/merge.
 
 ## Verification (car, needs two iPhones for item 11)
@@ -161,8 +176,10 @@ Each stage: full `make test` green; one commit; no push/merge.
 3. Delete the PP record while disconnected, reconnect: re-registered. Delete the connected phone from the Bluetooth list: order
    `sendDisconnectPPFromBT` -> finalized -> `4` -> deferred delete; row gone; CarPlay does not return; withhold the `4` (switch the owner
    off midway) and see the 15 s fallback.
-4. Two phones: A connects, B joins Bluetooth: no change, `sAddr`-dependent logs name A; ending A does not auto-start B; disconnect B in PP while A
-   runs: A untouched; user-disconnected phone stays off for 30 min of Bluetooth presence; unpair/re-pair A.
+4. Two phones: A connects, B joins Bluetooth: no change, `sAddr`-dependent logs name A; when A ends and is still eligible, A is re-attached and
+   B stays up but unattached; B starts only when A is not eligible (its SPP is down, it is held, deleted or unbonded); disconnect B in PP while A
+   runs: A untouched; a user-disconnected phone stays off until its Bluetooth link drops and it connects again (the implemented hold rule;
+   there is no 30 minute timer); unpair/re-pair A.
 5. (3b) Pick B in Device Connections: A ends, about 1 s later B connects, one `3` for B; start-stop-start A inside 5 s; head-unit reboot with both
    present (never both connected).
 6. Kill switch `0`: behavior identical to 0.1.47-beta.2.
