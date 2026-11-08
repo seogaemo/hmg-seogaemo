@@ -16,6 +16,8 @@ import re
 import subprocess
 import sys
 
+# importing version.py must not leave tools/__pycache__ behind: the clean-tree check below would fail
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import version as versionlib  # noqa: E402  (the checked-out tools/version.py may change when beta is checked out)
 
@@ -176,7 +178,7 @@ def main():
         parser.error(f"{args.tag} is not a {args.kind} release tag")
     version, number = match.group(1), match.group(2)
     try:
-        if git("status", "--porcelain").stdout.strip():
+        if git("status", "--porcelain", "--untracked-files=no").stdout.strip():
             raise Failure("working tree is not clean")
         if args.kind == "final":
             note = sync_final(args.tag, version, args.remote)

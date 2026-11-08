@@ -1,0 +1,71 @@
+// HMG-Seogaemo: independently written. Behaviour reference: the song-info start in
+// StopDragon/HMG-API (korea-build, AGPL-3.0, commit 577434c); no code copied.
+package hmgapi.mods.wireless.dipo;
+
+/**
+ * Song info for wireless CarPlay. Stock DiPO (HKMC_DiPO setStartiAP2Service) calls
+ * Iap2SvcNowPlayingStart only when the transport is not wireless, so over Wi-Fi the cluster
+ * and media widgets get no title, artist or album art. The bridge starts it once per
+ * CarPlay-channel session, shortly after that session's identification is accepted (the
+ * notification it hides from DiPO). The iAP2 server works on its current session and sends
+ * the updates to DiPO's listener. No stop: the handle goes with the session.
+ *
+ * State lives here, apart from Bridge, so the host test needs no Android.
+ */
+final class NowPlaying {
+    /** iAP2 notification: identification accepted (Bridge.NOTI_IDENTIFICATION_ACCEPTED) */
+    static final int IDENTIFICATION_ACCEPTED = 0;
+    /** after the identification, so the session's own start messages go first */
+    static final long DELAY_MS = 500;
+    /** a refused or failed start is tried again this many times, DELAY_MS apart */
+    static final int TRIES = 3;
+
+    interface Server {
+        /** Iap2SvcNowPlayingStart: false when the server has no session (yet) */
+        boolean start() throws Exception;
+    }
+
+    private boolean started;
+    private int session;
+
+    /** True (once per channel session) when NowPlaying should start now. */
+    synchronized boolean due(boolean on, boolean cpClient, int what) {
+        if (!on || !cpClient || what != IDENTIFICATION_ACCEPTED || started) return false;
+        started = true;
+        return true;
+    }
+
+    /** The channel session ended or a new one starts: the next identification starts it again. */
+    synchronized void reset() {
+        started = false;
+        session++;
+    }
+
+    synchronized int session() {
+        return session;
+    }
+
+    private synchronized boolean current(int s) {
+        return started && s == session;
+    }
+
+    /**
+     * One try. Returns the log line, or null to try again later. A stale try (the session
+     * ended meanwhile) returns "" and does nothing.
+     */
+    String attempt(int s, int tryNo, boolean cpClient, Server server) {
+        if (!cpClient || !current(s)) return "";
+        String why;
+        try {
+            if (server.start()) return "NowPlaying started for the CarPlay-channel session (try " + tryNo + ")";
+            why = "refused";
+        } catch (Throwable t) {
+            why = "failed: " + t;
+        }
+        if (tryNo < TRIES) return null;
+        synchronized (this) {
+            if (s == session) started = false;
+        }
+        return "NowPlaying not started (" + why + ", " + TRIES + " tries)";
+    }
+}

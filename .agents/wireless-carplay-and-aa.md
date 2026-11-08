@@ -333,6 +333,20 @@ implemented too (stage 5, owner on). Needs the on-car checks in `backlog.md`.
   host tests run the decisions and a replay of the bridge's sequences (`test/bridgepeers`); `Bridge` itself is not run
   on the host, so its call sites are checked by reading and by the car.
 
+## Song info on wireless CarPlay
+
+Stock `HKMC_DiPO` `e/b.e(int)` (`setStartiAP2Service`) calls `Iap2SvcNowPlayingStart` (plus telephony
+start) only when the transport is not `CarPlayTransportType.Wireless` (smali "[USB]" branch), so over
+Wi-Fi the iPhone's NowPlaying updates never start and the cluster / media widgets show no title or art.
+`dipo/NowPlaying` (pure state, host-tested) lets the bridge call `Iap2SvcNowPlayingStart` itself once
+per CarPlay-channel session, 500 ms after the identification noti (0) that `Bridge.dipoDropNoti` hides
+from DiPO, up to 3 tries; reset on session start/finalize/component-5 disconnect. No stop (the server
+handle goes with the session). Telephony is untouched. Setting `now_playing` (default true) in the mod
+settings turns it off. Behaviour reference: StopDragon/korea-projection 1.7.1 (AGPL-3.0, fork commit
+577434c); see `UPSTREAM.md`.
+
+Status: offline-built and host-tested only; unverified on the car (checklist in `backlog.md`).
+
 ## CarPlay turn-by-turn: lane fix, fallback icons, developer toggle
 
 - **Stock-format guidance (always on with TBT).** Inside the approach window (300 m ordinary
