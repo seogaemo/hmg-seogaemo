@@ -52,8 +52,13 @@ pf_wifi_hardware() {
     pf_card=$(pf_count_entries "${SG_MMC_DIR:-/sys/bus/mmc/devices}" 'mmc1:*')
     pf_fail=$(pf_dmesg_count 'failed to power up DHD generic adapter')
     pf_mac=$(pf_cmdline_word androidboot.wifimac) || pf_mac=
+    pf_mark=$(cat "${SG_DATA_ROOT:-/data/nemesis/backup/hmg-seogaemo}/wifi-chip" 2>/dev/null) || pf_mark=
     if [ "$pf_sdio" -gt 0 ] || [ "$pf_card" -gt 0 ]; then
         pf_line wifi_hw ok observed 'A Wi-Fi chip answers on the SDIO bus'
+    elif [ "$pf_mark" = seen ]; then
+        pf_line wifi_hw ok observed 'A Wi-Fi chip answered on the SDIO bus when Wi-Fi was last turned on for the chip check'
+    elif [ "$pf_mark" = absent ]; then
+        pf_line wifi_hw block observed 'Wi-Fi was turned on for the chip check and no chip answered on the SDIO bus; wireless CarPlay cannot work on this unit'
     elif [ "$pf_fail" -gt 0 ]; then
         pf_line wifi_hw block observed "The radio was powered but nothing answered on the SDIO bus ($pf_fail failed power-up tries in the kernel log); wireless CarPlay cannot work on this unit"
     elif [ -z "$pf_mac" ]; then
