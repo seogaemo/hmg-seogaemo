@@ -180,6 +180,35 @@ Turn it off with `setprop persist.hmg_seogaemo.owner 0` (restart DiPO's process 
 - [ ] A user-disconnected phone (held) stays off until its Bluetooth link drops and it connects again, not for a timer.
 - [ ] Kill switch `0` with two phones: arbitration off, behaviour as 0.1.47-beta.2 (no `kept`, `ignored` or `bond` lines).
 
+## 1d. Korean cars beyond the Ioniq 5 (beta 0.1.49-beta.4, nothing verified on a car)
+
+Background: AGENTS.md "Known gaps", `car-mapping.md`, `wifi.md`, `wireless-carplay-and-aa.md`. Upstream references (gitignored, clone into `tmp/`): StopDragon/korea-projection (NEMESIS package, 13 confirmed Korean cars), its fork StopDragon/HMG-API branch `korea-build`, Open-HMG/HMG-API issues 21, 22, 108.
+
+- [ ] **Verify the widened gates on the Ioniq 5 first.** `cars=*.KOR.*` on all modules, offered car mapping
+  (must not pop up on the bundled NEEV map), the car-check `firmware`/`onebin` lines, unchanged apply/revert of
+  `wireless-carplay-and-aa`. Then try another Korean car and export the map via the issue form.
+- [ ] **Per-car data for wireless CarPlay on other cars.** `owns_lines` lists 22 `<code>_kr` onebins by naming guess
+  (`neev_kr`, `depehev_kr` verified, rest not); the `app_process` stock MD5 is the Ioniq 5 value, so other cars
+  end in a conflict until their MD5 is added. Collect both from Car Reports. Native recipes were not checked per car.
+- [ ] **Hotspot start where the stock call is a no-op.** Niro (Open-HMG/HMG-API 21) logs
+  `setWifiApEnabledForConnectivity` then nothing; korea-projection starts the stock `hostapd` + `dnsmasq` itself
+  (5 GHz channel 149, locks `wpa_supplicant.conf` to stop a 30 s Wi-Fi service restart loop). Needs a new API
+  function and ownership design; not started.
+- [ ] **Wi-Fi chip probe on a car.** Button `wifi_probe` in the wifi module (`sg_wifi_probe`): unverified, in
+  particular that Wi-Fi/Bluetooth recover after the switch goes back, and that it is only reachable while the
+  module is on. Decide whether it should also be offered before the module is enabled.
+- [ ] **Connectivity SSID/PSK sync (`Bridge.syncConnectivity`) on the Ioniq 5.** Check the logged
+  `connectivity SSID and password set` line; if the pair already matched on this car nothing changed.
+- [ ] **Partial maneuver updates keep the exit angle.** Check on a drive (Apple Maps and NAVER) that
+  distance-only updates keep the arrow and that a new maneuver at the same index does not inherit the old angle.
+- [ ] **"Reading USB" toast on wireless connect.** K5 PR (Open-HMG/HMG-API 108) hooks
+  `com.daudio.app.dipo.k.d.lo()` by name with a fixed resource id. Not done: find the NEEV class/method and the
+  `msg_reading_usb` resource in our dump, then add a proper hook point.
+- [ ] **Updated upstream references.** HMG-API moved to Open-HMG with the wireless mod in
+  Open-HMG/hmgapi-wireless-carplay-aa and 106 commits after `4fab437`; `UPSTREAM.md` and `tools/upstream-diff.sh`
+  still use the old repo and baseline. New hook points there (`dipo.carplay.disable_bluetooth`, `decode_failure`,
+  `screen_timeout`, `force_key_frame`, `framework.hscan_service.battery_12v_*`) are not in our catalogue.
+
 ## 2. Older open items
 
 - [ ] `nemesis root -c` with long commands fails with "daemon write failed"; find the
