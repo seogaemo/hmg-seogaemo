@@ -5,8 +5,8 @@ name=HMG-Seogaemo
 type=application,service
 package-version=@VERSION@
 short-desc="Built-in controls for the Gen5W head unit."
-os=NEEV.KOR.*.260902
-models=neev_kr
+os=*.KOR.*
+models=*_kr
 postinstall=scripts/postinstall.sh
 preuninstall=scripts/preuninstall.sh
 

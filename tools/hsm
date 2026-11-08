@@ -25,7 +25,7 @@ ROOT_CMD = "/data/nemesis/apps/hmg-seogaemo/bin/hmg-seogaemo-root"
 EXTRACTOR = ROOT / "core/hsm/src/com/seogaemo/hmg/core/hsm/HmgSeogaemoHsmExtract.java"
 
 SKELETON = {
-    "module.properties": "id={id}\nversion=0.1.0\napi=1\ncars=NEEV.KOR.*.260902\nrestart=none\nicon=box\n"
+    "module.properties": "id={id}\nversion=0.1.0\napi=1\ncars=*.KOR.*\nrestart=none\nicon=box\n"
                          "setting.1=enabled_value:choice(low|high):low\n",
     "apply.sh": "# Not a shell: one verb per line plus if/elif/else/fi. Turning the module off\n"
                 "# undoes every recorded write.\nset_prop persist.sys.{snake}.level {{setting:enabled_value}}\n",

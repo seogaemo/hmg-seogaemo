@@ -102,7 +102,7 @@ def run():
         assert dict(meta["nemesis"]) == {
             "version": "1.1", "id": "hmg-seogaemo", "name": "HMG-Seogaemo", "type": "application,service",
             "package-version": version, "short-desc": '"Built-in controls for the Gen5W head unit."',
-            "os": "NEEV.KOR.*.260902", "models": "neev_kr", "postinstall": "scripts/postinstall.sh",
+            "os": "*.KOR.*", "models": "*_kr", "postinstall": "scripts/postinstall.sh",
             "preuninstall": "scripts/preuninstall.sh"}
         assert dict(meta["app.0"]) == {"kind": "sh", "path": "bin/open.sh", "uid": "root"}
         assert dict(meta["service.0"]) == {"name": "reconcile", "kind": "sh", "path": "svc/reconcile.sh", "uid": "root", "mode": "background"}

@@ -197,15 +197,17 @@ hmg_seogaemo_preflight() {
     pf_product=$(getprop ro.build.product)
     case "$pf_product" in
         NEEV.KOR.*.260902) pf_line firmware ok observed "Ioniq 5 KOR 260902 ($pf_product)" ;;
+        *.KOR.*) pf_line firmware warn observed "Korean head unit ($pf_product); only the Ioniq 5 KOR 260902 is verified on a car" ;;
         '') pf_line firmware unknown observed 'ro.build.product is empty' ;;
         *) pf_line firmware block observed "Unsupported firmware: $(pf_text "$pf_product")" ;;
     esac
     [ "$(getprop ro.build.version.release)" = 4.4.2 ] &&
         pf_line android ok observed 'Android 4.4.2' ||
         pf_line android block observed "Android $(pf_text "$(getprop ro.build.version.release)") (4.4.2 required)"
-    [ "$(getprop ro.mobis.onebindir)" = neev_kr ] &&
-        pf_line onebin ok observed 'onebin neev_kr' ||
-        pf_line onebin block observed "onebin $(pf_text "$(getprop ro.mobis.onebindir)") (neev_kr required)"
+    case "$(getprop ro.mobis.onebindir)" in
+        *_kr) pf_line onebin ok observed "onebin $(pf_text "$(getprop ro.mobis.onebindir)")" ;;
+        *) pf_line onebin block observed "onebin $(pf_text "$(getprop ro.mobis.onebindir)") (a Korean *_kr folder is required)" ;;
+    esac
     [ "$(getprop sys.boot_completed)" = 1 ] &&
         pf_line boot ok observed 'Android finished booting' ||
         pf_line boot warn observed 'Android has not finished booting; results may be incomplete'

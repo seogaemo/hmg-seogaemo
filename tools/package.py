@@ -16,7 +16,7 @@ from version import read_version
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "out/dist"
-TARGET = {"os": "NEEV.KOR.*.260902", "models": "neev_kr", "androidApi": 19}
+TARGET = {"os": "*.KOR.*", "models": "*_kr", "androidApi": 19}
 HOST_SHELL = set(json.loads((ROOT / "tools/android44-shell-profile.json").read_text())["host_only_scripts"])
 
 

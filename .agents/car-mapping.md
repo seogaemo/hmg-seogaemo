@@ -20,7 +20,8 @@ The private Car Report is never committed. Operator workflow:
 - `tools/map-car.py`: independent baksmali host mapper. `tools/verify-map` validates schema and compares host/on-car maps. CI
   validates every bundled map, catalogue coverage, module requirements, forbidden fields. `UPSTREAM.md` and
   `tools/upstream-diff.sh` track HMG-API commit `4fab437` without copying source.
-- Design decisions kept: explicit "Map this car" after a cheap status check (not automatic on unknown firmware); a map
+- Design decisions kept: the cheap status check runs automatically and, on unknown firmware, the app offers the confirmed
+  "Map this car" itself once per start (the scan is never run without that confirmation); a map
   generated on the car activates after on-car verification plus explicit module enable; mapper runs on a background worker
   outside zygote and the UI process; every required point needs exactly one candidate and passing reflection, else the whole
   projection hook set stays off with point and reason reported; native-recipe checks stay independent.

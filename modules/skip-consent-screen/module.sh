@@ -9,7 +9,7 @@ result() { sg_status "$1" "$2" "$3"; exit $?; }
 desired_on() { [ "$(cat "$SG_DATA_ROOT/desired/skip-consent-screen" 2>/dev/null)" = on ]; }
 compatible() {
     [ "$(getprop ro.build.version.sdk)" = 19 ] || return 1
-    case "$(getprop ro.build.product)" in NEEV.KOR.*.260902) ;; *) return 1;; esac
+    case "$(getprop ro.build.product)" in *.KOR.*) ;; *) return 1;; esac
     [ -f "$framework" ] || return 1
     set -- $(md5 "$framework" 2>/dev/null)
     [ "$1" = "$expected" ] || return 1
@@ -31,12 +31,12 @@ status() {
 }
 precheck() {
     if ! owner_clear; then result conflict none 'Uninstall local.hkmc.factory82 first'; fi
-    if ! compatible; then result incompatible none 'NEEV KOR 260902 framework or verified map mismatch'; fi
+    if ! compatible; then result incompatible none 'unsupported Korean framework or verified map mismatch'; fi
     result off none 'Restart required after enabling and disabling'
 }
 apply() {
     if ! owner_clear; then result conflict none 'Uninstall local.hkmc.factory82 first'; fi
-    if ! compatible; then result incompatible none 'NEEV KOR 260902 framework or verified map mismatch'; fi
+    if ! compatible; then result incompatible none 'unsupported Korean framework or verified map mismatch'; fi
     result pending-restart head_unit 'Restart head unit to activate startup notice skip'
 }
 revert() {
@@ -68,7 +68,7 @@ watch() {
     case "$1" in boot|screen_on) ;; *) exit 2;; esac
     desired_on || exit 3
     owner_clear || result conflict none 'Uninstall local.hkmc.factory82 first'
-    compatible || result incompatible none 'NEEV KOR 260902 framework or verified map mismatch'
+    compatible || result incompatible none 'unsupported Korean framework or verified map mismatch'
     if [ "$1" = boot ] && sg_service_call_ok_this_boot; then result on none 'Already called this boot'; fi
     boot_ready || result failed none 'Android boot did not complete'
     factory_ready || result failed none 'Factory Binder service unavailable'

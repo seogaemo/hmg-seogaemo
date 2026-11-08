@@ -10,8 +10,8 @@ ID=user-button
 ub_gate() {
     [ "$(getprop ro.build.version.sdk)" = 19 ] || { sg_status incompatible none 'Requires Android 4.4'; return $?; }
     case "$(getprop ro.build.product)" in
-        NEEV.KOR.*.260902) ;;
-        *) sg_status incompatible none 'Requires NEEV KOR 260902'; return $? ;;
+        *.KOR.*) ;;
+        *) sg_status incompatible none 'Requires Korean firmware'; return $? ;;
     esac
     for owner in hmgapi leafia; do
         if sg_owner_present "$owner"; then
