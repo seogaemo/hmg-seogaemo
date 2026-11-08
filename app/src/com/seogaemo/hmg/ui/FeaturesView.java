@@ -104,6 +104,7 @@ public final class FeaturesView extends LinearLayout {
                 if (index < entries.size()) {
                     final Entry entry = entries.get(index);
                     FeatureCard card = new FeatureCard(context, entry.feature.icon, entry.feature.name);
+                    if (entry.feature.isAction()) card.setActionLabel(entry.feature.installed.actionLabel());
                     bind(card, entry);
                     cards.put(entry.feature.id, card);
                     cell = card;

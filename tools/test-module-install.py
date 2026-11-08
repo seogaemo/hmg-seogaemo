@@ -672,6 +672,60 @@ def test_merged_takeover(car):
             assert c.prop("persist.btn.a") == "stock-a" and c.prop("persist.btn.b") == "stock-b"
 
 
+def action_package(**changes):
+    files = {
+        "module.properties": "id=oneshot\nversion=1.0.0\napi=1\ncars=NEEV.KOR.*.260902\nkind=action\nicon=bolt\n",
+        "apply.sh": "if action_is open; then\n    call_service com.hkmc.micom.bcm 84\nfi\n",
+        "ui.txt": "button name=open label=@action_label confirm=@action_confirm\n",
+        "strings/en.txt": "name=One shot\nsummary=Test\naction_label=Open\naction_confirm=Open it?\n",
+    }
+    files.update(changes)
+    return {name: text for name, text in files.items() if text is not None}
+
+
+def test_action_kind(car):
+    out = car.root("module", "install", car.offer(action_package()))
+    assert "Installed oneshot 1.0.0" in out, out
+    generated = (car.data / "installed/oneshot.properties").read_text().splitlines()
+    assert "kind=action" in generated and "service_calls=com.hkmc.micom.bcm:84" in generated, generated
+    assert "restore=reboot" not in generated, generated
+    assert "info.kind=action" in car.root("module", "describe", "oneshot", "en")
+    # Never on: status is a neutral off, apply is refused, revert changes nothing and asks for no restart.
+    out = car.root("oneshot", "status")
+    assert "state=off" in out and "detail=Ready" in out, out
+    assert "Invalid command" in car.root("oneshot", "apply", code=2)
+    out = car.root("oneshot", "revert")
+    assert "state=off" in out and "restart=none" in out, out
+    # The button runs without the module being desired on; the unknown name is still refused.
+    assert (car.data / "desired/oneshot").read_text().strip() != "on" if (car.data / "desired/oneshot").exists() else True
+    assert "Unknown button" in car.root("oneshot", "action", "other", code=1)
+    out = car.root("oneshot", "action", "open", code=1)  # no /system/bin/service on the host: the call fails
+    assert "Button action failed" in out, out
+    assert (car.data / "desired/oneshot").read_text().strip() != "on" if (car.data / "desired/oneshot").exists() else True
+    ledger = (car.data / "ledger/ledger.tsv").read_text()
+    assert "oneshot\tservice_call\tcom.hkmc.micom.bcm:84" in ledger, ledger
+    # A toggle module still needs to be on first.
+    car.root("module", "install", car.offer(variant(**{"module.properties": SAMPLE["module.properties"]
+        .replace("id=sample", "id=toggle").replace("rerun_on=boot\n", ""),
+        "ui.txt": "button name=go label=@audio confirm=@audio\n"})))
+    assert "Turn the module on first" in car.root("toggle", "action", "go", code=3)
+
+
+def test_action_kind_refusals(car):
+    def refused(code_text, **changes):
+        out = car.root("module", "install", car.offer(action_package(**changes)), code=1)
+        assert code_text in out, out
+    props = action_package()["module.properties"]
+    refused("HSM-E204", **{"module.properties": props.replace("kind=action", "kind=oneshot")})
+    refused("HSM-E211", **{"module.properties": props + "setting.1=audio:toggle:off\n"})
+    refused("HSM-E211", **{"module.properties": props + "rerun_on=boot\n"})
+    refused("HSM-E211", **{"module.properties": props + "depends=builtin-a\n"})
+    refused("HSM-E212", **{"ui.txt": "info @action_label\n"})
+    refused("HSM-E213", **{"apply.sh": "set_prop persist.test.mode on\nif action_is open; then\n"
+                                       "    call_service com.hkmc.micom.bcm 84\nfi\n"})
+    assert not (car.data / "installed/oneshot").exists()
+
+
 def on_car(test):
     def run(folder):
         test(Car(folder))
@@ -682,5 +736,6 @@ def on_car(test):
 if __name__ == "__main__":
     run_tests([on_car(test) for test in (
         test_install_validation, test_lifecycle, test_reconcile_reapplies, test_hook_host, test_usb_import,
-        test_button_action, test_bundled, test_add_bundled, test_replaces, test_merged_takeover, test_converted_builtin, test_installed_shared_line)],
+        test_button_action, test_bundled, test_add_bundled, test_replaces, test_merged_takeover, test_converted_builtin, test_installed_shared_line,
+        test_action_kind, test_action_kind_refusals)],
         "installed module tests passed")

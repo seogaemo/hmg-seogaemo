@@ -663,6 +663,11 @@ public final class MainActivity extends Activity {
     private void tapFeatureStatus(Feature feature) {
         RootResult result = statuses.get(feature.id);
         if (result == null || settling.contains(feature.id)) return;
+        if (feature.isAction() && result.exitCode == 0 && "off".equals(result.state)) {
+            confirmAction(feature, feature.installed.actionName, feature.installed.actionLabel(),
+                    feature.installed.actionConfirm(), false);
+            return;
+        }
         if (readable(result)) { prepareModuleChange(feature, !moduleEnabled(result), false); return; }
         ConfirmDialog.showResult(this, feature.name, unreachable(result)
                 ? getString(R.string.module_status_unknown) : reasonText(result), getString(R.string.close));
@@ -854,6 +859,14 @@ public final class MainActivity extends Activity {
             action = text(getString(R.string.module_status_unknown), 18, MUTED, sans);
         } else if (entry.state == FeatureCard.State.UNAVAILABLE && !readable(result)) {
             action = text(reasonText(result), 18, ERROR, sans);
+        } else if (feature.isAction()) {
+            action = powerButton(feature.installed.actionLabel(), true);
+            action.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    confirmAction(feature, feature.installed.actionName, feature.installed.actionLabel(),
+                            feature.installed.actionConfirm(), false);
+                }
+            });
         } else {
             final boolean enable = !moduleEnabled(result);
             action = powerButton(getString(enable ? R.string.confirm_turn_on : R.string.confirm_turn_off), enable);
@@ -1035,7 +1048,8 @@ public final class MainActivity extends Activity {
             final String confirm = arguments.containsKey("confirm") ? installed.text(arguments.get("confirm")) : label;
             // danger=1: the action deletes something; the confirm uses the destructive style.
             final boolean danger = "1".equals(arguments.get("danger"));
-            boolean on = result != null && "on".equals(result.state) && RootClient.validActionName(name);
+            boolean on = result != null && ("on".equals(result.state) || installed.action && "off".equals(result.state))
+                    && RootClient.validActionName(name);
             rows.addAction(label, getString(R.string.option_run), false, on, new View.OnClickListener() {
                 public void onClick(View view) { confirmAction(feature, name, label, confirm, danger); }
             });

@@ -16,6 +16,10 @@ public final class InstalledModule {
     public final boolean rebootRestore;
     /** App-drawn icon name from the fixed set in the contract; "box" when undeclared. */
     public final String icon;
+    /** One-shot module (`kind=action`): no on/off state, one button runs it. */
+    public final boolean action;
+    /** Name of the first `button` block of ui.txt, the one a one-shot module's card runs; null if none. */
+    public final String actionName;
     public final String[] depends;
     public final String[] excludes;
     public final String[] uses;
@@ -34,6 +38,7 @@ public final class InstalledModule {
         rebootRestore = "reboot".equals(info.get("restore"));
         String declaredIcon = info.get("icon");
         icon = declaredIcon == null || declaredIcon.length() == 0 ? "box" : declaredIcon;
+        action = "action".equals(info.get("kind"));
         depends = csv(info.get("depends"));
         excludes = csv(info.get("excludes"));
         uses = csv(info.get("uses"));
@@ -56,6 +61,14 @@ public final class InstalledModule {
         settings = Collections.unmodifiableList(new ArrayList<Module.Setting>(foundSettings.values()));
         uiBlocks = Collections.unmodifiableList(new ArrayList<String>(foundUi.values()));
         strings = Collections.unmodifiableMap(foundStrings);
+        String firstButton = null;
+        for (String block : uiBlocks) {
+            String[] tokens = block.trim().split("\\s+");
+            if (tokens.length == 0 || !"button".equals(tokens[0])) continue;
+            for (String token : tokens) if (token.startsWith("name=")) { firstButton = token.substring(5); break; }
+            if (firstButton != null) break;
+        }
+        actionName = firstButton;
     }
 
     /** Null when the result is not a successful description of this module. */
@@ -74,6 +87,10 @@ public final class InstalledModule {
 
     public String name() { return text("name"); }
     public String summary() { return text("summary"); }
+    /** Card and detail button text of a one-shot module: `action_label`, else the module name. */
+    public String actionLabel() { return strings.containsKey("action_label") ? text("action_label") : name(); }
+    /** Confirm question of a one-shot module: `action_confirm`, else the button label. */
+    public String actionConfirm() { return strings.containsKey("action_confirm") ? text("action_confirm") : actionLabel(); }
 
     static Module.Setting setting(String declaration) {
         String[] parts = declaration.split(":", -1);

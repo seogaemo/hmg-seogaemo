@@ -28,6 +28,7 @@ hm_text() {
 
 hm_desired_on() { [ "$(cat "$SG_DATA_ROOT/desired/$id" 2>/dev/null)" = on ]; }
 hm_reboot_class() { grep -Fxq restore=reboot "$manifest"; }
+hm_is_action() { grep -Fxq kind=action "$manifest"; }
 hm_hooks() { grep -Fxq hooks=1 "$manifest"; }
 
 hm_hook_status() {
@@ -116,6 +117,8 @@ hm_extra_status() {
 
 hm_status() {
     hm_gate || return $?
+    # A one-shot action module has no on/off state: it is ready or unavailable.
+    if hm_is_action; then hm_extra_status || return $?; sg_status off none 'Ready'; return $?; fi
     hm_hook_status
     hm_extra_status || return $?
     if hm_reboot_class; then
@@ -162,6 +165,7 @@ hm_check() {
 
 hm_apply() {
     hm_gate || return $?
+    ! hm_is_action || { sg_status failed none 'Action modules cannot be turned on'; return $?; }
     if ! sg_restore_material && ! hm_stock_ok; then
         sg_status incompatible none 'Stock file differs from the one this module expects'; return $?
     fi
@@ -199,6 +203,7 @@ hm_apply() {
 }
 
 hm_revert() {
+    ! hm_is_action || { sg_status off none 'Ready'; return $?; }
     sg_revert_all
     hm_code=$?
     [ "$hm_code" -ne 3 ] || { sg_status conflict none 'Changed outside HMG-Seogaemo; backup retained'; return $?; }

@@ -92,3 +92,8 @@ Rule and scope are in AGENTS.md. Implementation: `com.seogaemo.hmg.ui.ConfirmDia
 ## Screenshots
 
 AVD and README rules are in AGENTS.md. PNGs come from the Android 28 arm64 AVD at 1920×720/240 dpi (no API 19 image or car). Sidebar order: General, Modules, Logs, About, then module pages; inspect the layout before scripting taps. Capture with `adb exec-out screencap -p`.
+
+## One-shot module cards
+
+A `kind=action` module's card shows no state label: the status row is the module's own `action_label` text in the accent
+colour, and the detail panel's primary button carries the same text. Both ask for confirmation first.

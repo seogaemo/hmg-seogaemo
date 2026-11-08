@@ -165,6 +165,7 @@ mi_check_props() {
             hookpoints) [ -f "$mi_pkg/$mi_val" ] && case "$mi_val" in files/*) hsm_ok_src "$mi_val";; *) false;; esac ;;
             setting.[1-9]|setting.[1-9][0-9])
                 hsm_setting_decl "${mi_val%%:*}" && hsm_setting_valid "$hsm_sdefault" ;;
+            kind) case "$mi_val" in toggle|action) ;; *) false;; esac ;;
             icon) case "$mi_val" in box|wifi|phone|terminal|car|gear|display|speaker|camera|map|power|key|skip|button|link|bolt) ;; *) false;; esac ;;
             raw_shell) [ "$mi_mode" = bundled ] && [ "$mi_val" = 1 ] || mi_fail "HSM-E202 raw_shell is allowed only for modules bundled with HMG-Seogaemo" ;;
             replaces)
@@ -194,6 +195,15 @@ mi_check_props() {
     for mi_required in id version api cars; do
         case " $mi_seen " in *" $mi_required "*) ;; *) mi_fail "HSM-E205 module.properties: missing $mi_required";; esac
     done
+    if [ "$(mi_field kind "$mi_props")" = action ]; then
+        for mi_key in $mi_seen; do
+            case "$mi_key" in
+                setting.*|hookpoints|depends|rerun_on|stock_file.*|not_with|hooks|raw_shell|replaces|replaces_setting.*)
+                    mi_fail "HSM-E211 module.properties: kind=action cannot declare $mi_key" ;;
+            esac
+        done
+        grep -q '^button ' "$mi_pkg/ui.txt" 2>/dev/null || mi_fail 'HSM-E212 ui.txt: kind=action needs a button block'
+    fi
     mi_match=0
     mi_old_ifs=$IFS
     IFS=,
@@ -457,6 +467,7 @@ mi_describe() {
         sg_print "info.$mi_key=$(mi_field "$mi_key" "$mi_gen")"
     done
     if grep -Fxq restore=reboot "$mi_gen"; then sg_print info.restore=reboot; else sg_print info.restore=exact; fi
+    if grep -Fxq kind=action "$mi_gen"; then sg_print info.kind=action; else sg_print info.kind=toggle; fi
     mi_icon=$(mi_field icon "$mi_pkg/module.properties")
     sg_print "info.icon=${mi_icon:-box}"
     while IFS='=' read -r mi_key mi_val; do
@@ -565,6 +576,13 @@ mi_generate() {
             hook) mi_hooks=1 ;;
         esac
     done < "$work.touched"
+    mi_action=0
+    [ "$(mi_field kind "$mi_src")" != action ] || mi_action=1
+    if [ "$mi_action" -eq 1 ]; then
+        if [ -n "$mi_props_csv$mi_reassert$mi_files$mi_services" ] || [ "$mi_lines" -ne 0 ] || [ "$mi_hooks" -ne 0 ]; then
+            mi_fail 'HSM-E213 apply.sh: kind=action may only use call_service'
+        fi
+    fi
     mi_restart=$(mi_field restart "$mi_src")
     mi_excludes=$(mi_field not_with "$mi_src")
     # App hooks load at zygote start through the shared core hook host.
@@ -578,13 +596,14 @@ mi_generate() {
             "reassert_props=$mi_reassert" "owns_files=$mi_files" "services=$mi_services" \
             "service_calls=$mi_calls"
         [ "$mi_hooks" -eq 0 ] || sg_print hooks=1
+        [ "$mi_action" -eq 0 ] || sg_print kind=action
         [ -z "$mi_bundle_md5" ] || sg_print "bundle_sha256=$mi_bundle_md5"
         mi_transient "$mi_src"
         if [ "$mi_rawshell" -eq 1 ]; then
             sg_print raw_shell=1
             mi_v=$(mi_field owns_generated_dirs "$mi_src"); [ -z "$mi_v" ] || sg_print "owns_generated_dirs=$mi_v"
             mi_v=$(mi_field restore "$mi_src"); [ -z "$mi_v" ] || sg_print "restore=$mi_v"
-        elif [ -n "$mi_calls" ] && [ -z "$mi_props_csv$mi_files$mi_services" ] && [ "$mi_lines" -eq 0 ]; then
+        elif [ "$mi_action" -eq 0 ] && [ -n "$mi_calls" ] && [ -z "$mi_props_csv$mi_files$mi_services" ] && [ "$mi_lines" -eq 0 ]; then
             sg_print restore=reboot
         fi
         mi_n=0

@@ -771,3 +771,9 @@ Hard rule in AGENTS.md; compatibility authority is `tools/android44-shell-profil
 - Absent: `printf`, `awk`, `sed`, `tail`, `head`, `cut`, `tr`, `wc`, `sort`, `uniq`, `xargs`, `find`, `stat`, `timeout`, `which`, `seq`, `basename`, `dirname`, `sha256sum`/`sha1sum`, `tar`, `unzip`, `busybox`, `toybox`.
 - KitKat has BSD `grep` (`-E -F -q -x -c`) and `readlink -f` (via `realpath`; unused). `cat` and `sleep` resolve to mksh builtins first (`HAVE_SELECT`); sleeps are integer seconds. R43 has no `set -o pipefail`; don't infer features from the newer host mksh. Parse with `while read`, `case`, parameter expansion. Toolbox `mv` has no options (plain rename replaces). Toolbox `md5` needs filenames; hash a text pipe via `/proc/self/fd/0` and check the exit status. Never store binary baselines in variables.
 - The profile is a conservative reviewed subset, not a promise that every unlisted AOSP tool is absent. Host-only payload build helpers are excluded from archives; every shipped shell member, including generated modules, is checked. Dynamic arguments must be data, paths, or values of literal options, never option bundles or command text. Fixed project helpers are checked at their definitions; literal `sh -c` and trap bodies and command substitutions are checked recursively. Waivers apply to one physical line and need manual review of the whole line. The lexer does not prove data flow, service responses, kernel behavior or vendor binaries; keep byte-exact restore tests and on-car validation separate.
+
+## One-shot installed modules (`kind=action`)
+
+`hmg-seogaemo-root <id> action <name>` runs without desired-on state when the generated manifest has `kind=action`;
+`apply` is refused for such a module, `status` reports `off` (`Ready`) and `revert` is a no-op without a restart. Every
+`call_service` still needs the exact `service_calls` pair and is ledgered. Details: [installable-modules.md](installable-modules.md#action-modules-kindaction).

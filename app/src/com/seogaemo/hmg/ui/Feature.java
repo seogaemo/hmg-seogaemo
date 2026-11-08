@@ -41,5 +41,8 @@ public final class Feature {
                 : "head_unit".equals(installed.restart);
     }
 
+    /** A one-shot module: its card shows one action button instead of the on/off state. */
+    public boolean isAction() { return installed != null && installed.action && installed.actionName != null; }
+
     public boolean removable() { return installed != null; }
 }

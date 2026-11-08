@@ -314,11 +314,12 @@ if [ "$2" = action ]; then
     [ ! -f "$SG_DATA_ROOT/uninstall/pending" ] || refuse 3 conflict 'Uninstall pending'
     [ ! -f "$SG_DATA_ROOT/stock/paused" ] || refuse 3 conflict 'Automatic module calls paused'
     ! sg_module_builtin "$base" "$1" || refuse 2 failed 'Invalid command'
-    desired_on "$1" || refuse 3 conflict 'Turn the module on first'
+    grep -Fxq kind=action "$manifest" || desired_on "$1" || refuse 3 conflict 'Turn the module on first'
     /system/bin/sh "$script" action "$3"
     exit $?
 fi
 if [ "$2" = apply ]; then
+    ! grep -Fxq kind=action "$manifest" || refuse 2 failed 'Invalid command'
     [ ! -f "$SG_DATA_ROOT/uninstall/pending" ] || { refuse 3 conflict 'Uninstall pending'; }
     [ -f "$base/modules.graph" ] || refuse 1 failed 'Could not prepare module operation'
     old_ifs=$IFS; IFS=',

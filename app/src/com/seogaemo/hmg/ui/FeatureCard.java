@@ -28,6 +28,7 @@ public final class FeatureCard extends LinearLayout {
     private final ImageView statusGlyphView;
     private final ProgressBar spinner;
     private final TextView statusLabel;
+    private String actionLabel;
 
     public FeatureCard(Context context, String iconName, String title) {
         super(context);
@@ -90,9 +91,12 @@ public final class FeatureCard extends LinearLayout {
         statusRow.setClickable(status != null);
     }
 
+    /** One-shot module: the status row is the action button, labelled with the module's own text. */
+    public void setActionLabel(String label) { actionLabel = label; }
+
     public void setState(State state, String noteText, boolean noteIsError) {
         Context context = getContext();
-        boolean on = state == State.ON;
+        boolean on = state == State.ON && actionLabel == null;
         boolean dimmed = state == State.UNAVAILABLE || state == State.UNKNOWN;
         setBackgroundDrawable(Theme.selectable(context, Theme.SURFACE, on ? Theme.BLUE : Theme.HAIRLINE,
                 Theme.CARD_RADIUS, false));
@@ -116,7 +120,10 @@ public final class FeatureCard extends LinearLayout {
         else if (state == State.UNAVAILABLE) { labelRes = R.string.state_unavailable; color = Theme.MUTED; }
         else if (state == State.UNKNOWN) { labelRes = R.string.state_unknown; color = Theme.MUTED; }
         else { labelRes = R.string.state_loading; color = Theme.MUTED; }
-        statusLabel.setText(context.getString(labelRes));
+        if (actionLabel != null && (state == State.ON || state == State.OFF)) {
+            statusLabel.setText(actionLabel);
+            color = Theme.BLUE;
+        } else statusLabel.setText(context.getString(labelRes));
         statusLabel.setTextColor(color);
         statusGlyph.setColor(color);
         boolean busy = state == State.APPLYING || state == State.LOADING;

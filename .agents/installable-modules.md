@@ -117,6 +117,7 @@ limits and writes only into the staging extraction directory.
 | `raw_shell` | `1` | see Restricted scripts | |
 | `replaces` | module ID list | bundled packages only: take over one renamed bundled module's state, or merge several into this one (runtime contract, "Settings check and module takeover") | |
 | `replaces_setting.<old>` | `key:value` | bundled packages only: when the replaced module `<old>` was on, the takeover sets this module's setting `key` to `value` | |
+| `kind` | `toggle` (default) or `action` | `action`: one-shot module, no on/off state (see Action modules). Refused together with `setting.N`, `hookpoints`, `depends`, `not_with`, `rerun_on`, `stock_file.N`; `apply.sh` may use only `call_service`; `ui.txt` needs a `button` block | `kind` |
 | `icon` | one of `box`, `wifi`, `phone`, `terminal`, `car`, `gear`, `display`, `speaker`, `camera`, `map`, `power`, `key`, `skip`, `button`, `link`, `bolt` | app-drawn line icon on the module card and detail panel; default `box`; modules cannot ship images | `icon` |
 
 Example (`wireless-carplay-and-aa`, design sketch): `id`, `version=1.0.0`, `api=1`, `cars=NEEV.KOR.*.260902`,
@@ -352,7 +353,7 @@ hook host on; stock restore and uninstall exact.
 - Setting change while on: `<id> set KEY VALUE` saves the validated value, reverts the module and applies it
   again, so nothing from the previous value or branch survives. While off it only saves the value.
 - Button: `hmg-seogaemo-root <id> action <name>` (`[a-z0-9_]{1,40}`, installed modules only, name must be a
-  `button name=` in `ui.txt`, module must be desired on) runs `apply.sh` again with `action_is NAME` true under
+  `button name=` in `ui.txt`, module must be desired on unless `kind=action`) runs `apply.sh` again with `action_is NAME` true under
   the operation lock, after the confirm (`confirm=@s`, else the label). Targets it touches get baselines and
   ledger entries like any apply; a failure reports `failed` and keeps backups (no rollback of the running
   module); revert restores everything.
@@ -362,6 +363,20 @@ hook host on; stock restore and uninstall exact.
   source is refused.
 - Whole restore and HMG-Seogaemo uninstall include installed modules in the same dependency graph and revert
   them in reverse order.
+
+## Action modules (`kind=action`)
+
+A one-shot module has nothing to switch on or restore. Its card shows no switch and no on/off label: the status row is
+one button labelled with string `action_label` (else the module name); the detail panel shows the same button. A tap asks
+for confirmation with string `action_confirm` (else the label) through `ui.ConfirmDialog`, then runs the module's first
+`button` block of `ui.txt` (`hmg-seogaemo-root <id> action <name>`). The module need not be on: the root accepts the
+action without desired state, still validating the name against `ui.txt`, taking the operation lock and recording every
+`call_service` in the ledger. `apply` is refused, `revert` is a no-op without a restart, status is `off` with detail
+`Ready` (or `incompatible`/`conflict` as for any module), stock restore and uninstall have nothing to undo, and the
+generated manifest carries `kind=action` and no `restore=reboot`. `module describe` reports `info.kind`. A runtime
+without this feature refuses the package as an unknown `kind` key (HSM-E203).
+
+Errors: HSM-E211 forbidden key, HSM-E212 no `button` block, HSM-E213 a write verb other than `call_service`.
 
 ## ui.txt
 
