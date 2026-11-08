@@ -73,6 +73,16 @@ applied records, transient records), restart-cleanup marker and peer file to `wi
 persistent targets, then drops the old package and records `module_takeover` in the ledger. No system write happens.
 `core/foreign.sh` still recognises `modules/wifi-client` records until then.
 
+## Built-in chip probe
+
+Korean firmware has no Wi-Fi switch, so a unit that never ran Wi-Fi shows no chip on SDIO and a zero
+factory MAC. The module's `wifi_probe` button (shown while `info.chip_unknown=1`, after a confirm, only while the
+module is on) runs `sg_wifi_probe` ([contract](module-runtime-contract.md)): Wi-Fi on once, wait for the chip,
+Wi-Fi back to its previous state. The marker `$SG_DATA_ROOT/wifi-chip` feeds `builtin_missing` (`absent` = no
+built-in role), `info.chip` and the car check `wifi_hw` (`seen` = ok, `absent` = block). It is never run
+automatically: the owner's NEEV KOR unit shows an empty SDIO with the radio off yet works, so an automatic wake would
+restart Bluetooth for nothing there. Not yet run on a car. Reference: korea-projection `wake_wifi`.
+
 ## Compatibility gate
 
 - `ro.build.product` glob `NEEV.KOR.*.260902`, `tcc.wifi.vendor=broadcom`, and nonempty regular

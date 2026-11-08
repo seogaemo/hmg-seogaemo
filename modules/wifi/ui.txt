@@ -1,5 +1,6 @@
 choice setting=builtin_role label=@builtin_role when=builtin_present
 choice setting=usb_role label=@usb_role when=usb_present
+button name=wifi_probe label=@wifi_probe confirm=@wifi_probe_confirm when=chip_unknown
 open screen=wifi_networks when=usb_client
 open screen=wifi_settings when=builtin_client
 value label=@client_ip key=client_ip

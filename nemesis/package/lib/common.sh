@@ -1278,6 +1278,65 @@ sg_service_call_this_boot() {
 sg_service_call_ok_this_boot() {
     sg_service_call_this_boot && [ "$(cat "$HMG_SEOGAEMO_STATE/last-call-result" 2>/dev/null)" = ok ]
 }
+# Wi-Fi chip probe. Korean firmware has no Wi-Fi switch, so a unit that never ran Wi-Fi shows no
+# chip on SDIO. This turns Wi-Fi on through the stock service, waits for the chip and puts the
+# switch back to what it was; the only lasting result is our marker $SG_DATA_ROOT/wifi-chip
+# ("seen" or "absent"). It is a confirmed owner action: Wi-Fi, Bluetooth and USB restart briefly.
+# Returns 0 chip seen, 10 no chip appeared, 1 failure. A chip already on SDIO changes nothing.
+sg_wifi_chip_seen() {
+    for sg_wc_dev in "${SG_SDIO_DIR:-/sys/bus/sdio/devices}"/*; do [ -e "$sg_wc_dev" ] && return 0; done
+    [ "$(cat "$SG_DATA_ROOT/wifi-chip" 2>/dev/null)" = seen ]
+}
+sg_wifi_probe_recover() {
+    # A probe cut off with Wi-Fi on: the previous state was off (the pending file says so).
+    [ -f "$SG_DATA_ROOT/wifi-probe-pending" ] || return 0
+    if [ "$(settings get global wifi_on 2>/dev/null)" = 1 ]; then svc wifi disable >/dev/null 2>&1 || return 1; fi
+    rm -f "$SG_DATA_ROOT/wifi-probe-pending"
+}
+sg_wifi_probe() {
+    sg_ready || return 1
+    mkdir -p "$SG_DATA_ROOT" || return 1
+    sg_wifi_probe_recover || return 1
+    sg_wp_before=$HMG_SEOGAEMO_STATE/wifi-probe.before.$$
+    sg_wp_after=$HMG_SEOGAEMO_STATE/wifi-probe.after.$$
+    sg_wp_prev=$(settings get global wifi_on 2>/dev/null)
+    case "$sg_wp_prev" in 1) ;; *) sg_wp_prev=0 ;; esac
+    sg_print "wifi_on=$sg_wp_prev" > "$sg_wp_before" || return 1
+    if sg_wifi_chip_seen; then
+        sg_write seen > "$SG_DATA_ROOT/wifi-chip" || return 1
+        sg_print "chip=seen" > "$sg_wp_after" && sg_ledger wifi_probe wifi_on "$sg_wp_before" "$sg_wp_after" "" ok
+        rm -f "$sg_wp_before" "$sg_wp_after"
+        return 0
+    fi
+    if [ "$sg_wp_prev" = 0 ]; then
+        sg_write 0 > "$SG_DATA_ROOT/wifi-probe-pending" || return 1
+        svc wifi enable >/dev/null 2>&1 &
+        sg_wp_pid=$!
+        sg_wp_wait=0
+        while [ "$sg_wp_wait" -lt "${SG_WIFI_PROBE_TRIES:-30}" ]; do
+            sleep 2
+            sg_wp_wait=$((sg_wp_wait + 1))
+            sg_wifi_chip_seen && break
+        done
+        kill "$sg_wp_pid" 2>/dev/null || :
+        wait "$sg_wp_pid" 2>/dev/null || :
+        sg_wp_seen=1
+        sg_wifi_chip_seen && sg_wp_seen=0
+        # Put the Wi-Fi switch back; the pending file goes only when that worked.
+        svc wifi disable >/dev/null 2>&1 || return 1
+        rm -f "$SG_DATA_ROOT/wifi-probe-pending"
+    else
+        # Wi-Fi was already on and still no chip: nothing more to wake.
+        sg_wp_seen=1
+    fi
+    if [ "$sg_wp_seen" -eq 0 ]; then sg_wp_mark=seen; else sg_wp_mark=absent; fi
+    sg_write "$sg_wp_mark" > "$SG_DATA_ROOT/wifi-chip" || return 1
+    sg_print "chip=$sg_wp_mark wifi_on=$(settings get global wifi_on 2>/dev/null)" > "$sg_wp_after" || return 1
+    sg_ledger wifi_probe wifi_on "$sg_wp_before" "$sg_wp_after" "" ok || return 1
+    rm -f "$sg_wp_before" "$sg_wp_after"
+    [ "$sg_wp_seen" -eq 0 ] && return 0
+    return 10
+}
 # Transient effects: kernel modules, background daemons, network rules and
 # interface addresses. A head-unit restart removes all of them. Every record
 # starts with the boot id it was made in; a record from an earlier boot is

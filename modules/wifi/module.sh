@@ -62,6 +62,10 @@ wifi_capable() {
 # preflight wifi_hw check. Kernel log only, so the hint is lost once the log rotates.
 builtin_missing() {
     for bm_dev in "${SG_SDIO_DIR:-/sys/bus/sdio/devices}"/*; do [ ! -e "$bm_dev" ] || return 1; done
+    # The owner's chip probe (action wifi_probe) leaves a marker that outlives the kernel log.
+    bm_mark=$(cat "$SG_DATA_ROOT/wifi-chip" 2>/dev/null) || bm_mark=
+    [ "$bm_mark" != seen ] || return 1
+    [ "$bm_mark" != absent ] || return 0
     dmesg 2>/dev/null | grep -Fq 'failed to power up DHD generic adapter'
 }
 # The app hides the built-in role without the radio, so the unset default must not be the client.
@@ -307,6 +311,13 @@ publish() {
 
 facts() {
     if wifi_capable; then sg_print info.builtin_present=1; else sg_print info.builtin_present=0; fi
+    # No chip on SDIO and no earlier probe result: the app offers the confirmed chip probe.
+    if sg_wifi_chip_seen; then sg_print info.chip=seen; else
+        case "$(cat "$SG_DATA_ROOT/wifi-chip" 2>/dev/null)" in
+            absent) sg_print info.chip=absent ;;
+            *) sg_print info.chip=unknown info.chip_unknown=1 ;;
+        esac
+    fi
     sg_print "info.builtin_role=$builtin_role" "info.usb_role=$usb_role"
     [ "$builtin_role" != client ] || sg_print info.builtin_client=1
     fa_ip=$(client_ip wlan0)
@@ -519,6 +530,18 @@ join() {
     result on none 'Network saved'
 }
 
+# Owner action (after the app's confirmation): wake the built-in Wi-Fi chip once and put the
+# switch back. See sg_wifi_probe in the runtime.
+probe() {
+    compatible
+    sg_wifi_probe; pr_rc=$?
+    case "$pr_rc" in
+        0) result on none 'Wi-Fi chip found' ;;
+        10) result on none 'No Wi-Fi chip appeared' ;;
+        *) result failed none 'Wi-Fi chip check failed' ;;
+    esac
+}
+
 case "$#:${1:-}" in
     1:status) status ;;
     1:precheck) precheck ;;
@@ -530,6 +553,7 @@ case "$#:${1:-}" in
         case "$2" in
             wifi_scan) scan ;;
             wifi_join) join ;;
+            wifi_probe) probe ;;
             *) exit 2 ;;
         esac ;;
     *) exit 2 ;;

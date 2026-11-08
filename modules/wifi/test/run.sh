@@ -585,4 +585,5 @@ run apply; assert_state on
 [ "$(peer radio)" = builtin ] && [ "$(peer ready)" = stock ] && [ "$(peer interface)" = wlan0 ]
 run revert; assert_state off
 
+sh "$module/test/probe.sh"
 echo 'wifi module tests passed'

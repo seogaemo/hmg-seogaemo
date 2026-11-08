@@ -18,3 +18,5 @@ carplay_active=Wireless CarPlay or Android Auto may disconnect while switching t
 usb_absent=No supported USB Wi-Fi adapter is connected. It turns on when you plug one in.
 on_result=With built-in Wi-Fi as client the car hotspot turns off; choose a network after the restart.
 off_result=Returns to the car hotspot.
+wifi_probe=Check the Wi-Fi chip
+wifi_probe_confirm=Turn Wi-Fi on briefly to check that the car has a Wi-Fi chip, then turn it off again? Wi-Fi, Bluetooth and USB may restart for about a minute.

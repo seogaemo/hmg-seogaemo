@@ -631,6 +631,11 @@
         "start"
       ]
     },
+    "svc": {
+      "short": {},
+      "source": "frameworks/base/cmds/svc/svc (shell wrapper) and src/com/android/commands/svc/WifiCommand.java",
+      "subcommands": ["wifi"]
+    },
     "settings": {
       "short": {},
       "source": "frameworks/base/cmds/settings/src/com/android/commands/settings/SettingsCmd.java",
