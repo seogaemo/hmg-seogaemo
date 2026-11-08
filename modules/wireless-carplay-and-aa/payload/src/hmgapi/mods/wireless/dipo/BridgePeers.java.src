@@ -1,0 +1,137 @@
+package hmgapi.mods.wireless.dipo;
+// HMG-Seogaemo: which Bluetooth phone the wireless CarPlay bridge serves, with two phones (item 11a of
+// .agents/carplay-connection-owner.md). Pure Java: Bridge keeps the Android side and calls these decisions.
+
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Peer bookkeeping for the bridge. Only active when the connection owner is on (Bridge.sPeers is null otherwise and
+ * the bridge runs its single-phone code as before).
+ *
+ * Arbitration: a phone's SPP coming up never takes the bridge's address from a phone that owns a live session. The
+ * phones whose SPP is up are remembered (sppUp), so a phone that left is re-attached only when it is eligible, else
+ * the first other eligible phone that is up. A queue token stales delayed or queued attach work when the decision it
+ * was made for has changed (a hold, a cancel, a bond removal, a session end, the bridged phone's link going down).
+ */
+final class BridgePeers {
+    /** asks whether a phone may be attached now: its SPP is up and allowAuto says so */
+    interface Eligible {
+        boolean ok(String addr);
+    }
+
+    private final Set<String> sppUp = new LinkedHashSet<String>();
+    private final Set<String> deleted = new HashSet<String>();
+    private int token;
+
+    // SPP of phones (any phone; only Apple phones reach here).
+
+    synchronized void sppUp(String addr) {
+        if (addr == null || find(sppUp, addr) != null) return;
+        sppUp.add(addr);
+    }
+
+    synchronized void sppDown(String addr) {
+        String stored = find(sppUp, addr);
+        if (stored != null) sppUp.remove(stored);
+    }
+
+    synchronized boolean isSppUp(String addr) {
+        return find(sppUp, addr) != null;
+    }
+
+    /** the phones whose SPP is up, in the order they came up */
+    synchronized List<String> sppUpList() {
+        return new ArrayList<String>(sppUp);
+    }
+
+    // Bonds.
+
+    synchronized void markDeleted(String addr) {
+        if (addr != null) deleted.add(upper(addr));
+    }
+
+    synchronized void clearDeleted(String addr) {
+        if (addr != null) deleted.remove(upper(addr));
+    }
+
+    synchronized boolean isDeleted(String addr) {
+        return addr != null && deleted.contains(upper(addr));
+    }
+
+    // Queue token.
+
+    synchronized int token() {
+        return token;
+    }
+
+    /** a decision that must stale the queued work: returns the new token */
+    synchronized int bump() {
+        return ++token;
+    }
+
+    synchronized boolean current(int captured) {
+        return captured == token;
+    }
+
+    /**
+     * Whether a phone may start a session now (allowAuto). null: it may; else the reason (logged by the caller).
+     * liveOwner: the phone that owns a live session now (null: none).
+     */
+    synchronized String denyReason(String addr, boolean bonded, boolean held, String liveOwner) {
+        if (addr == null) return "no address";
+        if (held) return "held by Phone Projection";
+        if (isDeleted(addr)) return "bond removed";
+        if (!bonded) return "not bonded";
+        if (liveOwner != null && !sameAddr(liveOwner, addr)) return "another phone owns the live session";
+        return null;
+    }
+
+    // Pure decisions (no state).
+
+    /**
+     * The address the bridge serves after a phone's SPP came up. A phone that is not the bridged one never takes the
+     * address from a live session; with no live session (or the same phone) the candidate takes it, as before.
+     */
+    static String arbitrate(String current, String candidate, boolean live) {
+        if (candidate == null) return current;
+        if (live && current != null && !sameAddr(current, candidate)) return current;
+        return candidate;
+    }
+
+    /**
+     * After a session ended: the previous phone if it is eligible, else the first other eligible phone that is up,
+     * else null.
+     */
+    static String choose(String previous, List<String> up, Eligible eligible) {
+        if (previous != null && eligible.ok(previous)) return previous;
+        for (String candidate : up) {
+            if (!sameAddr(candidate, previous) && eligible.ok(candidate)) return candidate;
+        }
+        return null;
+    }
+
+    /** a masked address for logs: only the last two octets */
+    static String mask(String addr) {
+        if (addr == null || addr.length() < 5) return "**";
+        return "**:**:**:**:" + addr.substring(addr.length() - 5);
+    }
+
+    static boolean sameAddr(String a, String b) {
+        return a != null && b != null && a.equalsIgnoreCase(b);
+    }
+
+    static String upper(String s) {
+        return s.toUpperCase(java.util.Locale.ROOT);
+    }
+
+    /** the stored entry equal to addr (case-insensitive), or null */
+    static String find(Set<String> set, String addr) {
+        if (addr == null) return null;
+        for (String s : set) if (s.equalsIgnoreCase(addr)) return s;
+        return null;
+    }
+}

@@ -70,6 +70,28 @@
       },
       "type": "class"
     },
+    "dipo.carplay.connect": {
+      "about": "CarPlay connection owner: asks the CarPlay library to connect the phone by device id (null: ERROR; a non-OK result reregisters Bonjour); returns CarPlayReturn",
+      "match": {
+        "name": "connectCarPlay",
+        "parameters": [
+          "java.lang.String"
+        ],
+        "returns": "com.daudio.app.dipo.telechips.CarPlayReturn"
+      },
+      "owner": "dipo.carplay",
+      "type": "method"
+    },
+    "dipo.carplay.disconnect": {
+      "about": "CarPlay connection owner: stops the automatic Bonjour restart and asks the CarPlay library to disconnect; returns CarPlayReturn",
+      "match": {
+        "name": "disconnectCarPlay",
+        "parameters": [],
+        "returns": "com.daudio.app.dipo.telechips.CarPlayReturn"
+      },
+      "owner": "dipo.carplay",
+      "type": "method"
+    },
     "dipo.carplay.iap_message": {
       "about": "iAP2 bytes the phone sent over the CarPlay session's own channel",
       "match": {
@@ -96,11 +118,48 @@
       "owner": "dipo.carplay",
       "type": "method"
     },
+    "dipo.carplay.on_create": {
+      "about": "CarPlay service starts: starts the discovery service, registers its intent receiver and enables non-blocking session callbacks",
+      "match": {
+        "name": "onCreate",
+        "parameters": [],
+        "returns": "void"
+      },
+      "owner": "dipo.carplay",
+      "type": "method"
+    },
+    "dipo.carplay.on_destroy": {
+      "about": "CarPlay service stops: stops the discovery service, stops and deletes the CarPlay session and removes its intent receiver",
+      "match": {
+        "name": "onDestroy",
+        "parameters": [],
+        "returns": "void"
+      },
+      "owner": "dipo.carplay",
+      "type": "method"
+    },
     "dipo.carplay.session_created": {
       "about": "a CarPlay session was created",
       "match": {
         "name": "onSessionCreated",
         "parameters": [],
+        "returns": "void"
+      },
+      "owner": "dipo.carplay",
+      "type": "method"
+    },
+    "dipo.carplay.session_details": {
+      "about": "CarPlay session details from the library (device id, MAC address, model, name bytes, OS build, source version); identifies the connected phone",
+      "match": {
+        "name": "onSessionDetails",
+        "parameters": [
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String",
+          "byte[]",
+          "java.lang.String",
+          "java.lang.String"
+        ],
         "returns": "void"
       },
       "owner": "dipo.carplay",

@@ -142,6 +142,42 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   that the entry still behaves while a projection runs (stock popup, no crash), that choosing Android Auto there switches
   from CarPlay, and that module off restores the wireless page.
 
+## 1c. CarPlay connection owner (stage 3: publish only)
+
+Background: [carplay-connection-owner.md](carplay-connection-owner.md) ("Verification" and "Item 9 design"),
+[wireless-carplay-and-aa.md](wireless-carplay-and-aa.md) "CarPlay connection owner". Off-car tests pass; nothing ran on a car.
+Turn it off with `setprop persist.hmg_seogaemo.owner 0` (restart DiPO's process or the head unit) for the baseline run.
+
+- [ ] One iPhone, fresh boot: `owner: status 1` then `owner: status 3`, once each; Phone Projection lists the phone as connected
+  with its name (PP log `requestWLDeviceConnectStatusUpdate ... connectStatus (3) transferType = 1`). A USB CarPlay phone creates no
+  row and no status.
+- [ ] Unplug or disable the phone: `status 4` only after DiPO is inactive; Phone Projection clears its current device. Start, stop,
+  start inside 5 s: one `4`, then one `3`.
+- [ ] Delete the Phone Projection row while disconnected, then reconnect: it is added again.
+- [ ] Phone Projection's own reaction to 3 and 4: no unexpected popup, no auto-connect of another phone after the end, Android Auto
+  still starts. Record any PP log line that changes.
+- [ ] Delete the connected phone in Bluetooth settings: expect the stale state until stage 4 (`ProjectionDelete`); note what remains.
+- [ ] Kill switch `0`: behaviour identical to 0.1.47-beta.2; logs show `owner: off`.
+- [ ] Known gap to confirm: the `device_list` row survives the module's removal (owner decision in the design note).
+- [ ] **Delete the connected phone in the Bluetooth list (stage 4, `ProjectionDelete`).** Expect the order in logcat:
+  `delete: deletion ... held: disconnect sent`, then the session's finalize, then `status 4`, then
+  `deferred database deletion (matching end) completed`. Afterwards the row is gone from Phone Projection and CarPlay does not
+  reconnect by itself. Note the 15 s fallback line if the end did not come.
+- [ ] Delete a phone that is not connected: stock path (no `delete: deletion ... held` line), immediate row removal.
+- [ ] Delete the connected phone with USB CarPlay (wired) connected: stock path.
+- [ ] Delete a second, not connected phone while the first is in wireless CarPlay: first phone untouched.
+- [ ] Re-pair right after a delete: a connect cancels the deletion (`connected again after its end`); the row is kept.
+- [ ] Kill switch `0`: no `delete:` lines, stock delete behaviour.
+- [ ] **Two iPhones (stage 5, item 11a; needs two phones and the owner on).** Expect no change when B joins Bluetooth while A runs
+  (`kept <mask>` line naming A, B's SPP remembered only). Ending A while A is still eligible re-attaches A and leaves B up but
+  unattached. Ending A while A is not eligible (move A out of range or turn its Bluetooth off first) attaches B.
+- [ ] Disconnect B in Phone Projection while A runs: `ignored`, A keeps its session, nothing held. Disconnect A: A stops and is held;
+  B starts only after A's end and only if B's SPP is up and not held.
+- [ ] Cancel a connecting phone in Phone Projection: `connection of <mask> cancelled: held off`; its attach never runs.
+- [ ] Unpair A while it is connected: `bond removed` line, session stopped, A not attached until paired again; re-pair: `paired again`.
+- [ ] A user-disconnected phone (held) stays off until its Bluetooth link drops and it connects again, not for a timer.
+- [ ] Kill switch `0` with two phones: arbitration off, behaviour as 0.1.47-beta.2 (no `kept`, `ignored` or `bond` lines).
+
 ## 2. Older open items
 
 - [ ] `nemesis root -c` with long commands fails with "daemon write failed"; find the

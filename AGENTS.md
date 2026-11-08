@@ -126,7 +126,7 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
 ## Car mapping
 
 - The core owns mapping; modules declare stable IDs in `hookpoints.required`. The build validates
-  those manifests against the full catalogue. The bundled NEEV KOR map has 348 of 349 points;
+  those manifests against the full catalogue. The bundled NEEV KOR map has 356 of 357 points;
   `themesettings.split_item.type` remains unresolved and no module requires it.
 - `map status` is read-only and matches the exact product, onebin, Android release, and MD5 of every
   stock file in `car.json`. Known maps get reflection verification once per boot on a worker.
@@ -218,8 +218,8 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
 
 ## Known gaps / risks (unverified on a car)
 
-- The 18 v1.0.1 and six stock-guidance map additions have exact-stock host evidence and still
-  need on-car reflection.
+- The 18 v1.0.1, six stock-guidance and eight CarPlay owner map additions have exact-stock host
+  evidence and still need on-car reflection.
   Other feature claims require their own evidence.
 - The core hook host replaces `/system/bin/app_process` for every hook module, `wireless-carplay-and-aa`
   included (boot guard disables it after 3 quick restarts). Keep an adb recovery path ready. CarPlay on the

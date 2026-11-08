@@ -1,5 +1,22 @@
 {
   "points": {
+    "btsettings.pp_bt": {
+      "class": "com.android.settings2.bluetooth.aW"
+    },
+    "btsettings.pp_bt.request_delete": {
+      "method": "l",
+      "params": [
+        "java.lang.String"
+      ],
+      "ret": "boolean",
+      "static": false
+    },
+    "btsettings.pp_bt.send_disconnect": {
+      "method": "ch",
+      "params": [],
+      "ret": "void",
+      "static": false
+    },
     "btsettings.projection_helper": {
       "class": "com.android.settings2.bluetooth.iP"
     },
@@ -238,6 +255,20 @@
     "dipo.carplay": {
       "class": "com.daudio.app.dipo.telechips.CarPlayService"
     },
+    "dipo.carplay.connect": {
+      "method": "connectCarPlay",
+      "params": [
+        "java.lang.String"
+      ],
+      "ret": "com.daudio.app.dipo.telechips.CarPlayReturn",
+      "static": false
+    },
+    "dipo.carplay.disconnect": {
+      "method": "disconnectCarPlay",
+      "params": [],
+      "ret": "com.daudio.app.dipo.telechips.CarPlayReturn",
+      "static": false
+    },
     "dipo.carplay.iap_message": {
       "method": "oniAPSendMessage",
       "params": [
@@ -256,9 +287,34 @@
       "ret": "int",
       "static": false
     },
+    "dipo.carplay.on_create": {
+      "method": "onCreate",
+      "params": [],
+      "ret": "void",
+      "static": false
+    },
+    "dipo.carplay.on_destroy": {
+      "method": "onDestroy",
+      "params": [],
+      "ret": "void",
+      "static": false
+    },
     "dipo.carplay.session_created": {
       "method": "onSessionCreated",
       "params": [],
+      "ret": "void",
+      "static": false
+    },
+    "dipo.carplay.session_details": {
+      "method": "onSessionDetails",
+      "params": [
+        "java.lang.String",
+        "java.lang.String",
+        "java.lang.String",
+        "byte[]",
+        "java.lang.String",
+        "java.lang.String"
+      ],
       "ret": "void",
       "static": false
     },

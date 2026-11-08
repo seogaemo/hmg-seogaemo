@@ -1,0 +1,295 @@
+package hmgapi.mods.wireless;
+// HMG-Seogaemo: Android side of ProjectionDelete, in BtSettings (framework APIs by reflection; see .agents/carplay-connection-owner.md).
+
+import android.content.Context;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.phoneprojection.IWLDeviceListener;
+import android.phoneprojection.WLDeviceInfo;
+import hmgapi.hook.LoadedApp;
+import hmgapi.hook.ModContext;
+import hmgapi.hook.Points;
+
+/**
+ * ProjectionDelete's environment in BtSettings: Phone Projection (PPManager and WLDeviceInfo, by
+ * getSystemService("phoneprojection")), DiPO (DiPOManager), the profile (UserProfileManager when the profile feature
+ * exists, else 0), the stock disconnect (btsettings.pp_bt.send_disconnect on the request's aW instance) and the
+ * process-wide listener. Each call throws on failure; ProjectionDelete turns that into the stock path (see there).
+ */
+final class ProjectionDeleteEnv implements ProjectionDelete.Env {
+    static final String KILL_SWITCH = "persist.hmg_seogaemo.owner";
+    static final String PP_SERVICE = "phoneprojection", DIPO_SERVICE = "dipo";
+    static final String PROFILE_FEATURE = "com.hkmc.software.user.profile";
+    static final String INFO_CLASS = "android.phoneprojection.WLDeviceInfo";
+    static final String PROFILE_CLASS = "com.hkmc.userprofile.UserProfileManager";
+    static final String FEATURE_CLASS = "com.hkmc.Feature";
+    static final String DISCONNECT_POINT = "btsettings.pp_bt.send_disconnect";
+
+    private static ProjectionDelete sDelete;
+    private static Handler sHandler;
+    private static volatile ModContext sMod;
+    private static volatile Context sContext;
+    private static volatile ClassLoader sLoader;
+    /** the aW instance whose request is being decided (the hooked method's receiver) */
+    private static volatile Object sAw;
+
+    private Object profile;
+
+    private ProjectionDeleteEnv() {}
+
+    /** the kill switch (the same property as the DiPO owner); read when BtSettings installs the hook */
+    static boolean killSwitchOn() {
+        return !"0".equals(prop(KILL_SWITCH, "1"));
+    }
+
+    /** called once, when the hook is installed in BtSettings */
+    static void bind(ModContext mod, LoadedApp app) {
+        sMod = mod;
+        sContext = app.context;
+        sLoader = app.classLoader;
+    }
+
+    /**
+     * The hooked aW.l(addr): true when the stock delete must be skipped (held). Never throws; a failure is stock.
+     */
+    static boolean hold(Object aw, String addr) {
+        try {
+            sAw = aw;
+            return delete().maybeDelete(addr);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private static synchronized ProjectionDelete delete() {
+        if (sDelete == null) sDelete = new ProjectionDelete(new ProjectionDeleteEnv());
+        return sDelete;
+    }
+
+    private static synchronized Handler handler() {
+        if (sHandler == null) {
+            HandlerThread t = new HandlerThread("hmgapi-pp-delete");
+            t.start();
+            sHandler = new Handler(t.getLooper());
+        }
+        return sHandler;
+    }
+
+    /** the hook is installed only while the kill switch allows (killSwitchOn), so the decision keeps it on */
+    @Override
+    public boolean enabled() {
+        return true;
+    }
+
+    @Override
+    public void post(Runnable r) {
+        handler().post(r);
+    }
+
+    @Override
+    public void postDelayed(Runnable r, long delayMs) {
+        handler().postDelayed(r, delayMs);
+    }
+
+    @Override
+    public void log(String message) {
+        ModContext m = sMod;
+        if (m != null) m.log(message);
+    }
+
+    @Override
+    public boolean dipoActivated() {
+        try {
+            Object dipo = context().getSystemService(DIPO_SERVICE);
+            if (dipo == null) throw new IllegalStateException("no dipo service");
+            return Boolean.TRUE.equals(dipo.getClass().getMethod("isDiPOActivated").invoke(dipo));
+        } catch (Exception e) {
+            throw new IllegalStateException("isDiPOActivated", e);
+        }
+    }
+
+    @Override
+    public String connectedCp() {
+        try {
+            Object address = pp().getClass().getMethod("getCPConnectedBTAddress").invoke(pp());
+            return address == null ? null : address.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("getCPConnectedBTAddress", e);
+        }
+    }
+
+    @Override
+    public int transferType(String addr) {
+        try {
+            Object pp = pp();
+            return ((Integer) pp.getClass().getMethod("getWLDeviceTransferType", String.class, String.class)
+                    .invoke(pp, addr, null)).intValue();
+        } catch (Exception e) {
+            throw new IllegalStateException("getWLDeviceTransferType", e);
+        }
+    }
+
+    @Override
+    public int userType() {
+        try {
+            if (!Boolean.TRUE.equals(Class.forName(FEATURE_CLASS).getMethod("hasFeature", String.class)
+                    .invoke(null, PROFILE_FEATURE))) return 0;
+            if (profile == null) profile = Class.forName(PROFILE_CLASS).getConstructor(Context.class).newInstance(context());
+            return ((Integer) profile.getClass().getMethod("getUserType").invoke(profile)).intValue();
+        } catch (Exception e) {
+            throw new IllegalStateException("user profile", e);
+        }
+    }
+
+    @Override
+    public ProjectionDelete.Row row(String addr, String serial, int user) {
+        try {
+            Object pp = pp();
+            Object info = pp.getClass().getMethod("getWLDeviceInfo", String.class, String.class, int.class)
+                    .invoke(pp, addr, serial, user);
+            return info == null ? null : toRow(info);
+        } catch (Exception e) {
+            throw new IllegalStateException("getWLDeviceInfo", e);
+        }
+    }
+
+    @Override
+    public boolean disconnectCp() {
+        try {
+            Points.call(sLoader, DISCONNECT_POINT, sAw);
+            return true;
+        } catch (Throwable t) {
+            log("stock disconnect failed: " + t);
+            return false;
+        }
+    }
+
+    @Override
+    public void barrier() {
+        try {
+            Object pp = pp();
+            pp.getClass().getMethod("isCPAutoConnectionAvailableDevice", String.class).invoke(pp, "");
+        } catch (Exception e) {
+            throw new IllegalStateException("isCPAutoConnectionAvailableDevice", e);
+        }
+    }
+
+    @Override
+    public boolean deleteRow(String addr, String serial, int user) {
+        try {
+            Object pp = pp();
+            return Boolean.TRUE.equals(pp.getClass().getMethod("onWLDeviceDeleteDB", String.class, String.class, int.class)
+                    .invoke(pp, addr, serial, user));
+        } catch (Exception e) {
+            throw new IllegalStateException("onWLDeviceDeleteDB", e);
+        }
+    }
+
+    @Override
+    public void listen(ProjectionDelete.Sink sink) {
+        try {
+            Object pp = pp();
+            pp.getClass().getMethod("addWLDeviceInfoListener", IWLDeviceListener.class).invoke(pp, new Listener(sink));
+        } catch (Exception e) {
+            throw new IllegalStateException("addWLDeviceInfoListener", e);
+        }
+    }
+
+    private static Object pp() {
+        Object pp = context().getSystemService(PP_SERVICE);
+        if (pp == null) throw new IllegalStateException("no phoneprojection service");
+        return pp;
+    }
+
+    private static Context context() {
+        Context c = sContext;
+        if (c == null) throw new IllegalStateException("no BtSettings context");
+        return c;
+    }
+
+    private static ProjectionDelete.Row toRow(Object info) {
+        try {
+            return new ProjectionDelete.Row(text(info, "getWLDevBtAddr"), text(info, "getWLDevSerialNum"),
+                    text(info, "getWLDevMacAddr"), text(info, "getWLDevName"),
+                    ((Integer) call(info, "getWLDevUserType")).intValue(),
+                    ((Integer) call(info, "getWLDType")).intValue(),
+                    ((Integer) call(info, "getWLTransferType")).intValue());
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static Object call(Object target, String name) {
+        try {
+            return target.getClass().getMethod(name).invoke(target);
+        } catch (Exception e) {
+            throw new IllegalStateException(name, e);
+        }
+    }
+
+    private static String text(Object target, String name) {
+        Object v = call(target, name);
+        return v == null ? null : v.toString();
+    }
+
+    private static String prop(String key, String fallback) {
+        try {
+            return (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class, String.class)
+                    .invoke(null, key, fallback);
+        } catch (Throwable t) {
+            return fallback;
+        }
+    }
+
+    /** Phone Projection's status updates for this process: the connect status goes to the sink, the rest is ignored */
+    static final class Listener extends IWLDeviceListener.Stub {
+        private final ProjectionDelete.Sink sink;
+
+        Listener(ProjectionDelete.Sink sink) {
+            this.sink = sink;
+        }
+
+        @Override
+        public void requestWLDeviceConnectStatusUpdate(WLDeviceInfo info, int status) {
+            try {
+                ProjectionDelete.Row row = info == null ? null : toRow(info);
+                if (row != null) sink.connectStatus(row, status);
+            } catch (Throwable ignored) {
+                // a binder callback must not throw into Phone Projection
+            }
+        }
+
+        @Override
+        public void requestWLDeviceReadyStatusUpdate(WLDeviceInfo info, int status) {
+        }
+
+        @Override
+        public void requestWLDeviceInfoAdd(WLDeviceInfo info) {
+        }
+
+        @Override
+        public void requestWLDeviceInfoUpdate(WLDeviceInfo info) {
+        }
+
+        @Override
+        public void requestWLDeviceDisconnectedByUser(WLDeviceInfo info) {
+        }
+
+        @Override
+        public boolean isCPAutoConnectionAvailableDevice(String address) {
+            return false;
+        }
+
+        @Override
+        public void onCarPlaySupportOOB(boolean supported) {
+        }
+
+        @Override
+        public void requestConnectSPP(String address) {
+        }
+
+        @Override
+        public void requestDisconnectSPP(String address) {
+        }
+    }
+}

@@ -1,0 +1,8 @@
+package android.phoneprojection;
+
+/**
+ * framework.jar: a Phone Projection device row. The mod reads its fields by reflection (getWLDevBtAddr and the
+ * other getters), so this stub only declares the type for the listener signatures.
+ */
+public class WLDeviceInfo {
+}

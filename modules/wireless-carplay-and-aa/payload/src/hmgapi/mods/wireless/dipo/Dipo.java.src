@@ -331,6 +331,7 @@ public final class Dipo {
                 Bridge.onCpIapIn(p.thisObject, (byte[]) p.args[0], (Integer) p.args[1]);
             }
         });
+        ownerHooks(cl);
         // DiPO's own wireless CarPlay (Hyundai's) stays off: the feature file is there for the other apps
         mod.hook(cl, "dipo.utils.is_support_wireless_carplay", new MethodHook() {
             @Override
@@ -370,6 +371,50 @@ public final class Dipo {
         firstConnectNotice();
         Bridge.registerProjectionListener(app.context);
         log("bridge: wireless CarPlay Bluetooth bridge in DiPO");
+    }
+
+    /**
+     * The CarPlay connection owner (ProjectionOwner): reports wireless CarPlay to Phone Projection. Off by the kill
+     * switch, or when the three optional points are not mapped; then nothing here is hooked and the bridge is as before.
+     * The owner also switches on the two-phone arbitration (BridgePeers, bond receiver): one flag for all of item 11.
+     * The optional points are not in hookpoints.required, so a map without them still runs everything else.
+     */
+    private static void ownerHooks(final ClassLoader cl) {
+        if (!Bridge.ownerWanted()) {
+            log("owner: off (persist.hmg_seogaemo.owner=0)");
+            return;
+        }
+        String missing = Points.missing("dipo.carplay.on_create", "dipo.carplay.on_destroy", "dipo.carplay.session_details");
+        if (missing.length() != 0) {
+            log("owner: points missing, off (" + missing + ")");
+            return;
+        }
+        try {
+            Bridge.startOwner();
+            Bridge.registerBondReceiver(app.context);
+            mod.hook(cl, "dipo.carplay.on_create", new MethodHook() {
+                @Override
+                protected void afterHookedMethod(Param p) {
+                    Bridge.ownerCreated();
+                }
+            });
+            mod.hook(cl, "dipo.carplay.on_destroy", new MethodHook() {
+                @Override
+                protected void beforeHookedMethod(Param p) {
+                    Bridge.ownerDestroyed();
+                }
+            });
+            mod.hook(cl, "dipo.carplay.session_details", new MethodHook() {
+                @Override
+                protected void beforeHookedMethod(Param p) {
+                    Bridge.onCpSessionDetails((String) p.args[0], (String) p.args[1], (byte[]) p.args[3]);
+                }
+            });
+            log("owner: on (wireless CarPlay state reported to Phone Projection)");
+        } catch (Throwable t) {
+            Bridge.stopOwner();
+            error("owner: hooks", t);
+        }
     }
 
     /**

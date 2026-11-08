@@ -445,6 +445,9 @@ sh "$HERE/test/consumer/run.sh" > "$T/consumer.out" 2>&1 || { cat "$T/consumer.o
 sh "$HERE/test/cpturns/run.sh" > "$T/cpturns.out" 2>&1 || { cat "$T/cpturns.out"; fail cpturns; }
 sh "$HERE/test/usbhotspot/run.sh"
 sh "$HERE/test/projectionswitch/run.sh"
+sh "$HERE/test/projectionowner/run.sh"
+sh "$HERE/test/projectiondelete/run.sh"
+sh "$HERE/test/bridgepeers/run.sh"
 sh "$HERE/test/projectionmenu/run.sh"
 python3 "$HERE/test/trapoverlay/test.py"
 python3 "$HERE/test/aautf8/test.py"

@@ -103,6 +103,20 @@ r8.2 build (third party, not installed alongside) was the behavioral reference: 
 wireless page. Behavior only; no code or odex delta was copied, and the stock choice was confirmed in the stock smali.
 See [.agents/wireless-carplay-and-aa.md](.agents/wireless-carplay-and-aa.md).
 
+## CarPlay connection owner reference (r8.2, behavior only)
+
+The community HMG Leafia Plus r8.2 build (third party, not installed alongside) was the behavioral reference for the
+CarPlay connection owner (`ProjectionOwner`, item 9 of [.agents/carplay-connection-owner.md](.agents/carplay-connection-owner.md)):
+which status Phone Projection receives for a wireless CarPlay session (ready, connected, ended), when they are sent
+(after DiPO's activation state changes), and how an owed end is carried into a quick reconnect. Behavior only: the rules were
+read from its decompiled owner class and written again as our own state machine, names and tests. No smali, Java or
+structure was copied, and its owner class is not ported. Where we differ on purpose: an owed end waits for DiPO to go inactive
+(with a 30 s cap) instead of being sent at the next session start, and activation is polled with a cap. Stock NEEV KOR smali
+is the evidence for our hook points (`dipo.carplay.*`, `btsettings.pp_bt*`). The same build's delete order for the connected
+phone (disconnect first, row deleted after the matching end, with a binder barrier and a fallback) was the behavioral reference
+for `ProjectionDelete` (item 10); we add a 15 s fallback it does not have for CarPlay. Behavior only, nothing copied.
+See [.agents/wireless-carplay-and-aa.md](.agents/wireless-carplay-and-aa.md).
+
 ## Startup consent screen reference
 
 The community [HKMC Factory 82 package](https://github.com/armandodollia/nemesis-package-builds) by armandodollia (`local.hkmc.factory82`, release `4.2.1`, MIT) is the behavioral reference for `skip-consent-screen`. Its `packages/hkmc-factory82/svc/watch.sh` calls `com.hkmc.factory` Binder transaction `82` after startup or display wake. HMG-Seogaemo independently implements a fixed-call API and shared `watcher` service; it has not copied the package scripts. See [.agents/skip-consent-screen.md](.agents/skip-consent-screen.md).

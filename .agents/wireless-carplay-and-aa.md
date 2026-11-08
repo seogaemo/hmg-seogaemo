@@ -31,7 +31,7 @@ The `hmgapi.*` Java namespaces remain internally to preserve the mod's app-part 
 
 ## Exact car map and firmware guards
 
-The map is `maps/hyundai/ioniq5/kor/260902/{map.json,car.json}` in the core package. It contains 348 resolved point names and all 18 stock-file MD5s reported for this car; the original 324 have on-car reflection evidence and the 24 additions have host evidence only (see car-mapping.md). The module declares 120 point IDs, including owner classes and supporting fields, in `hookpoints.required`. Root precheck requires `map status` to report a verified core map. The zygote loader reads the package API's active pointer under `/data/nemesis/backup/hmg-seogaemo/car-maps/`, checks the exact product, onebin, Android version, boot verification seal, and all map stock MD5s, then loads the published verified entries. The module has no private payload map and installs no map into `/system`. The report has no whole-file hash for `app_process`, `featurexml.cfg`, or native libraries. Native recipes still verify their own byte regions. HMG-API's Dalvik offsets were proven on US EV6; on-car KOR validation remains necessary.
+The map is `maps/hyundai/ioniq5/kor/260902/{map.json,car.json}` in the core package. It contains 356 resolved point names and all 18 stock-file MD5s reported for this car; the original 324 have on-car reflection evidence, and the 24 additions and the 8 optional CarPlay owner points (see "CarPlay connection owner") have host evidence only (see car-mapping.md). The module declares 120 point IDs, including owner classes and supporting fields, in `hookpoints.required`. Root precheck requires `map status` to report a verified core map. The zygote loader reads the package API's active pointer under `/data/nemesis/backup/hmg-seogaemo/car-maps/`, checks the exact product, onebin, Android version, boot verification seal, and all map stock MD5s, then loads the published verified entries. The module has no private payload map and installs no map into `/system`. The report has no whole-file hash for `app_process`, `featurexml.cfg`, or native libraries. Native recipes still verify their own byte regions. HMG-API's Dalvik offsets were proven on US EV6; on-car KOR validation remains necessary.
 
 Declared hook points and their exact resolved members on this car:
 
@@ -224,9 +224,74 @@ cleanup and retain recovery material.
 Off-car build/fake-root tests cannot prove Dalvik offsets, native recipe matches, wireless sessions or head-unit boot recovery; the on-car checks in this section stay required for each new payload.
 
 
+## CarPlay connection owner
+
+Status: implemented as stage 3 of [carplay-connection-owner.md](carplay-connection-owner.md) (item 9, publish only); host-tested (`test/projectionowner`, 25 cases); off-car only. Car checks: `backlog.md`.
+
+- **What it reports.** For the bridged wireless CarPlay phone, Phone Projection's device record gets `requestWLDeviceInfoAdd`
+  when the row is missing, then connect status 1 (ready) and 3 (connected) once DiPO is active and the phone is bonded, and
+  4 (ended) after the native session finalized and DiPO is inactive. Every row is wireless CarPlay (ppType 1, transferType 1).
+  A row with another transfer type is not reported and not rewritten. Wired sessions (USB, or transport other than wireless) are
+  never reported. Android Auto never reaches the owner: it runs through GPM, not `CarPlayService`.
+- **Code.** `ProjectionOwner` (pure Java 7 state machine behind an `Env` interface; no android imports) and `OwnerEnv`
+  (Android glue: `PPManager`, `WLDeviceInfo`, `DiPOManager`, `UserProfileManager` and `BluetoothAdapter` by reflection;
+  every call guarded, a first failure logs once and turns the owner off). The owner thread is `Bridge.handler()`.
+  `Bridge` calls it from the existing `onCpSessionCreated/Started/Finalized`, from `PpListener.runningPP`, and from the new
+  `dipo.carplay.session_details` hook (the device id, MAC and name of the native session).
+- **Attribution.** The session belongs to the Bluetooth address the bridge served at session creation, and only when the native
+  device id is not one learned for another phone this boot and does not change for that address.
+- **Waiting.** While a connect or an end waits for DiPO's activation state, it is polled every 250 ms. An end waits at most 30 s,
+  then is sent anyway (logged `(cap)`), so Phone Projection never stays connected. A connect gives up after 30 s and reports nothing.
+  Stale delayed work (an older generation) is dropped.
+- **Ordering.** A new session that starts before the owed end is sent carries the end; its connected status is held until the 4 is
+  sent. Only one end is owed at a time.
+- **Block sets (memory only).** `userDisconnected` (the bridge holds a phone off), `userConnected` (the hold is released), `bondLost`
+  and `bondRestored` update the blocked and deleted sets, driven by `Bridge` since stage 5 (the connect side waits for stage 3b).
+- **Kill switch.** `persist.hmg_seogaemo.owner`: default on, `0` off, read once when DiPO's bridge starts (DiPO process start).
+  The owner is also off, with no hook installed, when `dipo.carplay.on_create`, `dipo.carplay.on_destroy` or
+  `dipo.carplay.session_details` is not mapped (log `owner: points missing, off`). Then the bridge behaves as 0.1.47-beta.2.
+- **Optional points.** The three hooks are not in `hookpoints.required` nor in the Java `dipo` part list
+  (`RequiredPoints.java.src`), so the module starts without them. `mod.hook` resolves a point name against the verified car map
+  (`Points.hook` → `entry`); the declared lists gate only module and part status, not hooks. Every use is guarded by `Points.has`.
+  `dipo.carplay.connect`, `dipo.carplay.disconnect` and `btsettings.pp_bt*` are mapped (host evidence) but unused until stages 3b and 4.
+- **Known gap: the Phone Projection row persists.** `requestWLDeviceInfoAdd` writes a `device_list` row in Phone Projection's app
+  data, outside the package ledger. Removing the module leaves it; it goes when the phone is deleted in Bluetooth settings. No root
+  verb removes it (a free-form target is forbidden). Rows stay while the module is on because the Phone Projection switch needs them.
+  Owner decision pending (see the design note).
+- **Stock behavior still to verify on car.** Phone Projection's own reaction to status 3 and 4 (popups, auto-connect after an end,
+  Android Auto start while a CarPlay row is connected) is traced only from the stock code and r8.2's behavior.
+
+### Deleting the connected CarPlay phone
+
+Status: implemented as stage 4 of [carplay-connection-owner.md](carplay-connection-owner.md) (item 10); host-tested
+(`test/projectiondelete`, 22 cases); off-car only.
+
+- **Stock order (the bug).** BtSettings `aW.l` (the Bluetooth list's delete) disconnects the connected CarPlay phone and deletes its
+  Phone Projection row at once. The row is gone when the session's end arrives, so Phone Projection keeps a stale connected device.
+- **Now.** `ProjectionDelete` (pure Java, `hmgapi.mods.wireless`) holds the request only for the connected wireless CarPlay phone with
+  DiPO active and a matching wireless CarPlay row. Held: the stock disconnect (`btsettings.pp_bt.send_disconnect`) is sent first, the
+  stock delete is skipped (`aW.l` returns false, as it already does when Phone Projection defers a delete), and the row is deleted once,
+  after the matching end (status 4): a binder barrier, then DiPO inactive, then a row identity check.
+- **Reconnect.** A connect (2 or 3) after that end cancels the deletion and keeps the row. A connect before the end is Phone
+  Projection's own state and does not cancel.
+- **15 s fallback (ours; r8.2 has none for CarPlay).** Without a matching end within 15 s, the held deletion runs anyway, so a deleted
+  phone does not linger. It runs whatever DiPO's state is (Phone Projection itself postpones a delete by 300 ms while connectivity is
+  active).
+- **Stock everywhere else.** Kill switch, wired or other phone, Android Auto, no or other-type row, a changed profile (at the end),
+  any read failure before the disconnect is sent, or a listener that cannot be registered: `aW.l` runs unchanged. A failure after the
+  disconnect is sent holds (the fallback applies). A failed deletion call is logged and not retried.
+- **Where it runs.** The decision runs in BtSettings on the request's thread; the listener is registered once per process
+  (`ProjectionDeleteEnv`, reflection on PPManager/DiPOManager/UserProfileManager, self-contained because DiPO's part is not visible
+  there). The hook is installed only when `btsettings.pp_bt`, `.request_delete` and `.send_disconnect` are mapped and the kill switch
+  `persist.hmg_seogaemo.owner` is not `0` (read at BtSettings start; the same switch as the DiPO owner).
+- **Known limits.** The row is looked up with a null serial, as r8.2 does (`getWLDeviceInfo(addr, null, user)`); this is unverified on a
+  car. The deletion is claimed once. The row identity check uses address, profile, type, transfer and serial (not the MAC). Car checks:
+  `backlog.md` section 1c.
+
 ## Switching from wireless CarPlay to Android Auto
 
-Status: implemented, off-car tested only (`test/projectionswitch`); needs the on-car check in `backlog.md`.
+Status: implemented, off-car tested only (`test/projectionswitch`, `test/bridgepeers`); two-phone behaviour below is
+implemented too (stage 5, owner on). Needs the on-car checks in `backlog.md`.
 
 - **Cause (stock NEEV KOR code, offline dump).** GPM answers a phone's wireless Android Auto start
   request with `STATUS_PROJECTION_ALREADY_STARTED` while `DiPOManager.getCurrentDiPOStat()` is above 0
@@ -247,11 +312,26 @@ Status: implemented, off-car tested only (`test/projectionswitch`); needs the on
   it again. So does its next Bluetooth connection after its link went down (the next drive). While
   `GpmManager.isGpmActivated()` is true, the bridge starts no session. This mirrors GPM's rule:
   one projection at a time.
+- **Two phones (owner on, stage 5).** Holds are per phone (`ProjectionSwitch`: two phones can be held). A wireless
+  `disconnectPP` for CarPlay acts only when it names the bridged phone or names none; for another phone it is
+  ignored and that phone is left alone. A `connectPP` for CarPlay releases the named phone's hold (or the single
+  held phone when the name is not held); with two held phones and an unknown name nothing is released. A wireless
+  `cancelConnectionPP` for CarPlay holds the bridged or connecting phone off and stops its live session (the one
+  deliberate single-phone change: the old cancel did nothing). A second phone's SPP coming up is remembered
+  but does not take the bridge's address from a phone with a live session (`BridgePeers.arbitrate`). When a
+  session ends, the previous phone is re-attached if it is eligible (SPP up, not held, not deleted, bonded, no
+  other phone live); otherwise the first other eligible phone that is up starts. A bond removal of a known phone
+  marks it and stops its live session; a re-pair clears the mark. Queued attach work is dropped by token when the
+  decision it was made for has changed (`tokenOk`), with the bridge's own `sSession`/`sCpClient` rolled back.
 - **Known limits.** Phone Projection may send a wireless Android Auto `connectPP` by itself
   (auto-connection when an Android phone's Bluetooth connects). With two phones in the car,
   the Android phone may then take the screen from CarPlay. The hold lives in DiPO's process, so a
   head-unit restart also releases it. GPM may receive the phone's start request before DiPO's status
   drops to 0. In that case, choose Android Auto again.
+- **Not verified on a car (two phones).** Every two-phone path above, including the order in which Phone Projection
+  reports a second phone, the bond events of the vendor's devices, and the 3 s re-attach of the other phone. The
+  host tests run the decisions and a replay of the bridge's sequences (`test/bridgepeers`); `Bridge` itself is not run
+  on the host, so its call sites are checked by reading and by the car.
 
 ## CarPlay turn-by-turn: lane fix, fallback icons, developer toggle
 

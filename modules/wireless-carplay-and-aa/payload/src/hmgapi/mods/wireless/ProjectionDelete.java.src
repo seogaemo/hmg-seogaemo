@@ -1,0 +1,396 @@
+package hmgapi.mods.wireless;
+// HMG-Seogaemo: deleting a connected CarPlay phone from the Bluetooth list (item 10 of .agents/carplay-connection-owner.md).
+// Pure Java; the Android side is ProjectionDeleteEnv. Written from the stock evidence and the behavior described in the
+// design note; no upstream code is used.
+
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * BtSettings deletes a paired phone in its Bluetooth list. For the connected wireless CarPlay phone the stock code
+ * disconnects it and deletes its Phone Projection row at once, while the session is still tearing down; the row is
+ * gone when the session's end (status 4) arrives, so Phone Projection keeps a stale "connected" device.
+ *
+ * Here: a wireless CarPlay phone that is connected now is disconnected, and its row is deleted only after the matching
+ * end (status 4), once DiPO is inactive. A reconnect after that end cancels the deletion. A 15 s fallback deletes the row
+ * anyway, so a deleted phone never lingers. Everything else (wired, another phone, Android Auto, any failure before the
+ * disconnect is sent) runs the stock code unchanged.
+ *
+ * Threads: maybeDelete runs on the caller's (BtSettings) thread and answers at once. Listener callbacks come on binder
+ * threads. Delayed work and the binder calls of the deletion run on the Env's worker. The lock never covers a binder call.
+ */
+final class ProjectionDelete {
+    static final int PP_CARPLAY = 1, TRANSFER_WIRELESS = 1;
+    static final int STATUS_CONNECTING = 2, STATUS_CONNECTED = 3, STATUS_ENDED = 4;
+    static final long TIMEOUT_MS = 15000L, POLL_MS = 250L;
+
+    /** what the decision needs from the device; the Android side is ProjectionDeleteEnv, tests use a fake */
+    interface Env {
+        /** the kill switch (persist.hmg_seogaemo.owner is not "0") */
+        boolean enabled();
+        /** runs on the worker, now */
+        void post(Runnable r);
+        /** runs on the worker after delayMs */
+        void postDelayed(Runnable r, long delayMs);
+        void log(String message);
+        /** DiPOManager.isDiPOActivated(); throws when unavailable */
+        boolean dipoActivated();
+        /** PPManager.getCPConnectedBTAddress(); null or empty when none; throws when unavailable */
+        String connectedCp();
+        /** PPManager.getWLDeviceTransferType(addr, null); throws when unavailable */
+        int transferType(String addr);
+        /** the profile's user type, -1 when unknown; throws when unavailable */
+        int userType();
+        /** PPManager.getWLDeviceInfo(addr, serial, user), or null; throws when unavailable */
+        Row row(String addr, String serial, int user);
+        /** the stock disconnect of the connected phone (aW.ch()); false when it could not be sent */
+        boolean disconnectCp();
+        /** PPManager.isCPAutoConnectionAvailableDevice(""), a binder round trip behind Phone Projection's fan-out */
+        void barrier();
+        /** PPManager.onWLDeviceDeleteDB(addr, serial, user) */
+        boolean deleteRow(String addr, String serial, int user);
+        /** PPManager.addWLDeviceInfoListener(sink), once per process; throws when it fails */
+        void listen(Sink sink);
+    }
+
+    /** where Phone Projection's connect status updates go */
+    interface Sink {
+        void connectStatus(Row info, int status);
+    }
+
+    /** a Phone Projection device row (WLDeviceInfo fields) */
+    static final class Row {
+        final String addr, serial, mac, name;
+        final int user, ppType, transfer;
+
+        Row(String addr, String serial, String mac, String name, int user, int ppType, int transfer) {
+            this.addr = addr;
+            this.serial = serial;
+            this.mac = mac;
+            this.name = name;
+            this.user = user;
+            this.ppType = ppType;
+            this.transfer = transfer;
+        }
+    }
+
+    /** one held deletion: the phone and the row identity captured when it was held */
+    static final class Pending {
+        final String key, addr, serial;
+        final int user;
+        /** the matching end (4) has arrived */
+        boolean ended;
+        /** cancelled (a reconnect after the end, a newer request, a failed disconnect) */
+        boolean cancelled;
+        /** the deletion was claimed (done or abandoned): nothing more runs for it */
+        boolean done;
+
+        Pending(String key, String addr, String serial, int user) {
+            this.key = key;
+            this.addr = addr;
+            this.serial = serial;
+            this.user = user;
+        }
+    }
+
+    private final Env env;
+    /** the listener's end of Phone Projection's status updates */
+    private final Sink sink = new Sink() {
+        @Override
+        public void connectStatus(Row info, int status) {
+            onConnectStatus(info, status);
+        }
+    };
+    private final Object regLock = new Object();
+    private final Map<String, Pending> pending = new HashMap<String, Pending>();
+    private boolean listening, listenFailureLogged;
+
+    ProjectionDelete(Env env) {
+        this.env = env;
+    }
+
+    /**
+     * BtSettings' request to delete addr (aW.l). true: held, the caller returns false and the stock delete is skipped.
+     * false: run the stock code unchanged. Never throws.
+     */
+    boolean maybeDelete(String addr) {
+        try {
+            return decide(addr);
+        } catch (Throwable t) {
+            return stock("decision failed: " + t);
+        }
+    }
+
+    private boolean decide(String addr) {
+        if (!env.enabled()) return stock("kill switch");
+        if (empty(addr)) return stock("no address");
+        if (!env.dipoActivated()) return stock("CarPlay not active (Android Auto or none)");
+        if (!sameAddr(env.connectedCp(), addr)) return stock("not the connected CarPlay phone");
+        if (env.transferType(addr) != TRANSFER_WIRELESS) return stock("not a wireless connection");
+        int user = env.userType();
+        if (user < 0) return stock("profile unknown");
+        Row row = env.row(addr, null, user);
+        if (row == null) return stock("no Phone Projection row");
+        if (row.ppType != PP_CARPLAY || row.transfer != TRANSFER_WIRELESS) return stock("row is not wireless CarPlay");
+        if (row.user != user || !sameAddr(row.addr, addr)) return stock("row belongs to another phone or profile");
+
+        String key = key(user, addr);
+        synchronized (this) {
+            Pending current = pending.get(key);
+            if (current != null && !current.cancelled && !current.done && sameSerial(current.serial, row.serial)) {
+                say("deletion of " + mask(addr) + " already waiting for its end; request reused");
+                return true;
+            }
+        }
+        if (!listen()) return stock("listener not registered");
+
+        Pending p = new Pending(key, addr, nz(row.serial), user);
+        Pending older;
+        synchronized (this) {
+            older = pending.put(key, p);
+            if (older != null) older.cancelled = true;
+        }
+        if (older != null) say("earlier deletion of " + mask(addr) + " cancelled by a newer request");
+        try {
+            env.postDelayed(timeoutTask(p), TIMEOUT_MS);
+        } catch (Throwable t) {
+            cancel(p);
+            return stock("fallback timer not scheduled: " + t);
+        }
+        // The disconnect goes first: the session has to end before Phone Projection can be told to forget the phone.
+        boolean sent;
+        try {
+            sent = env.disconnectCp();
+        } catch (Throwable t) {
+            sent = false;
+        }
+        if (!sent) {
+            cancel(p);
+            return stock("disconnect not sent");
+        }
+        say("deletion of " + mask(addr) + " held: disconnect sent, row deleted after the matching end (15 s fallback)");
+        return true;
+    }
+
+    /** registers the listener once per process; false when it cannot be registered (the caller falls back) */
+    private boolean listen() {
+        synchronized (regLock) {
+            if (listening) return true;
+            try {
+                env.listen(sink);
+                listening = true;
+                return true;
+            } catch (Throwable t) {
+                if (!listenFailureLogged) {
+                    listenFailureLogged = true;
+                    say("listener not registered: " + t);
+                }
+                return false;
+            }
+        }
+    }
+
+    /** Phone Projection's connect status for a phone (never throws into the binder thread) */
+    private void onConnectStatus(Row info, int status) {
+        try {
+            onStatus(info, status);
+        } catch (Throwable t) {
+            say("status ignored: " + t);
+        }
+    }
+
+    private void onStatus(Row info, int status) {
+        if (info == null || info.ppType != PP_CARPLAY || info.transfer != TRANSFER_WIRELESS) return;
+        Pending p;
+        boolean finish = false;
+        synchronized (this) {
+            p = pending.get(key(info.user, info.addr));
+            if (p == null || p.cancelled || p.done || !sameSerial(p.serial, info.serial)) return;
+            if (status == STATUS_ENDED) {
+                if (p.ended) return;
+                p.ended = true;
+                finish = true;
+            } else if (status == STATUS_CONNECTING || status == STATUS_CONNECTED) {
+                // before the end, a connect is Phone Projection's own state (a republish during teardown), not a reconnect
+                if (!p.ended) return;
+                p.cancelled = true;
+                pending.remove(p.key);
+                say("deletion of " + mask(p.addr) + " cancelled: the phone connected again after its end; row kept");
+                return;
+            } else {
+                return;
+            }
+        }
+        if (finish) {
+            try {
+                env.post(finishTask(p));
+            } catch (Throwable t) {
+                say("end received, finish not queued; the 15 s fallback applies: " + t);
+            }
+        }
+    }
+
+    /** the matching end arrived: wait for Phone Projection, then DiPO, then delete */
+    private void finish(Pending p) {
+        try {
+            if (!live(p)) return;
+            try {
+                env.barrier();
+            } catch (Throwable t) {
+                say("barrier failed, the 15 s fallback applies: " + t);
+                return;
+            }
+            if (!live(p)) return;
+            awaitInactive(p);
+        } catch (Throwable t) {
+            say("finish failed, the 15 s fallback applies: " + t);
+        }
+    }
+
+    private void awaitInactive(Pending p) {
+        if (!live(p)) return;
+        boolean active;
+        try {
+            active = env.dipoActivated();
+        } catch (Throwable t) {
+            say("DiPO state unavailable, the 15 s fallback applies: " + t);
+            return;
+        }
+        if (active) {
+            final Pending held = p;
+            try {
+                env.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        awaitInactive(held);
+                    }
+                }, POLL_MS);
+            } catch (Throwable t) {
+                say("poll not scheduled, the 15 s fallback applies: " + t);
+            }
+            return;
+        }
+        deleteNow(p, "matching end");
+    }
+
+    /** the 15 s fallback: the deletion we held, whatever the end did */
+    private Runnable timeoutTask(final Pending p) {
+        return new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (!live(p)) return;
+                    say("no matching end within 15 s for " + mask(p.addr) + ": completing the deferred deletion");
+                    deleteNow(p, "15 s fallback");
+                } catch (Throwable t) {
+                    say("fallback deletion failed: " + t);
+                }
+            }
+        };
+    }
+
+    private Runnable finishTask(final Pending p) {
+        return new Runnable() {
+            @Override
+            public void run() {
+                finish(p);
+            }
+        };
+    }
+
+    /** the deletion itself: profile and row identity re-checked, once */
+    private void deleteNow(Pending p, String why) {
+        if (!live(p)) return;
+        if (env.userType() != p.user) {
+            claim(p);
+            say("profile changed, deletion of " + mask(p.addr) + " aborted; row kept");
+            return;
+        }
+        Row row = env.row(p.addr, p.serial.length() == 0 ? null : p.serial, p.user);
+        if (row == null) {
+            claim(p);
+            say("row already gone, nothing to delete");
+            return;
+        }
+        if (!sameRow(row, p)) {
+            claim(p);
+            say("row changed since the request, not deleted");
+            return;
+        }
+        if (!claim(p)) return;
+        boolean ok;
+        try {
+            ok = env.deleteRow(p.addr, p.serial.length() == 0 ? null : p.serial, p.user);
+        } catch (Throwable t) {
+            say("deferred deletion (" + why + ") failed, not retried: " + t);
+            return;
+        }
+        say("deferred database deletion (" + why + ") completed, result " + ok);
+    }
+
+    /** true while the held deletion is still the current one */
+    private synchronized boolean live(Pending p) {
+        return !p.done && !p.cancelled && pending.get(p.key) == p;
+    }
+
+    /** takes the deletion for its one run; false when it was already taken or cancelled */
+    private synchronized boolean claim(Pending p) {
+        if (p.done || p.cancelled) return false;
+        p.done = true;
+        if (pending.get(p.key) == p) pending.remove(p.key);
+        return true;
+    }
+
+    private synchronized void cancel(Pending p) {
+        p.cancelled = true;
+        if (pending.get(p.key) == p) pending.remove(p.key);
+    }
+
+    private boolean sameRow(Row row, Pending p) {
+        return row.ppType == PP_CARPLAY && row.transfer == TRANSFER_WIRELESS && row.user == p.user
+                && sameAddr(row.addr, p.addr) && sameSerial(p.serial, row.serial);
+    }
+
+    private boolean stock(String reason) {
+        say("stock delete: " + reason);
+        return false;
+    }
+
+    private void say(String message) {
+        try {
+            env.log("delete: " + message);
+        } catch (Throwable ignored) {
+            // logging must not break BtSettings
+        }
+    }
+
+    // Pure helpers.
+
+    static String key(int user, String addr) {
+        return user + ":" + (addr == null ? "" : addr.toUpperCase(Locale.ROOT));
+    }
+
+    static boolean sameAddr(String a, String b) {
+        return a != null && b != null && a.equalsIgnoreCase(b);
+    }
+
+    /** serials match when either side is unknown, otherwise they are equal */
+    static boolean sameSerial(String a, String b) {
+        return empty(a) || empty(b) || a.equals(b);
+    }
+
+    static boolean empty(String s) {
+        return s == null || s.length() == 0;
+    }
+
+    static String nz(String s) {
+        return s == null ? "" : s;
+    }
+
+    /** logs never carry a full address */
+    static String mask(String addr) {
+        if (addr == null || addr.length() < 2) return "**";
+        return "**:**:**:**:**:" + addr.substring(addr.length() - 2);
+    }
+}

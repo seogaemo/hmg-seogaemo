@@ -1,0 +1,34 @@
+package android.phoneprojection;
+
+import android.os.IBinder;
+import android.os.IInterface;
+import android.os.RemoteException;
+
+/** framework.jar: a client of Phone Projection's wireless device status (PPService fans out to these) */
+public interface IWLDeviceListener extends IInterface {
+    void requestWLDeviceConnectStatusUpdate(WLDeviceInfo info, int status) throws RemoteException;
+
+    void requestWLDeviceReadyStatusUpdate(WLDeviceInfo info, int status) throws RemoteException;
+
+    void requestWLDeviceInfoAdd(WLDeviceInfo info) throws RemoteException;
+
+    void requestWLDeviceInfoUpdate(WLDeviceInfo info) throws RemoteException;
+
+    void requestWLDeviceDisconnectedByUser(WLDeviceInfo info) throws RemoteException;
+
+    boolean isCPAutoConnectionAvailableDevice(String address) throws RemoteException;
+
+    void onCarPlaySupportOOB(boolean supported) throws RemoteException;
+
+    void requestConnectSPP(String address) throws RemoteException;
+
+    void requestDisconnectSPP(String address) throws RemoteException;
+
+    abstract class Stub extends android.os.Binder implements IWLDeviceListener {
+        public Stub() {}
+
+        public IBinder asBinder() {
+            return this;
+        }
+    }
+}

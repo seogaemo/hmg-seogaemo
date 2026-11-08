@@ -2,9 +2,12 @@ package hmgapi.mods.wireless.dipo;
 // Modified by HMG-Seogaemo: no stock hotspot start while the wifi module runs the USB CarPlay hotspot;
 // the stock Phone Projection switch to Android Auto stops the bridged CarPlay (ProjectionSwitch).
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.wifi.WifiConfiguration;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -18,6 +21,7 @@ import com.tcc.iap2.Iap2ListenerInfo;
 import com.tcc.iap2.Iap2NotiMsg;
 
 import java.lang.reflect.Method;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 
 import hmgapi.hook.Points;
@@ -67,6 +71,13 @@ final class Bridge {
     /** the phone's Bluetooth address from its last iAP2 session (DiPO's first-connect notice) */
     static volatile String sLastBtId;
     static final ProjectionSwitch SWITCH = new ProjectionSwitch();
+    /**
+     * Which phone the bridge serves when two phones are around (BridgePeers, item 11a). Null when the connection owner
+     * is off: then every call site runs the single-phone code exactly as before.
+     */
+    static volatile BridgePeers sPeers;
+    /** the CarPlay connection owner (ProjectionOwner); null when off (kill switch, or points missing) */
+    static volatile ProjectionOwner sOwner;
     static ClassLoader cl;
     static Context context;
     private static int sCpFail, sCpSent;
@@ -163,14 +174,58 @@ final class Bridge {
         }
     }
 
+    /** the bridge's live session for a phone: a Bluetooth attach, a CarPlay session or the CarPlay channel */
+    static boolean liveNow() {
+        return sSession || sCpClient || sCpWireless;
+    }
+
+    /** the queue token of the current decisions (0 when the peers are off: nothing is ever stale then) */
+    static int token() {
+        BridgePeers p = sPeers;
+        return p == null ? 0 : p.token();
+    }
+
+    /** a queued job whose decision changed is dropped (logged once); true when it may run */
+    static boolean tokenOk(int captured, String what) {
+        BridgePeers p = sPeers;
+        if (p == null || p.current(captured)) return true;
+        log("dropped " + what + ": superseded by a newer decision");
+        return false;
+    }
+
+    /** bonded, or unknown (a failed lookup keeps the old behaviour); not when no bond or still bonding */
+    static boolean bonded(String addr) {
+        try {
+            BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+            if (adapter == null) return true;
+            int state = adapter.getRemoteDevice(addr).getBondState();
+            return state != BluetoothDevice.BOND_NONE && state != BluetoothDevice.BOND_BONDING;
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    /** allowAuto: may this phone start a session now? Logs the reason once when not; always true with the peers off */
+    static boolean mayAttach(String addr, String what) {
+        BridgePeers p = sPeers;
+        if (p == null) return true;
+        String why = p.denyReason(addr, bonded(addr), SWITCH.isHeld(addr), liveNow() ? sAddr : null);
+        if (why == null) return true;
+        log("no " + what + " for " + BridgePeers.mask(addr) + ": " + why);
+        return false;
+    }
+
     static void scheduleSppConnect(final String addr) {
         if (addr == null || !enabled() || sUsb || sSession || sCpWireless || SWITCH.isHeld(addr)) return;
+        final int token = token();
         handler().postDelayed(new Runnable() {
             @Override
             public void run() {
                 try {
                     HfDeviceBTCMManager m = sBtcm;
                     if (m == null || sUsb || sSession || sCpWireless || !enabled() || SWITCH.isHeld(addr)) return;
+                    if (!tokenOk(token, "SPP connect for " + BridgePeers.mask(addr))) return;
+                    if (!mayAttach(addr, "SPP connect")) return;
                     if (m.IbtcmIsSppConnectedDevice(addr)) log("SPP already up for " + addr);
                     else log("IbtcmSppConnect(" + addr + ") = " + m.IbtcmSppConnect(addr));
                 } catch (Throwable t) {
@@ -181,8 +236,19 @@ final class Bridge {
     }
 
     static void onSppUp(final String addr) {
+        BridgePeers peers = sPeers;
+        if (peers != null) peers.sppUp(addr);
         if (addr == null || sSession) return;
-        sAddr = addr;
+        if (peers == null) {
+            sAddr = addr;
+        } else {
+            // a phone's SPP coming up never takes the address from a phone with a live session (item 11a)
+            String served = BridgePeers.arbitrate(sAddr, addr, liveNow());
+            if (!BridgePeers.sameAddr(served, addr)) {
+                log("kept " + BridgePeers.mask(sAddr) + " (live session), " + BridgePeers.mask(addr) + " SPP up only");
+            }
+            sAddr = served;
+        }
         if (sCpClient || sCpWireless || !enabled() || sUsb) return;
         if (SWITCH.isHeld(addr)) {
             log("no session for " + addr + ": held off by Phone Projection's switch");
@@ -192,12 +258,18 @@ final class Bridge {
             log("no session for " + addr + ": Android Auto is connected");
             return;
         }
+        if (!mayAttach(addr, "session")) return;
         sSession = true;
         SWITCH.sessionEnded();
+        final int token = token();
         handler().post(new Runnable() {
             @Override
             public void run() {
                 try {
+                    if (!tokenOk(token, "session for " + BridgePeers.mask(addr))) {
+                        sSession = false;
+                        return;
+                    }
                     Context c = context;
                     if (c == null) {
                         log("no context, cannot start session");
@@ -220,15 +292,35 @@ final class Bridge {
         });
     }
 
+    /**
+     * A session ended (or the phone's link dropped): re-attach the previous phone when it is eligible, else the first
+     * other eligible phone whose SPP is up (B starts when A is not eligible), else nothing.
+     */
     static void onUsbGone() {
         final String addr = sAddr;
         if (addr == null || sSession) return;
+        final int token = token();
         handler().postDelayed(new Runnable() {
             @Override
             public void run() {
                 try {
-                    HfDeviceBTCMManager m = sBtcm;
-                    if (m != null && !sUsb && !sSession && addr.equals(sAddr) && !SWITCH.isHeld(addr) && m.IbtcmIsSppConnectedDevice(addr)) onSppUp(addr);
+                    final HfDeviceBTCMManager m = sBtcm;
+                    final BridgePeers peers = sPeers;
+                    if (peers == null) {
+                        if (m != null && !sUsb && !sSession && addr.equals(sAddr) && !SWITCH.isHeld(addr) && m.IbtcmIsSppConnectedDevice(addr)) onSppUp(addr);
+                        return;
+                    }
+                    if (m == null || !tokenOk(token, "re-attach after the session")) return;
+                    if (sUsb || sSession || liveNow()) return;
+                    String next = BridgePeers.choose(addr, peers.sppUpList(), new BridgePeers.Eligible() {
+                        @Override
+                        public boolean ok(String candidate) {
+                            return m.IbtcmIsSppConnectedDevice(candidate) && peers.denyReason(candidate, bonded(candidate), SWITCH.isHeld(candidate), null) == null;
+                        }
+                    });
+                    if (next == null) return;
+                    if (!BridgePeers.sameAddr(next, addr)) log("previous phone " + BridgePeers.mask(addr) + " not eligible, attaching " + BridgePeers.mask(next));
+                    onSppUp(next);
                 } catch (Throwable t) {
                     error("onUsbGone", t);
                 }
@@ -236,7 +328,130 @@ final class Bridge {
         }, SPP_CONNECT_DELAY_MS);
     }
 
+    /** the kill switch persist.hmg_seogaemo.owner (default on; "0" off), read once when DiPO's bridge starts */
+    static boolean ownerWanted() {
+        return !"0".equals(prop("persist.hmg_seogaemo.owner", "1"));
+    }
+
+    /** the connection owner and the peer bookkeeping go on together (the owner's kill switch turns both off) */
+    static void startOwner() {
+        sPeers = new BridgePeers();
+        sOwner = new ProjectionOwner(new OwnerEnv(context));
+    }
+
+    static void stopOwner() {
+        sOwner = null;
+        sPeers = null;
+    }
+
+    /**
+     * Bond changes of the phones the bridge knows (item 11): a removed bond marks the phone and stops its session;
+     * a re-pair clears the mark. Other devices are ignored. Only with the peers on.
+     */
+    static void registerBondReceiver(Context c) {
+        if (sPeers == null || c == null) return;
+        try {
+            c.registerReceiver(new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context ctx, Intent i) {
+                    try {
+                        BluetoothDevice d = i.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                        if (d == null) return;
+                        final String addr = d.getAddress();
+                        final int state = i.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1);
+                        final int previous = i.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, -1);
+                        handler().post(new Runnable() {
+                            @Override
+                            public void run() {
+                                onBondChanged(addr, state, previous);
+                            }
+                        });
+                    } catch (Throwable t) {
+                        error("bond receiver", t);
+                    }
+                }
+            }, new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
+        } catch (Throwable t) {
+            error("bond receiver", t);
+        }
+    }
+
+    static void onBondChanged(String addr, int state, int previous) {
+        BridgePeers peers = sPeers;
+        if (peers == null || addr == null) return;
+        ProjectionOwner o = sOwner;
+        boolean known = BridgePeers.sameAddr(addr, sAddr) || peers.isSppUp(addr) || SWITCH.isHeld(addr) || (o != null && o.knowsAddress(addr));
+        if (!known) return;
+        if (state == BluetoothDevice.BOND_NONE) {
+            peers.markDeleted(addr);
+            if (o != null) o.bondLost(addr);
+            if (BridgePeers.sameAddr(addr, sAddr) && liveNow()) {
+                SWITCH.hold(addr, true);
+                peers.bump();
+                sendDetach();
+                log("bond removed for " + BridgePeers.mask(addr) + ": session stopped and held off");
+            } else {
+                log("bond removed for " + BridgePeers.mask(addr) + ": not attached until paired again");
+            }
+        } else if (state == BluetoothDevice.BOND_BONDED && (previous == BluetoothDevice.BOND_BONDING || peers.isDeleted(addr))) {
+            peers.clearDeleted(addr);
+            if (o != null) o.bondRestored(addr);
+            log("paired again " + BridgePeers.mask(addr));
+        }
+    }
+
+    /**
+     * Phone Projection cancelled a connection (cancelConnectionPP, CarPlay, wireless): when that phone is the bridged
+     * or the connecting one, it is held off like a user disconnect, and its live session (if any) is stopped.
+     */
+    static void onCancelConnection(final int type, final String addr, final int transfer) {
+        if (type != ProjectionSwitch.TYPE_CARPLAY || transfer != ProjectionSwitch.TRANSFER_WIRELESS || sPeers == null) return;
+        handler().post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    BridgePeers peers = sPeers;
+                    if (peers == null) return;
+                    String target = addr == null || addr.length() == 0 ? sAddr : addr;
+                    if (target == null) return;
+                    if (!BridgePeers.sameAddr(target, sAddr) && !peers.isSppUp(target)) {
+                        log("cancel for " + BridgePeers.mask(target) + ": not the bridged or connecting phone");
+                        return;
+                    }
+                    boolean stop = liveNow() && BridgePeers.sameAddr(target, sAddr);
+                    SWITCH.hold(target, stop);
+                    peers.bump();
+                    ProjectionOwner o = sOwner;
+                    if (o != null) o.userDisconnected(target);
+                    if (stop) sendDetach();
+                    log("connection of " + BridgePeers.mask(target) + " cancelled: held off" + (stop ? ", session stopped" : ""));
+                } catch (Throwable t) {
+                    error("cancel", t);
+                }
+            }
+        });
+    }
+
+    static void ownerCreated() {
+        ProjectionOwner o = sOwner;
+        if (o != null) o.serviceCreated();
+    }
+
+    static void ownerDestroyed() {
+        ProjectionOwner o = sOwner;
+        if (o != null) o.serviceDestroyed();
+    }
+
+    /** CarPlayService.onSessionDetails: the native session's device id, MAC address and name bytes */
+    static void onCpSessionDetails(String deviceId, String mac, byte[] name) {
+        ProjectionOwner o = sOwner;
+        if (o == null) return;
+        o.details(deviceId, mac, name == null ? "" : new String(name, Charset.forName("UTF-8")));
+    }
+
     static void onCpSessionCreated(Object cp) {
+        ProjectionOwner owner = sOwner;
+        if (owner != null) owner.created(sAddr);
         if (cp != null) sCp = cp;
         log("CarPlay session created (usb=" + sUsb + " btAddr=" + sAddr + ")");
         if ("created".equals(prop("persist.ev6.cpwl.handover", "data")) && !sUsb && sAddr != null) {
@@ -245,6 +460,8 @@ final class Bridge {
     }
 
     static void onCpSessionStarted(int transport) {
+        ProjectionOwner owner = sOwner;
+        if (owner != null) owner.started(transport);
         sCpWireless = transport == 1 && !sUsb;
         SWITCH.sessionEnded();
         log("CarPlay session started transport=" + transport + " wireless=" + sCpWireless);
@@ -326,6 +543,10 @@ final class Bridge {
     }
 
     static void onCpSessionFinalized(int type) {
+        ProjectionOwner owner = sOwner;
+        if (owner != null) owner.finalized(type);
+        BridgePeers peers = sPeers;
+        if (peers != null) peers.bump();
         try {
             log("CarPlay session finalized type=" + type + " cpClient=" + sCpClient);
             boolean client = sCpClient, wireless = sCpWireless;
@@ -368,13 +589,19 @@ final class Bridge {
         if (sCpClient) return;
         sCpClient = true;
         sCpConnected = false;
-        final String addr = sAddr;
+        final String addr = cpAddress();
+        final int token = token();
         handler().post(new Runnable() {
             @Override
             public void run() {
                 try {
                     Context c = context;
                     if (c == null) return;
+                    if (!tokenOk(token, "CarPlay-channel handover")) {
+                        sCpClient = false;
+                        sCpConnected = false;
+                        return;
+                    }
                     Intent i = new Intent(ACTION_ATTACH);
                     i.setPackage(IAP2_PKG);
                     i.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
@@ -387,6 +614,13 @@ final class Bridge {
                 }
             }
         });
+    }
+
+    /** the phone the CarPlay channel is handed to: the owner's attributed phone when known, else the bridge's */
+    static String cpAddress() {
+        ProjectionOwner o = sOwner;
+        String attributed = o == null ? null : o.activeAddress();
+        return attributed != null ? attributed : sAddr;
     }
 
     static void onCpClientConnected() {
@@ -453,7 +687,10 @@ final class Bridge {
 
     static void onSppDown(String addr) {
         SWITCH.linkDown(addr);
+        BridgePeers peers = sPeers;
+        if (peers != null) peers.sppDown(addr);
         if (addr == null || !addr.equals(sAddr)) return;
+        if (peers != null && liveNow()) peers.bump();
         if (sCpWireless) {
             sSession = false;
             startCpClient("bluetooth dropped during wireless CarPlay");
@@ -552,15 +789,22 @@ final class Bridge {
             public void run() {
                 try {
                     String iphone = sAddr;
-                    String held = SWITCH.held();
-                    int action = SWITCH.request(connect, type, transfer, iphone, sSession || sCpClient || sCpWireless);
+                    // with the peers on, the request's phone is honoured (a disconnect for another phone is ignored)
+                    int action = SWITCH.request(connect, type, transfer, sPeers != null ? addr : null, iphone, liveNow());
+                    String released = SWITCH.released();
                     log("Phone Projection " + (connect ? "connect" : "disconnect") + " type=" + type + " transfer=" + transfer
                             + (action == ProjectionSwitch.STOP ? ": stopping wireless CarPlay for " + iphone + ", held off"
-                            : action == ProjectionSwitch.RESUME ? ": hold released for " + held : ": nothing to do"));
+                            : action == ProjectionSwitch.RESUME ? ": hold released for " + released : ": nothing to do"));
                     if (action == ProjectionSwitch.STOP) {
+                        BridgePeers peers = sPeers;
+                        if (peers != null) peers.bump();
+                        ProjectionOwner o = sOwner;
+                        if (o != null) o.userDisconnected(iphone);
                         sendDetach();
                     } else if (action == ProjectionSwitch.RESUME) {
-                        String target = addr != null && addr.length() > 0 ? addr : held;
+                        String target = addr != null && addr.length() > 0 ? addr : released;
+                        ProjectionOwner o = sOwner;
+                        if (o != null && target != null) o.userConnected(target);
                         HfDeviceBTCMManager m = sBtcm;
                         if (target != null && m != null && m.IbtcmIsSppConnectedDevice(target)) onSppUp(target);
                         else scheduleSppConnect(target);
@@ -621,7 +865,11 @@ final class Bridge {
                     return;
                 }
                 log("iPhone BT connected: " + d.getAddress());
-                if (SWITCH.connected(d.getAddress())) log("Phone Projection hold released for " + d.getAddress() + " (it reconnected)");
+                if (SWITCH.connected(d.getAddress())) {
+                    log("Phone Projection hold released for " + d.getAddress() + " (it reconnected)");
+                    ProjectionOwner o = sOwner;
+                    if (o != null) o.userConnected(d.getAddress());
+                }
                 scheduleSppConnect(d.getAddress());
             } catch (Throwable t) {
                 error("connEvent", t);
@@ -662,10 +910,13 @@ final class Bridge {
 
         @Override
         public void cancelConnectionPP(int type, String address, String serial, int transfer) {
+            onCancelConnection(type, address, transfer);
         }
 
         @Override
         public void runningPP() {
+            ProjectionOwner owner = sOwner;
+            if (owner != null) owner.runningPP();
         }
     }
 
