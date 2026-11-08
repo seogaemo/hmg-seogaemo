@@ -7,6 +7,8 @@ import android.os.RemoteException;
 public interface IIap2Service extends IInterface {
     boolean Iap2SvcInit(IIap2Listener listener, Iap2ListenerInfo info) throws RemoteException;
 
+    boolean Iap2SvcNowPlayingStart() throws RemoteException;
+
     boolean Iap2SvcStartRouteGuidanceUpdate(String[] components, boolean a, boolean b) throws RemoteException;
 
     boolean Iap2SvcStopRouteGuidanceUpdate(String[] components) throws RemoteException;

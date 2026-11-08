@@ -127,6 +127,15 @@ reuses fixed screen_on dispatch on declared property drift; original product-bou
 baselines survive, and disable restores them even over drift. This uses no upstream
 hook code; see the module/runtime notes for policy and car verification limits.
 
+## Song info on wireless CarPlay
+
+Behaviour reference only: StopDragon/korea-projection 1.7.1 (AGPL-3.0) ships a HMG-API fork
+(`StopDragon/HMG-API`, branch `korea-build`, commit `577434c`) whose bridge calls
+`Iap2SvcNowPlayingStart` for the CarPlay-channel session because stock DiPO starts NowPlaying only on
+USB. We confirmed the USB-only branch in stock `HKMC_DiPO` smali and wrote `dipo/NowPlaying` and the
+Bridge hook ourselves; no upstream source was copied. See
+[.agents/wireless-carplay-and-aa.md](.agents/wireless-carplay-and-aa.md).
+
 ## Android Auto UTF-8 length helper
 
 `modules/wireless-carplay-and-aa/files/recipes/aa-tbt-48ee793a.recipe` and `aa-tbt-a0bea1c4.recipe` come from HMG-API but are no longer unchanged: the 32-byte UTF-8 length helper at segment offset `0x17a` is replaced. HMG-API `main` 1.0.2 still ships the unfixed helper (it cut the last Hangul syllable of every short turn-by-turn string). The fix was located and confirmed against the third-party package `HMG_Leafia_Plus_Wireless_CarPlay_AA-v1.0.5.NEEV.KOR.03-r8.2` (its `patches/neev_kr/libautoreceiver_infobank.tbt.lpd`, reference only, not executed or copied). Our replacement is written from the described logic in `modules/wireless-carplay-and-aa/payload/recipes/aa-utf8-len.s` and happens to assemble to the same 32 bytes. See [.agents/wireless-carplay-and-aa.md](.agents/wireless-carplay-and-aa.md). Re-apply this slot when taking new upstream recipe changes.

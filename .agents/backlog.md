@@ -109,6 +109,12 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   when the Android phone's Bluetooth connects, because that decides the two-phone behavior. See
   `wireless-carplay-and-aa.md` § Switching.
 
+- [ ] **Verify song info on wireless CarPlay.** Play music from the iPhone over wireless CarPlay:
+  title/artist/album (and art) should show in the cluster and media widget. Capture the dipo log
+  (`apps/com.daudio.app.dipo/*.log` in the export) for `NowPlaying started ... (try N)` /
+  `NowPlaying not started`, and logcat for DiPO `onMediaReceiveTitle`. If started but nothing shows, the
+  gap is DiPO/UI side; capture logcat around track change. See `wireless-carplay-and-aa.md` "Song info".
+
 ## 1b. Core hook host and installable modules
 
 - [ ] **Finish the on-car check of the core hook host** (`core/hook/`, contract "Core hook host").
