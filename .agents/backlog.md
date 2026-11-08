@@ -31,10 +31,6 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   consume it, since another surface may. In progress (local):
   `tmp/analysis/carplay-altscreen/` (sources: DiPlay `tmp/DiPlay-src`, offline dump).
   Move lasting findings into a topic doc when done.
-- [ ] **Exit angle reset on partial 0x5202 updates (suspected bug).** `Maneuver.read()`
-  sets `exit = 0` / `hasExit = false` before parsing, so an update without optional p11
-  erases a cached exit angle (absent is now distinguishable from 0° via `hasExit`). Confirm
-  against tests/dispatch, then preserve the cached value. Raised independently by the 2026-11-06 external-project comparisons.
 - [ ] **CarPlay turn-type gaps from the r8.2 comparison (verify on a drive).** Two small
   behaviour changes in `CpGuidance.stock`, not seen on a car: a U-turn with an explicit exit
   angle under 158 degrees keeps the projection icon, and a turn type 1/2 in a roundabout with an

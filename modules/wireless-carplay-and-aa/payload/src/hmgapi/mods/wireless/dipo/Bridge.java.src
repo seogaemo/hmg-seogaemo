@@ -865,15 +865,55 @@ final class Bridge {
             } catch (Throwable t) {
                 mode = -1;
             }
+            Object conf = k.getMethod("getWifiApConfiguration").invoke(wifi);
+            // iAP2 (Iap2Service.OnSendWifiInformation) tells the phone the configuration's
+            // ConnectivitySSID/ConnectivityPSK, but the hotspot runs its SSID/preSharedKey. Where
+            // the two differ (Korean K5: random defaults) the phone is sent a network that is not
+            // there. Store a configuration whose connectivity pair is the hotspot's own SSID and
+            // password (the owner's settings stay as they are), and start the hotspot with that.
+            Object use = syncConnectivity(conf);
+            if (use != conf) {
+                Object ok = null;
+                try {
+                    ok = k.getMethod("setWifiApConfiguration", WifiConfiguration.class).invoke(wifi, use);
+                } catch (Throwable t) {
+                    error("storing the connectivity SSID", t);
+                }
+                log("connectivity SSID and password set to the hotspot's own -> " + ok);
+                // not stored: keep the owner's configuration (another one would overwrite it)
+                if (!Boolean.TRUE.equals(ok)) use = conf;
+            }
             if (on && mode == 2) {
                 log("hotspot already up (mode 2)");
                 return;
             }
-            Object conf = k.getMethod("getWifiApConfiguration").invoke(wifi);
-            Object r = k.getMethod("setWifiApEnabledForConnectivity", WifiConfiguration.class, boolean.class).invoke(wifi, conf, true);
+            Object r = k.getMethod("setWifiApEnabledForConnectivity", WifiConfiguration.class, boolean.class).invoke(wifi, use, true);
             log("setWifiApEnabledForConnectivity -> " + r + " (was on=" + on + " mode=" + mode + ")");
         } catch (Throwable t) {
             error("ensureHotspot", t);
+        }
+    }
+
+    /**
+     * conf itself when the framework has no ConnectivitySSID/ConnectivityPSK (Hyundai's fields,
+     * read by reflection), they already equal SSID/preSharedKey, or conf has no SSID or password;
+     * otherwise a copy whose connectivity pair is SSID/preSharedKey. Idea from the Korea
+     * Projection K5 pull request (HMG-API 108, AGPL-3.0).
+     */
+    static Object syncConnectivity(Object o) {
+        if (!(o instanceof WifiConfiguration)) return o;
+        WifiConfiguration conf = (WifiConfiguration) o;
+        try {
+            Class<?> wc = WifiConfiguration.class;
+            java.lang.reflect.Field fs = wc.getField("ConnectivitySSID"), fp = wc.getField("ConnectivityPSK");
+            if (conf.SSID == null || conf.SSID.isEmpty() || conf.preSharedKey == null || conf.preSharedKey.isEmpty()) return conf;
+            if (conf.SSID.equals(fs.get(conf)) && conf.preSharedKey.equals(fp.get(conf))) return conf;
+            WifiConfiguration c = (WifiConfiguration) wc.getConstructor(WifiConfiguration.class).newInstance(conf);
+            fs.set(c, conf.SSID);
+            fp.set(c, conf.preSharedKey);
+            return c;
+        } catch (Throwable t) {
+            return conf;
         }
     }
 

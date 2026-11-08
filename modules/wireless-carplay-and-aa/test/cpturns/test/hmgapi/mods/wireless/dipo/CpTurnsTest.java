@@ -123,7 +123,7 @@ public final class CpTurnsTest {
                 "list {1 70 0 [Oak Ave] [] 800.0 0} {2 72 0 [Pine St] [] 2.0 1}");
         Car.unit = Car.DISTANCE_MILES;
 
-        t.maneuver(msg(0, U16, i(1), 1, U16, i(0), 5, U32, i(250)));
+        t.maneuver(msg(0, U16, i(1), 1, U16, i(0), 3, ENUM, i(RIGHT), 5, U32, i(250)));
         t.routeGuidance(msg(0, U16, i(1), 11, STR, s("0.1"), 12, ENUM, i(MILES)));
         expect("maneuver update without its exit angle (Apple Maps in Korea sends none): the right-turn type alone gives the right arrow, HUD list not resent",
                 "road [Main St]", "tbt 67 0 0.0 0.1 0 0 2 0 0", "2c 2 1 0 0 0 0 0 0 0", "sub 0.4 0 2 22 13 1 1 0.0 -1 0",
@@ -402,6 +402,16 @@ public final class CpTurnsTest {
         hc.calls.clear();
         ht.sendHud(67, 1, null);
         check("HUD: the next mapped turn is sent again", hc.calls.toString().equals("[hud f20143]"));
+        // exit angle on partial maneuver updates
+        CpTurns.Maneuver pm = new CpTurns.Maneuver(0, 1, maneuver(0, RIGHT, 0, 0, 90, "Main St", 250));
+        pm.read(0, 1, msg(0, U16, i(1), 1, U16, i(0), 5, U32, i(120)));
+        check("partial maneuver update (distance only) keeps the exit angle", pm.hasExit && pm.exit == 90 && pm.distance == 120);
+        pm.read(0, 1, msg(0, U16, i(1), 1, U16, i(0), 3, ENUM, i(LEFT), 5, U32, i(100)));
+        check("an update naming the type again is a whole maneuver: no angle without one", !pm.hasExit && pm.exit == 0 && pm.type == LEFT);
+        pm.read(0, 1, maneuver(0, LEFT, 0, 0, -45, "Oak Ave", 90));
+        pm.read(0, 1, msg(0, U16, i(1), 1, U16, i(0), 11, U8, i(0)));
+        check("an update carrying angle 0 sets it", pm.hasExit && pm.exit == 0);
+
         System.exit(fail);
     }
 
