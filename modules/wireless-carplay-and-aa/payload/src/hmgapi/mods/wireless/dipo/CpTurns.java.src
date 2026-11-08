@@ -1437,10 +1437,18 @@ final class CpTurns {
             linkedLane = 0;
         }
 
-        /** as DiPO, the exit angle resets with every update (it's only kept if this one carries it) */
+        /**
+         * Stock DiPO resets the exit angle with every update, so an update carrying only the
+         * distance left the turn without its angle. A partial update (neither the maneuver type
+         * nor the angle in it) keeps the angle and hasExit; one that names the type again is a
+         * whole maneuver (the phone may reuse an index for a new one), so without an angle it
+         * has none. Idea and rule from the Korea Projection fork of HMG-API (AGPL-3.0).
+         */
         void read(int index, int id, Iap2NotiMsg msg) {
             Iap2NotiMsg.Iap2ObjGroup g = msg.getItemGroup();
             this.index = index;
+            int wasExit = exit;
+            boolean wasHasExit = hasExit, hasType = false;
             exit = 0;
             hasExit = false;
             for (int k = 0; k < g.getItemCnt(); k++) {
@@ -1479,7 +1487,7 @@ final class CpTurns {
                         int[] v = n > 0 ? it.getItemIntArray() : null;
                         if (v == null || v.length == 0) break;
                         switch (item) {
-                            case 3: type = v[0]; break;
+                            case 3: type = v[0]; hasType = true; break;
                             case 7: distUnits = v[0]; break;
                             case 8: side = v[0]; hasSide = true; break;
                             case 9: junction = v[0]; break;
@@ -1497,6 +1505,10 @@ final class CpTurns {
                         break;
                     }
                 }
+            }
+            if (!hasExit && !hasType) {
+                exit = wasExit;
+                hasExit = wasHasExit;
             }
         }
     }
