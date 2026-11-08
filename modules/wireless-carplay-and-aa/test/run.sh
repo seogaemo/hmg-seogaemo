@@ -15,14 +15,6 @@ mkdir -p "$T/base/lib" "$T/bin" "$T/props" "$T/state" "$T/root/system/bin" "$T/r
 cat > "$T/base/lib/common.sh" <<'SH'
 . "$HMG_SEOGAEMO_TEST_COMMON"
 sg_log() { sg_print "$*" >&2; }
-# owns_lines are checked against the real module.properties (the test has no installed manifest).
-sg_validate() {
-    [ "$1" = owns_lines ] || return 0
-    while IFS='=' read -r sv_key sv_val; do
-        case "$sv_key" in owns_lines.*) [ "$sv_val" != "$2" ] || return 0 ;; esac
-    done < "$HMG_SEOGAEMO_MODULE_DIR/module.properties"
-    return 1
-}
 sg_projection_runtime() {
     case "$1" in
         prepare) mkdir -p "$HMG_SEOGAEMO_STATE/runtime"; chmod 700 "$HMG_SEOGAEMO_STATE/runtime";;
@@ -220,20 +212,13 @@ fail() { echo "FAIL: $1" >&2; cat "$T/output" >&2; exit 1; }
 # The zygote starts seconds after boot, before this boot's map verification can finish,
 # so the hook gate must not depend on the boot ID (the car-map seal's third line).
 if grep -q 'boot_id' "$HERE/../../core/hook/src/hmgapi/hook/HmgApi.java"; then fail 'zygote hook gate must not require the boot id'; fi
-sg_write "OTHER.USA.0000.V039.001.260902" > "$T/props/ro.build.product"
+sg_write "OTHER.KOR.0000.V039.001.260902" > "$T/props/ro.build.product"
 run precheck && fail wrong-firmware-accepted
 grep -q '^state=incompatible$' "$T/output" || fail firmware-state
 sg_write "NEEV.KOR.0000.V039.001.260902" > "$T/props/ro.build.product"
 sg_write "wrong_onebin" > "$T/props/ro.mobis.onebindir"
 run precheck && fail wrong-onebin-accepted
 grep -q '^state=incompatible$' "$T/output" || fail onebin-state
-# Another listed Korean onebin uses its own featurexml.cfg; an unlisted one is refused (wrong_onebin above).
-mkdir -p "$T/root/system/onebin/depehev_kr"
-cp "$T/root/system/onebin/neev_kr/featurexml.cfg" "$T/root/system/onebin/depehev_kr/featurexml.cfg"
-sg_write "depehev_kr" > "$T/props/ro.mobis.onebindir"
-run precheck || fail depehev-onebin-rejected
-grep -q '^state=off$' "$T/output" || fail depehev-onebin-state
-rm -rf "$T/root/system/onebin/depehev_kr"
 sg_write "neev_kr" > "$T/props/ro.mobis.onebindir"
 touch "$T/state/map-off"
 run precheck && fail unverified-map-accepted
@@ -243,6 +228,17 @@ touch "$T/state/owner-hmgapi"
 run precheck && fail owner-accepted
 grep -q '^state=conflict$' "$T/output" || fail owner-state
 rm -f "$T/state/owner-hmgapi"
+# featurexml.cfg lives under the firmware's own onebin directory, not a fixed neev_kr path.
+sg_write "ne1_kr" > "$T/props/ro.mobis.onebindir"
+mkdir -p "$T/root/system/onebin/ne1_kr"
+cp "$T/root/system/onebin/neev_kr/featurexml.cfg" "$T/root/system/onebin/ne1_kr/featurexml.cfg"
+run precheck || fail other-onebin
+grep -q '^state=off$' "$T/output" || fail other-onebin-state
+rm -rf "$T/root/system/onebin/ne1_kr"
+sg_write "ne1/kr" > "$T/props/ro.mobis.onebindir"
+run precheck && fail unusable-onebin-accepted
+grep -q '^detail=unsupported onebin$' "$T/output" || fail unusable-onebin-detail
+sg_write "neev_kr" > "$T/props/ro.mobis.onebindir"
 run precheck || fail precheck
 grep -q '^state=off$' "$T/output" || fail precheck-state
 # The CarPlay hotspot the wifi module publishes (peer info), read-only, and its built-in client conflict.

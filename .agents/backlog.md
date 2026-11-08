@@ -4,7 +4,7 @@ Status: current — open verification and development items.
 
 **Maintenance rule.** To-do list, not history. Delete an item in the commit that completes it (merged, or verified on the car); record lasting findings in the linked topic doc. New items need enough context and links for an agent without the session.
 
-Car baseline: Ioniq 5 KOR (NEEV.KOR.\*.260902), NEMESIS + HMG-Seogaemo only. The car runs a 2026-11-06/07 main package installed over adb (APK 0.1.31) with every module bundled and wireless CarPlay on the core hook host; check `hmg-seogaemo-root <id> status` for module states before a session. Developer mode on (`persist.hmg_seogaemo.dev=1`); adb at `192.168.0.1:5555` over the CarPlay hotspot, or the router address while the built-in Wi-Fi client is on; `/data/local/tmp/nemesis-d` present (recreate with `adb shell cp /system/xbin/nemesis /data/local/tmp/nemesis-d` if missing).
+Car baseline (reference car; the package itself is not tied to it): Ioniq 5 KOR (NEEV.KOR.\*.260902), NEMESIS + HMG-Seogaemo only. The car runs a 2026-11-06/07 main package installed over adb (APK 0.1.31) with every module bundled and wireless CarPlay on the core hook host; check `hmg-seogaemo-root <id> status` for module states before a session. Developer mode on (`persist.hmg_seogaemo.dev=1`); adb at `192.168.0.1:5555` over the CarPlay hotspot, or the router address while the built-in Wi-Fi client is on; `/data/local/tmp/nemesis-d` present (recreate with `adb shell cp /system/xbin/nemesis /data/local/tmp/nemesis-d` if missing).
 
 Local evidence (gitignored, owner's Mac): `tmp/car-sessions/2026-11-04-tbt/` (live logcat, USB export with `diagnostics/tbt/`, `analysis/` reports); `tmp/car-sessions/2026-11-05-drive/` (0.1.28 drive logcat, exports, `drive-notes.txt` with the lane-injection results). Lane injection tool: `tmp/lane-probe/` (`lanes.sh`, `trailer.sh`, `LaneProbe call <method> <ints>`).
 
@@ -211,6 +211,10 @@ Background: AGENTS.md "Known gaps", `car-mapping.md`, `wifi.md`, `wireless-carpl
 
 ## 2. Older open items
 
+- [ ] **First car other than the Ioniq 5 KOR.** Install (`os=any`), **Map this car**, then check
+  that modules move from `incompatible` to usable, `@onebin@` resolves the right
+  `featurexml.cfg`, and revert restores it. Add that firmware's stock `app_process` MD5 as a
+  product-scoped `stock_file.N` for CarPlay (runtime contract, "Car gate").
 - [ ] `nemesis root -c` with long commands fails with "daemon write failed"; find the
   limit and keep app/root commands below it (split or script file).
 - [ ] Restore stock stops at the first module conflict and leaves later modules

@@ -365,6 +365,64 @@ _sg_baseline_clear() {
     rm -rf "$HMG_SEOGAEMO_STATE/zygote-upgrade"
     sg_zygote_sweep
 }
+# One comma-separated item per line, without field splitting, so a glob item such as
+# cars=* is never expanded against file names.
+sg_csv_items() {
+    sg_ci_rest=$1; sg_ci_sep=,
+    while [ -n "$sg_ci_rest" ]; do
+        case "$sg_ci_rest" in
+            *,*) sg_print "${sg_ci_rest%%"$sg_ci_sep"*}"; sg_ci_rest=${sg_ci_rest#*"$sg_ci_sep"} ;;
+            *) sg_print "$sg_ci_rest"; sg_ci_rest= ;;
+        esac
+    done
+}
+# 0 when $2 matches one of the comma-separated globs in $1.
+sg_csv_glob_match() {
+    while IFS= read -r sg_cg; do
+        case "$2" in $sg_cg) return 0;; esac
+    done <<EOF
+$(sg_csv_items "$1")
+EOF
+    return 1
+}
+# Replaces every @onebin@ in $1 with $2 (owns_lines paths name the firmware's onebin directory).
+sg_onebin_subst() {
+    sg_ob_in=$1; sg_ob_out=; sg_ob_tok=@onebin@
+    while :; do
+        case "$sg_ob_in" in
+            *"$sg_ob_tok"*) sg_ob_out=$sg_ob_out${sg_ob_in%%"$sg_ob_tok"*}$2; sg_ob_in=${sg_ob_in#*"$sg_ob_tok"} ;;
+            *) break ;;
+        esac
+    done
+    sg_print "$sg_ob_out$sg_ob_in"
+}
+# $1 with @onebin@ expanded to ro.mobis.onebindir; 4 when a token needs an unusable onebin.
+sg_onebin_path() {
+    case "$1" in *@onebin@*) ;; *) sg_print "$1"; return 0;; esac
+    sg_ob=$(getprop ro.mobis.onebindir)
+    case "$sg_ob" in ''|*[!A-Za-z0-9_]*) return 4;; esac
+    sg_onebin_subst "$1" "$sg_ob"
+}
+# An owns_lines.N value with its path expanded (an unusable onebin keeps the token, matching nothing).
+sg_line_decl() {
+    sg_ld_path=$(sg_onebin_path "${1%%:*}") || sg_ld_path=${1%%:*}
+    sg_print "$sg_ld_path:${1#*:}"
+}
+# The car gate (runtime contract, "Car gate"): prints the car.json of a bundled or published
+# map made for this exact ro.build.product. Cheap: no hashing, no map tool, no lock.
+sg_car_map() (
+    set +f
+    product=$(getprop ro.build.product)
+    case "$product" in ''|*[!A-Za-z0-9._-]*) exit 1;; esac
+    for car in "$SG_DATA_ROOT/car-maps/$product"/*/*/car.json "$HMG_SEOGAEMO_BASE"/maps/*/*/*/*/car.json; do
+        [ -f "$car" ] || continue
+        grep -Fq -e "\"product\": \"$product\"" -e "\"product\":\"$product\"" "$car" || continue
+        sg_print "$car"
+        exit 0
+    done
+    exit 1
+)
+sg_car_mapped() { sg_car_map >/dev/null; }
 # Package-only mutation API. Metadata comes from the packaged, generated
 # module.properties; callers cannot nominate an arbitrary target.
 # Built-in, installed, then the runtime-generated core hook host manifest.
@@ -843,7 +901,7 @@ sg_line_claim() (
     manifest=$(sg_manifest_file) || exit 2
     while IFS='=' read -r key value; do
         case "$key" in owns_lines.*)
-            [ "$value" != "$1:$2" ] || exit 0 ;;
+            [ "$(sg_line_decl "$value")" != "$1:$2" ] || exit 0 ;;
         esac
     done < "$manifest"
     exit 2
@@ -878,7 +936,7 @@ sg_whole_exclusive() (
         while IFS='=' read -r key value; do
             case "$key" in
                 owns_files) case ",$value," in *,"$1",*) exit 3;; esac ;;
-                owns_lines.*) [ "${value%%:*}" != "$1" ] || exit 3 ;;
+                owns_lines.*) [ "$(sg_line_decl "$value")" != "$1:${value#*:}" ] || exit 3 ;;
             esac
         done < "$manifest"
     done <<EOF
@@ -897,7 +955,7 @@ sg_line_authorize() (
                 owns_files) case ",$value," in *,"$1",*) exit 3;; esac ;;
                 owns_lines.*)
                     [ "$other" != "$module" ] || continue
-                    if [ "$value" = "$1:$2" ] &&
+                    if [ "$(sg_line_decl "$value")" = "$1:$2" ] &&
                         [ "$(cat "$SG_DATA_ROOT/desired/$other" 2>/dev/null)" = on ]; then exit 3; fi ;;
             esac
         done < "$manifest"
@@ -1046,7 +1104,7 @@ sg_line_transaction() (
         done
         number=
         while IFS='=' read -r key value; do
-            case "$key" in owns_lines.*) [ "$value" != "$target:$old" ] || number=${key#owns_lines.};; esac
+            case "$key" in owns_lines.*) [ "$(sg_line_decl "$value")" != "$target:$old" ] || number=${key#owns_lines.};; esac
         done < "$(sg_manifest_file)"
         case "$number" in ''|*[!0-9]*) exit 2;; esac
         patch=$next/patches/$module/$number

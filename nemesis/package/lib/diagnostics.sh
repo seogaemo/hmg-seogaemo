@@ -188,7 +188,7 @@ hmg_seogaemo_diagnostics() (
                 case "$key" in
                     owns_props) props="$props $value";;
                     owns_files) paths="$paths $value";;
-                    owns_lines.*) paths="$paths ${value%%:*}";;
+                    owns_lines.*) value=$(sg_line_decl "$value"); paths="$paths ${value%%:*}";;
                 esac
             done < "$manifest"
         fi

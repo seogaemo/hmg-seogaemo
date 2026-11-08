@@ -65,7 +65,7 @@ def run():
             module_id = bundled[len("bundled/"):-len(".hsm")]
             manifest = package.read(f"modules/{module_id}.properties").decode()
             assert f"\nid={module_id}\n" in "\n" + manifest, (module_id, manifest)
-        assert "owns_lines.1=/system/onebin/neev_kr/featurexml.cfg:" in package.read(
+        assert "owns_lines.1=/system/onebin/@onebin@/featurexml.cfg:" in package.read(
             "modules/wireless-carplay-and-aa.properties").decode()
         # Installs from 0.1.33 and older check an OTA payload with their own lib/payload.sh before
         # switching to it; the new payload (no built-in modules) must pass that old check.
@@ -102,7 +102,7 @@ def run():
         assert dict(meta["nemesis"]) == {
             "version": "1.1", "id": "hmg-seogaemo", "name": "HMG-Seogaemo", "type": "application,service",
             "package-version": version, "short-desc": '"Built-in controls for the Gen5W head unit."',
-            "os": "*.KOR.*", "models": "*_kr", "postinstall": "scripts/postinstall.sh",
+            "os": "any", "models": "any", "postinstall": "scripts/postinstall.sh",
             "preuninstall": "scripts/preuninstall.sh"}
         assert dict(meta["app.0"]) == {"kind": "sh", "path": "bin/open.sh", "uid": "root"}
         assert dict(meta["service.0"]) == {"name": "reconcile", "kind": "sh", "path": "svc/reconcile.sh", "uid": "root", "mode": "background"}
@@ -308,7 +308,8 @@ def run():
             native.write_bytes(b"native-client")
             native.chmod(0o644)
             (fake / "getprop").write_text(
-                '#!/bin/sh\ncase "$1" in ro.build.product) echo NEEV.KOR.0000.V039.001.260902;; *) echo 0;; esac\n')
+                '#!/bin/sh\ncase "$1" in ro.build.product) echo OTHER.KOR.0000.V001.001.270101;; '
+                'ro.build.version.sdk) echo 19;; *) echo 0;; esac\n')
             hook = temp / "scripts/postinstall.sh"
             hook.write_text(host_shell_script(package.read("scripts/postinstall.sh").decode())
                             .replace("/system/xbin/nemesis", str(native)))

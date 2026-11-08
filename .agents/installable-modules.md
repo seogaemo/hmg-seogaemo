@@ -104,14 +104,14 @@ limits and writes only into the staging extraction directory.
 | `id` | `[a-z0-9][a-z0-9-]{1,47}` | unique; built-in IDs reserved | |
 | `version` | `N.N.N` | | |
 | `api` | `1` | unknown API refuses install; later versions only add verbs and blocks, existing meanings never change | |
-| `cars` | csv of `ro.build.product` globs | at least one must match at install and apply | product checks in scripts |
+| `cars` | csv of `ro.build.product` globs | at least one must match at install and apply; bundled modules use `*` and rely on the verified car map (runtime contract, "Car gate") | product checks in scripts |
 | `restart` | `none`, `adbd`, `head_unit` | maximum restart this module can request | `restart` |
 | `rerun_on` | csv of `boot`, `screen_on` | re-run `apply.sh` in reassert mode (Lifecycle) | `watch` |
 | `depends` | csv of module IDs | enabled first in the same confirmed plan | `depends` |
 | `uses` | csv of `<resource>[:<mode>]` | see Conflicts | `excludes` (mostly) |
 | `not_with` | csv of module IDs | rare: a specific module that cannot be on together | `excludes` |
 | `conflicts` | csv of external owner names | external tools that already own the feature; same names as `sg_owner_present` | `conflicts` |
-| `stock_file.N` | `<path>:<md5>` | stock MD5 required before apply | `known_stock.N` with this module's `cars` |
+| `stock_file.N` | `<path>:<md5>` or `<product glob>:<path>:<md5>` | stock MD5 required before apply; the glob form applies only to matching firmware, the plain form to every `cars` glob | `known_stock.N` (glob form copied as is) |
 | `hookpoints` | member name of a text file of stable IDs | | `hookpoints.required` |
 | `setting.N` | `key:type:default` | types `toggle`, `choice(a\|b\|...)`, `number(min..max)` | `Module.settings()` |
 | `raw_shell` | `1` | see Restricted scripts | |
@@ -120,11 +120,11 @@ limits and writes only into the staging extraction directory.
 | `kind` | `toggle` (default) or `action` | `action`: one-shot module, no on/off state (see Action modules). Refused together with `setting.N`, `hookpoints`, `depends`, `not_with`, `rerun_on`, `stock_file.N`; `apply.sh` may use only `call_service`; `ui.txt` needs a `button` block | `kind` |
 | `icon` | one of `box`, `wifi`, `phone`, `terminal`, `car`, `gear`, `display`, `speaker`, `camera`, `map`, `power`, `key`, `skip`, `button`, `link`, `bolt` | app-drawn line icon on the module card and detail panel; default `box`; modules cannot ship images | `icon` |
 
-Example (`wireless-carplay-and-aa`, design sketch): `id`, `version=1.0.0`, `api=1`, `cars=NEEV.KOR.*.260902`,
+Example (`wireless-carplay-and-aa`, design sketch): `id`, `version=1.0.0`, `api=1`, `cars=*`,
 `restart=head_unit`, `rerun_on=boot,screen_on`,
 `uses=wifi.radio:ap,system.app_process:only`,
 `conflicts=hmgapi.wireless.carplay.aa,leafia.wireless.carplay.aa,nemesis.wireless.projection`,
-`stock_file.1=/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc`, `hookpoints=hookpoints.txt`,
+`stock_file.1=NEEV.KOR.*.260902:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc`, `hookpoints=hookpoints.txt`,
 `setting.1=audio_fix:toggle:on`.
 
 Unknown keys refuse install. Ownership keys (`owns_*`, `services`, `service_calls`, `reassert_props`,

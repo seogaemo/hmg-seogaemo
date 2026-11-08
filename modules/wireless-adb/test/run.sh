@@ -113,7 +113,7 @@ mkdir -p "$tmp/restricted-bin"
 for name in getprop setprop ifconfig netcfg; do
     ln -s "$tmp/bin/$name" "$tmp/restricted-bin/$name"
 done
-for name in dd cat cp rm sleep; do
+for name in dd cat cp rm sleep grep; do
     ln -s "$(command -v "$name")" "$tmp/restricted-bin/$name"
 done
 ln -s "$repo/tools/testlib/fakebin/md5" "$tmp/restricted-bin/md5"
@@ -149,8 +149,17 @@ reset() {
     : > "$tmp/tcp6"
     sg_write running > "$tmp/props/init.svc.adbd"
     sg_write "19" > "$tmp/props/ro.build.version.sdk"
-    sg_write "NEEV.KOR.0000.V039.001.260902" > "$tmp/props/ro.build.product"
+    sg_write "TEST.KOR.0000.V001.001.270101" > "$tmp/props/ro.build.product"
 }
+# The car gate needs a map for the exact firmware; this one is not the Ioniq 5.
+mkdir -p "$tmp/base/maps/test/car/kor/270101"
+sg_print '{"product": "TEST.KOR.0000.V001.001.270101"}' > "$tmp/base/maps/test/car/kor/270101/car.json"
+
+reset
+sg_write "WRONG.KOR.0000.V001.001.270101" > "$tmp/props/ro.build.product"
+if run apply; then exit 1; fi
+has 'state=incompatible'
+[ ! -e "$tmp/props/persist.adb.tcp.port" ]
 
 reset
 sg_print "wlan0 Link encap:Ethernet inet addr:192.168.0.1 Bcast:192.168.0.255" > "$tmp/interfaces/wlan0"
@@ -176,7 +185,7 @@ assert_count 2
 
 reset
 run apply
-sg_write "NEEV.KOR.0000.V039.001.270101" > "$tmp/props/ro.build.product"
+sg_write "TEST.KOR.0000.V001.001.270102" > "$tmp/props/ro.build.product"
 if run revert; then exit 1; fi
 has 'state=conflict'
 [ "$(cat "$tmp/props/persist.adb.tcp.port")" = 5555 ]

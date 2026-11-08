@@ -9,8 +9,7 @@ PORT_PROP=persist.adb.tcp.port
 
 wa_compatible() {
     [ "$(getprop ro.build.version.sdk)" = 19 ] || return 1
-    case "$(getprop ro.build.product)" in *.KOR.*) return 0 ;; esac
-    return 1
+    sg_car_mapped
 }
 
 wa_owners_clear() {
@@ -135,7 +134,7 @@ wa_observed() {
 wa_status() {
     if ! wa_owners_clear; then wa_report conflict none "$WA_CONFLICT"; return $?; fi
     if ! wa_compatible; then
-        wa_report incompatible none 'Requires Korean firmware on Android 4.4'; return $?
+        wa_report incompatible none 'Requires Android 4.4 and a verified car map'; return $?
     fi
     stock_applied=0
     port_applied=0
@@ -191,7 +190,7 @@ wa_apply_failed() {
 wa_apply() {
     if ! wa_owners_clear; then wa_report conflict none "$WA_CONFLICT"; return $?; fi
     if ! wa_compatible; then
-        wa_report incompatible none 'Requires Korean firmware on Android 4.4'; return $?
+        wa_report incompatible none 'Requires Android 4.4 and a verified car map'; return $?
     fi
     override=$(getprop service.adb.tcp.port)
     if [ -n "$override" ] && [ "$override" != 5555 ]; then

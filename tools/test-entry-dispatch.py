@@ -122,7 +122,8 @@ with tempfile.TemporaryDirectory() as tmp:
     (root / 'nemesis').write_text('client')
     fake = root / 'fake'
     fake.mkdir()
-    (fake / 'getprop').write_text('#!/bin/sh\necho NEEV.KOR.0000.V039.001.260902\n')
+    (fake / 'getprop').write_text(
+        '#!/bin/sh\ncase "$1" in ro.build.version.sdk) echo 19;; *) echo NEEV.KOR.0000.V039.001.260902;; esac\n')
     (fake / 'getprop').chmod(0o755)
     env['PATH'] = str(fake) + ':' + env['PATH']
     for pointer in ('current-path', 'previous-path', 'previous-version', 'journal'):
@@ -134,7 +135,8 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not (current.parent / 'previous-path').exists()
     # Android-up repair installs from the fresh tree before retiring selection.
     (fake / 'getprop').write_text(
-        '#!/bin/sh\ncase "$1" in sys.boot_completed) echo 1;; *) echo NEEV.KOR.0000.V039.001.260902;; esac\n')
+        '#!/bin/sh\ncase "$1" in sys.boot_completed) echo 1;; ro.build.version.sdk) echo 19;; '
+        '*) echo NEEV.KOR.0000.V039.001.260902;; esac\n')
     installer = stable / 'bin/install-apk.sh'
     installer.write_text('echo fresh-install; [ "${FAIL_INSTALL:-0}" = 0 ]\n')
     boot_id = root / 'boot-id'

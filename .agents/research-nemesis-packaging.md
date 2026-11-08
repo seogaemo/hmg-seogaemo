@@ -53,11 +53,10 @@ Target **NEMESIS 1.16.4 or newer** for the current path validation and service f
 `make package` builds `hmg-seogaemo-<v>-nemesis-package.zip`,
 `hmg-seogaemo-<v>-nemesis-usb.zip`, `hmg-seogaemo-<v>-ota.zip`, and an APK asset. A signed release also has a manifest, signature, and `SHA256SUMS`. The USB archive contains root
 `NEMESIS.data` and `packages/hmg-seogaemo.zip`. The inner descriptor is 1.1,
-`id=hmg-seogaemo`, `name=HMG-Seogaemo`, `type=application,service`, `os=NEEV.KOR.*.260902`,
-`models=neev_kr`, a root shell app entry, and a root one-shot service.
-NEMESIS classifies an OS mismatch plus model match as partial, so
-`postinstall.sh` checks the same `ro.build.product` glob before installing
-the APK. The package includes module scripts, metadata, the shared mutation API,
+`id=hmg-seogaemo`, `name=HMG-Seogaemo`, `type=application,service`, `os=any`,
+`models=any` (as NEMESIS's own packages), a root shell app entry, and a root one-shot service.
+`postinstall.sh` refuses anything but API 19 before installing the APK; firmware
+support is decided per module by the car map. The package includes module scripts, metadata, the shared mutation API,
 and boot reconciliation. A real uninstall removes the APK; an update
 with a valid staged HMG-Seogaemo descriptor retains it and its app data.
 When Android is down, postinstall leaves the APK in the package and Manager

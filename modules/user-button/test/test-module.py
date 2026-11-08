@@ -49,7 +49,14 @@ with tempfile.TemporaryDirectory() as directory:
         if code == 0 and verb in ('apply', 'revert'):
             (base / 'data/desired' / module.name).write_text('on' if verb == 'apply' else 'off')
         return p.stdout
-    product = 'NEEV.KOR.0000.V039.001.260902'
+    # Any firmware with a car map passes the car gate (not only the Ioniq 5 the module was built on).
+    product = 'TEST.KOR.0000.V001.001.270101'
+    for mapped in (product, 'TEST.KOR.changed.270101'):
+        car = base / 'maps/test/car/kor' / mapped
+        car.mkdir(parents=True)
+        (car / 'car.json').write_text('{\n  "product": "%s"\n}\n' % mapped)
+    prop('ro.build.product', 'WRONG.KOR.0000.V001.001.270101')
+    run('apply', 'incompatible', 4)
     prop('ro.build.product', product)
     prop('ro.build.version.sdk', '19')
     prop(KEY, INITIAL)
@@ -95,7 +102,7 @@ with tempfile.TemporaryDirectory() as directory:
     prop(KEY, '')
     run('apply', 'on')
     prop(KEY, 'stock.reset')
-    prop('ro.build.product', 'NEEV.KOR.changed.260902')
+    prop('ro.build.product', 'TEST.KOR.changed.270101')
     run('watch', 'conflict', 3, event='boot')
     run('apply', 'conflict', 3)
     run('revert', 'conflict', 3)

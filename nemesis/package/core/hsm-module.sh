@@ -46,11 +46,9 @@ hm_hook_status() {
 hm_gate() {
     hm_product=$(getprop ro.build.product)
     hm_match=0
+    sg_csv_glob_match "$(hm_field cars)" "$hm_product" && hm_match=1
     hm_old_ifs=$IFS
     IFS=,
-    for hm_glob in $(hm_field cars); do
-        case "$hm_product" in $hm_glob) hm_match=1;; esac
-    done
     for hm_owner in $(hm_field conflicts); do
         IFS=$hm_old_ifs
         if sg_owner_present "$hm_owner"; then
@@ -79,7 +77,7 @@ hm_all_applied() {
     while IFS='=' read -r hm_key hm_val; do
         case "$hm_key" in
             owns_props|owns_files) IFS=, ;;
-            owns_lines.*) hm_val=${hm_val%%:*} ;;
+            owns_lines.*) hm_val=$(sg_line_decl "$hm_val"); hm_val=${hm_val%%:*} ;;
             *) continue ;;
         esac
         for hm_target in $hm_val; do

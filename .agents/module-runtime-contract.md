@@ -352,7 +352,11 @@ Declare one `owns_lines.N=/absolute/path:<exact stock line>` per entry, with a
 unique positive decimal N (no leading zero). Split at the first colon only:
 commas, colons, equals signs, backslashes, leading/trailing spaces and an empty
 stock line are literal, without escaping or trimming. Paths use letters, digits
-and `/._+-`, with no `..` or `//`. Lines contain no control characters (including
+and `/._+-`, with no `..` or `//`. A path may also contain the token `@onebin@`:
+installing the module replaces it with `ro.mobis.onebindir` (letters, digits and `_`
+only; anything else makes the module incompatible), so installed manifests, runtime
+checks, line state and the ledger only ever see the expanded path. The build compares
+the declared text. Lines contain no control characters (including
 NUL, CR, LF and tab). Duplicate keys and duplicate `(path, stock line)` claims
 fail generation, including within one module. `restore=reboot` cannot own lines.
 The generator emits `modules.lines`, a graph companion in generated module order:
@@ -664,6 +668,16 @@ The zygote hook gate (`HmgApi.zygoteInit`) checks only the first two lines of th
 boot's verification finishes one to three minutes later. Every stock file is
 still compared with the MD5s in `car.json` before the map is used. Module `hookpoints.required` IDs must all survive
 resolution and reflection before publish. `map.json` exposes only verified points.
+
+Car gate: no module is tied to one firmware by name. Bundled modules declare `cars=*`
+and report `incompatible` unless a map exists for this exact `ro.build.product`:
+`sg_car_map` prints the `car.json` of a bundled map or of a map published under
+`car-maps/<product>/` (no hashing, no map tool, no lock; cheap enough for `status`
+and watch events), `sg_car_mapped` only tests it. Unknown firmware therefore needs
+the confirmed **Map this car** action first. Modules with `hookpoints.required` keep the
+stronger per-boot `state=on` requirement above. `revert` never needs a map.
+Per-firmware facts come from the map (`car.json` stock MD5s), `ro.mobis.onebindir`
+or product-scoped `stock_file.N` entries, never from a product check in a module script.
 Generated maps and the ledger are package-local state retained for export until
 package removal; module revert never removes them. The app invokes map commands
 through `RootClient.map` on a worker thread, with fixed arguments and bounded output.

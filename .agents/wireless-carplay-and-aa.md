@@ -91,7 +91,7 @@ The package API must baseline each owned path before writing it, record applied 
 
 | On-car path or property | Apply and restore |
 | --- | --- |
-| `/system/onebin/neev_kr/featurexml.cfg` | Comment each exact CarPlay wireless, AA wireless, and hotspot removal line if present. Restore original bytes/mode/owner. |
+| `/system/onebin/<ro.mobis.onebindir>/featurexml.cfg` (`@onebin@` in `owns_lines`) | Comment each exact CarPlay wireless, AA wireless, and hotspot removal line if present. Restore original bytes/mode/owner. |
 | `/system/etc/permissions/com.hkmc.software.connectivity.carplay_wireless.xml` | Add if absent; restore exact bytes or absence. |
 | `/system/etc/permissions/com.hkmc.software.connectivity.androidauto_wireless.xml` | Same. |
 | `/system/etc/permissions/com.hkmc.software.wifihotspot.xml` | Same. |
@@ -500,8 +500,9 @@ NEMESIS uninstall hook refuse on real evidence; `lib/stock.sh` also runs it in t
 all-module preflight and for modules with no snapshots, before anything is reverted.
 Module `status`, `precheck` and `apply` report the same conflict. Nothing is modified,
 no desired state changes, and the owner resolves it (for example by restoring stock from
-the saved copy) before retrying. The wireless module declares
-`known_stock.1=NEEV.KOR.*.260902:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc`
+the saved copy) before retrying. The wireless module declares the product-scoped
+`stock_file.1=NEEV.KOR.*.260902:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc`
+(installed as the same `known_stock.1`; `cars=*`)
 (the stock build seen on the Ioniq 5 KOR car before and after HMG-API/this module).
 The apply-path orphaned-backup check remains.
 

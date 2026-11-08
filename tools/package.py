@@ -16,7 +16,9 @@ from version import read_label, read_version
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "out/dist"
-TARGET = {"os": "*.KOR.*", "models": "*_kr", "androidApi": 19}
+# Signed manifest constant, not a device check: installed apps (UpdateVerifier) accept only this exact
+# target, so changing it would cut existing installs off OTA. Every car receives the same payload.
+TARGET = {"os": "NEEV.KOR.*.260902", "models": "neev_kr", "androidApi": 19}
 HOST_SHELL = set(json.loads((ROOT / "tools/android44-shell-profile.json").read_text())["host_only_scripts"])
 
 

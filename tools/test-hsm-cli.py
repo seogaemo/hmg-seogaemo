@@ -39,6 +39,10 @@ def main():
         assert "same file or line as wifi" in out, out
 
         apply.write_text(original)
+        # The template targets every car; a module narrowed to one firmware refuses the others.
+        hsm("validate", "demo-mod", "--product", "OTHER.CAR", cwd=work)
+        props = module / "module.properties"
+        props.write_text(props.read_text().replace("cars=*\n", "cars=NEEV.KOR.*.260902\n"))
         out = hsm("validate", "demo-mod", "--product", "OTHER.CAR", cwd=work, code=4)
         assert "state=incompatible" in out, out
 

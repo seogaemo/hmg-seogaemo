@@ -181,7 +181,8 @@ def generate(root, order, output):
                 raise ValueError(f'whole-file ownership conflict: {path}')
             whole[path] = module
         for number, path, stock in sorted(claims, key=lambda c: int(c[0])):
-            validate_path(path)
+            # @onebin@ is expanded on the car at install (runtime contract, line ownership).
+            validate_path(path.replace('@onebin@', 'onebin'))
             if path in whole:
                 raise ValueError(f'whole-file ownership conflict: {path}')
             if (path, stock) in lines:

@@ -6,7 +6,7 @@ Status: current — index of the agent notes, reorganized 2026-11-05.
 
 Reading order: `module-architecture.md` → `module-runtime-contract.md` → `ui-guidelines.md` → `ota-implementation.md`, then the docs for the area you change. Each fact lives in one doc; others link to it. Off-car tests do not establish physical-car behavior.
 
-Target: Hyundai Ioniq 5 KOR, `ro.build.product=NEEV.KOR.0000.V039.001.260902` (package glob `NEEV.KOR.*.260902`), onebin `neev_kr`, Android 4.4.2; NEMESIS + HMG-Seogaemo only.
+Target: any Gen5W on Android 4.4 with NEMESIS + HMG-Seogaemo only; modules need a car map for the exact firmware (runtime contract, "Car gate"). Reference car: Hyundai Ioniq 5 KOR, `ro.build.product=NEEV.KOR.0000.V039.001.260902`, onebin `neev_kr`, Android 4.4.2 (the only bundled map).
 
 ## Core design and runtime
 

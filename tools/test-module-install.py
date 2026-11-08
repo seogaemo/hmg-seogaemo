@@ -77,6 +77,7 @@ class Car:
         script(fake / "app_process", f'shift; cls=$1; shift; exec java -cp "{classes}" "$cls" "$@"\n')
         script(fake / "pm", "echo package:fixture\n")
         self.prop("ro.build.product", PRODUCT)
+        self.prop("ro.mobis.onebindir", "neev_kr")
         self.prop("ro.build.version.sdk", "19")
         self.prop("sys.boot_completed", "1")
         self.prop("persist.test.mode", "stock-mode")
@@ -544,7 +545,7 @@ def test_converted_builtin(car):
                  "excludes=", "restart=head_unit", "kmods=88x2bu,8851bu", "owns_ifaces=rtwlan*",
                  "watch=boot,screen_on"),
         "wireless-carplay-and-aa": ("raw_shell=1", "hooks=1", "restart=head_unit",
-                                    "known_stock.1=*.KOR.*:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc",
+                                    "known_stock.1=NEEV.KOR.*.260902:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc",
                                     "owns_lines.1=/system/onebin/neev_kr/featurexml.cfg:-/system/etc/permissions/com.hkmc.software.connectivity.carplay_wireless.xml",
                                     "owns_props=persist.ium.support,persist.sys.iap2.wifi,persist.iap2.iden.wireless"),
     }
@@ -588,6 +589,47 @@ def line_module(module_id, path, stock, new):
         "apply.sh": f'replace_line {path} "{stock}" "{new}"\n',
         "strings/en.txt": "name=Line\nsummary=Test\n",
     }
+
+
+def test_onebin_token(car):
+    # A bundled line claim names the onebin directory as @onebin@; install expands it from
+    # ro.mobis.onebindir, so the installed manifest and every runtime check use the real path.
+    shared = car.temp / "onebin/ne1_kr/featurexml.cfg"
+    shared.parent.mkdir(parents=True)
+    stock = b"alpha\nkeep\n"
+    shared.write_bytes(stock)
+    fake = Path(car.env["PATH"].split(":")[1])
+    for name in ("ls", "chown"):
+        script(fake / name, f'exec /bin/sh "{ROOT / "tools/testlib/fake-ownership.sh"}" {name} "$@"\n')
+    script(fake / "nemesis", "exit 0\n")
+    car.env.update(FAKE_OWNERS=str(car.temp / "owners.json"))
+    token = f"{car.temp}/onebin/@onebin@/featurexml.cfg"
+    files = {"module.properties": f"id=line-tok\nversion=1.0.0\napi=1\ncars=*\nraw_shell=1\n"
+                                  f"owns_lines.1={token}:alpha\n",
+             "module.sh": '. "$HMG_SEOGAEMO_BASE/lib/common.sh"\n'
+                          f'target=$(sg_onebin_path "{token}") || exit 4\n'
+                          'case "$1" in\n'
+                          '    status|precheck) sg_status off none off ;;\n'
+                          '    apply) sg_file_replace_line "$target" alpha A && sg_status on none on ;;\n'
+                          '    revert) sg_revert_all && sg_status off none off ;;\n'
+                          '    *) exit 2 ;;\n'
+                          'esac\nexit $?\n',
+             "strings/en.txt": "name=Token\nsummary=Bundled line module\n"}
+    car.prop("ro.build.product", "TEST.KOR.0000.V001.001.270101")
+    car.prop("ro.mobis.onebindir", "ne1/kr")
+    bundle_as(car, "line-tok", files)
+    assert "Unsupported onebin" in car.root("module", "install-bundled")
+    assert "line-tok" not in car.root("module", "list")
+    car.prop("ro.mobis.onebindir", "ne1_kr")
+    car.root("module", "install-bundled")
+    manifest = (car.data / "installed/line-tok.properties").read_text()
+    assert f"owns_lines.1={shared}:alpha" in manifest and "@onebin@" not in manifest, manifest
+    # The package also ships the declared manifest (token kept); the runtime prefers that copy.
+    (car.base / "modules/line-tok.properties").write_text(files["module.properties"])
+    assert "state=on" in car.root("line-tok", "apply")
+    assert shared.read_bytes() == b"A\nkeep\n"
+    car.root("line-tok", "revert")
+    assert shared.read_bytes() == stock
 
 
 def test_installed_shared_line(car):
@@ -737,5 +779,5 @@ if __name__ == "__main__":
     run_tests([on_car(test) for test in (
         test_install_validation, test_lifecycle, test_reconcile_reapplies, test_hook_host, test_usb_import,
         test_button_action, test_bundled, test_add_bundled, test_replaces, test_merged_takeover, test_converted_builtin, test_installed_shared_line,
-        test_action_kind, test_action_kind_refusals)],
+        test_action_kind, test_action_kind_refusals, test_onebin_token)],
         "installed module tests passed")

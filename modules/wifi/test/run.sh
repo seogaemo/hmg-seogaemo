@@ -50,7 +50,10 @@ sg_print 6f1d2e3c-4b5a-4968-8776-a5b4c3d2e1f0 > "$work/uuid"
 sg_print broadcom > "$work/vendor"
 sg_print driver > "$work/system/wifi/bcmdhd.ko"
 sg_print firmware > "$work/system/wifi/fw_bcmdhd.bin"
-sg_print NEEV.KOR.0000.V039.001.260902 > "$work/product"
+# Any firmware with a car map passes the car gate; this one is not the Ioniq 5 the module was built on.
+sg_print TEST.KOR.0000.V001.001.270101 > "$work/product"
+mkdir -p "$work/base/maps/test/car/kor/270101"
+sg_print '{"product": "TEST.KOR.0000.V001.001.270101"}' > "$work/base/maps/test/car/kor/270101/car.json"
 : > "$work/owners"
 : > "$work/pm-feature"
 
@@ -347,10 +350,11 @@ run status; assert_state pending-restart; assert_line info.desired=off
 : > "$work/pm-feature"
 run status; assert_state off
 
-sg_print WRONG.USA.260902 > "$work/product"
+# Firmware without a car map.
+sg_print WRONG.KOR.260902 > "$work/product"
 fails apply; assert_state incompatible
 fails precheck; assert_state incompatible
-sg_print NEEV.KOR.0000.V039.001.260902 > "$work/product"
+sg_print TEST.KOR.0000.V001.001.270101 > "$work/product"
 roles client off
 for file in bcmdhd.ko fw_bcmdhd.bin; do
     mv "$work/system/wifi/$file" "$work/$file.saved"

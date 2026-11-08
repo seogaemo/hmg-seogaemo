@@ -21,6 +21,7 @@ class Unit:
         self.folder = folder
         self.base = folder / 'package'
         shutil.copytree(ROOT / 'nemesis/package', self.base)
+        shutil.copytree(ROOT / 'maps', self.base / 'maps')  # bundled car maps, as in the package
         host_shell_tree(self.base)
         (self.base / 'modules.list').write_text('demo\n')
         (self.base / 'bin/hmg-seogaemo-root').write_text(
@@ -137,7 +138,7 @@ def test_check_with_wifi_chip_and_conflicts(folder):
     (unit.target / 'system/bin/app_process.hmgapi-stock').write_text('x')
     checks, verdict = unit.checks()
     assert checks['wifi_hw'][0] == 'ok' and checks['wifi_hw'][1] == 'observed', checks['wifi_hw']
-    assert checks['firmware'][0] == 'block'
+    assert checks['firmware'][0] == 'warn'  # no car map for this firmware yet
     assert checks['adb_tcp'][0] == 'warn'
     assert checks['conflict_hmgapi'][0] == 'block'
     assert verdict == 'block'

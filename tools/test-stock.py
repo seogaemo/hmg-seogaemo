@@ -704,6 +704,7 @@ def test_wireless_adb_restore(folder):
         script(car.fake / name, body)
     (car.live / 'init.svc.adbd').write_text('running')
     (car.live / 'ro.build.version.sdk').write_text('19')
+    shutil.copytree(ROOT / 'maps', car.base / 'maps')  # the car gate needs this firmware's map
     car.run('wireless-adb', 'apply')
     assert (car.state / 'modules/wireless-adb/changes').is_file()
     changes = car.state / 'modules/wireless-adb/changes'

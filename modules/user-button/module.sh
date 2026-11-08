@@ -9,10 +9,7 @@ ID=user-button
 
 ub_gate() {
     [ "$(getprop ro.build.version.sdk)" = 19 ] || { sg_status incompatible none 'Requires Android 4.4'; return $?; }
-    case "$(getprop ro.build.product)" in
-        *.KOR.*) ;;
-        *) sg_status incompatible none 'Requires Korean firmware'; return $? ;;
-    esac
+    sg_car_mapped || { sg_status incompatible none 'Verified car map required'; return $?; }
     for owner in hmgapi leafia; do
         if sg_owner_present "$owner"; then
             sg_status conflict none 'Another package owns user button hooks'; return $?

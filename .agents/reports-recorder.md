@@ -61,7 +61,7 @@ hashes, module state, boot logs). Developers read the files; users never type a 
 ## Car check (`lib/preflight.sh`)
 
 One line per check: `id|level|evidence|message`, level `ok|warn|block|unknown`, evidence `observed|inferred`.
-Checks: firmware, Android, onebin, boot, ADB over network
+Checks: firmware (ok with a car map for this product, otherwise warn: map this car first), Android, onebin (warn when unusable for `@onebin@`), boot, ADB over network
 switch, other packages (one catalogue:
 `core/foreign.sh status`, the same findings the Car tab cleans; harmless leftover logs are not reported
 as a constraint), **Wi-Fi hardware**, Wi-Fi driver state,

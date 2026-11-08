@@ -2,12 +2,8 @@
 umask 077
 base=${0%/*}
 base=${base%/scripts}
-# NEMESIS treats a model match with another firmware as partial.
-# ro.build.product looks like NEEV.KOR.0000.V039.001.260902 (same glob as descriptor os=).
-case "$(getprop ro.build.product)" in
-    *.KOR.*) ;;
-    *) echo 'Unsupported firmware' >&2; exit 1 ;;
-esac
+# Any Gen5W firmware on Android 4.4 (API 19); modules check for this car's map themselves.
+[ "$(getprop ro.build.version.sdk)" = 19 ] || { echo 'Unsupported Android version' >&2; exit 1; }
 # An explicit USB install selects this newly installed tree. Clear the OTA
 # selection before anything that can fail (APK step, paused stock restore), so
 # a retained older OTA payload never keeps serving root verbs. Version dirs and

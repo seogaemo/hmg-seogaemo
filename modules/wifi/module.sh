@@ -1,5 +1,5 @@
 #!/bin/sh
-# Wi-Fi radios for Korean firmware (verified on NEEV KOR 260902), one role per radio.
+# Wi-Fi radios on a car with a verified map, one role per radio.
 #
 # Built-in radio (stock Broadcom, wlan0), setting builtin_role:
 #   client      exposes the stock Wi-Fi client menu: android.hardware.wifi feature XML and
@@ -145,10 +145,7 @@ projection_desired() {
 }
 
 compatible() {
-    case "$(getprop ro.build.product 2>/dev/null)" in
-        *.KOR.*) ;;
-        *) result incompatible none 'Unsupported firmware' ;;
-    esac
+    sg_car_mapped || result incompatible none 'Verified car map required'
 }
 
 one_hotspot() {

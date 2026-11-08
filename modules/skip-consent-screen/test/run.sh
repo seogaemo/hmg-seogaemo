@@ -75,7 +75,17 @@ script="$tmp/skip-consent-screen.sh"
 # Intercept mksh's sleep builtin in the private fixture too.
 { echo "sleep() { :; }"; cat "$module_dir/module.sh"; } > "$script"
 sg_write "stock" > "$tmp/framework.odex"
-sg_write "NEEV.KOR.0000.V039.001.260902" > "$tmp/props/ro.build.product"
+# The stock framework MD5 comes from this firmware's car map, not from the module.
+sg_write "TEST.KOR.0000.V001.001.270101" > "$tmp/props/ro.build.product"
+mkdir -p "$tmp/base/maps/test/car/kor/270101"
+cat > "$tmp/base/maps/test/car/kor/270101/car.json" <<'EOF'
+{
+  "files": {
+    "/system/framework/framework.odex": "ffe86fa1540c8dea3b5499b1191bb727"
+  },
+  "product": "TEST.KOR.0000.V001.001.270101"
+}
+EOF
 sg_write "19" > "$tmp/props/ro.build.version.sdk"
 sg_write "1" > "$tmp/props/sys.boot_completed"
 sg_write "boot-a" > "$tmp/boot-id"
@@ -91,6 +101,10 @@ rm "$tmp/owner"
 if run apply; then exit 1; fi
 has 'state=incompatible'
 rm "$tmp/wrong-hash"
+sg_write "WRONG.KOR.0000.V001.001.270101" > "$tmp/props/ro.build.product"
+if run precheck; then exit 1; fi
+has 'state=incompatible'
+sg_write "TEST.KOR.0000.V001.001.270101" > "$tmp/props/ro.build.product"
 run apply; has 'state=pending-restart'
 sg_write "on" > "$tmp/data/desired/skip-consent-screen"
 run watch boot; has 'state=on'
