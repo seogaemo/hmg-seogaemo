@@ -347,7 +347,7 @@ run status; assert_state pending-restart; assert_line info.desired=off
 : > "$work/pm-feature"
 run status; assert_state off
 
-sg_print WRONG.KOR.260902 > "$work/product"
+sg_print WRONG.USA.260902 > "$work/product"
 fails apply; assert_state incompatible
 fails precheck; assert_state incompatible
 sg_print NEEV.KOR.0000.V039.001.260902 > "$work/product"

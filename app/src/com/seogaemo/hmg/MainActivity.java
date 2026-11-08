@@ -2546,6 +2546,8 @@ public final class MainActivity extends Activity {
         return value == null || value.length() == 0 ? "\u2014" : value;
     }
 
+    private boolean mapOffered;
+
     private void refreshMap(final boolean verifyKnown) {
         if (mapRefreshing) return;
         mapRefreshing = true;
@@ -2564,6 +2566,12 @@ public final class MainActivity extends Activity {
                 mapStatus = observed;
                 if (observedFailure != null) mapResult = observedFailure;
                 mapRefreshing = false;
+                // Unknown firmware: offer the mapping on its own, once per app start, behind the usual confirmation.
+                if (!mapOffered && observed.exitCode == 0 && "off".equals(observed.state)
+                        && "none".equals(observed.info.get("source")) && !mapBusy && !stockBusy && !isFinishing()) {
+                    mapOffered = true;
+                    confirmMapRun();
+                }
                 if (tab == Tab.CAR && detailId == null && !addVisible) showCar();
                 resumeUpdateWhenReady();
             } });

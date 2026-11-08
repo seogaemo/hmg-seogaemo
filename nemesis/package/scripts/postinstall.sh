@@ -5,7 +5,7 @@ base=${base%/scripts}
 # NEMESIS treats a model match with another firmware as partial.
 # ro.build.product looks like NEEV.KOR.0000.V039.001.260902 (same glob as descriptor os=).
 case "$(getprop ro.build.product)" in
-    NEEV.KOR.*.260902) ;;
+    *.KOR.*) ;;
     *) echo 'Unsupported firmware' >&2; exit 1 ;;
 esac
 # An explicit USB install selects this newly installed tree. Clear the OTA

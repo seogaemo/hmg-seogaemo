@@ -36,6 +36,12 @@ through **NEMESIS**, made of toggleable modules. Target setup is **NEMESIS + HMG
   glob `NEEV.KOR.*.260902` (descriptor `os=` and scripts). NEMESIS compares `os=` to
   `ro.build.product` with globs; an exact `NEEV.KOR.260902` never matches.
 - onebin `neev_kr`, Android 4.4.2 (API 19, Dalvik), Telechips, display 1920x720 hdpi (density 1.5).
+- Other Korean cars: the package and every module accept any `*.KOR.*` product with a `*_kr` onebin
+  (descriptor `os=*.KOR.*`, `models=*_kr`). Only the Ioniq 5 above is verified on a car. The car map decides
+  what a car can do, and `wireless-carplay-and-aa` lists the `featurexml.cfg` lines of each known onebin
+  (`<lowercase product code>_kr`; the naming is verified for `neev_kr` and `depehev_kr` only) in `owns_lines`,
+  refusing an unlisted folder. Add a car by adding its three lines; a stock `app_process` that differs from the
+  declared MD5 is refused as a conflict.
 - Owner-verified: HMG-API's car map + wireless mod gave a working hotspot + wireless CarPlay on this
   car; the stock firmware has no Wi-Fi client menu.
 - Car-verified: wireless CarPlay music, Siri and calls/mic; built-in Wi-Fi STA (as `wifi-client`, now `wifi`; adb over a router);
@@ -130,7 +136,8 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
   `themesettings.split_item.type` remains unresolved and no module requires it.
 - `map status` is read-only and matches the exact product, onebin, Android release, and MD5 of every
   stock file in `car.json`. Known maps get reflection verification once per boot on a worker.
-  Unknown firmware requires the confirmed **Map this car** action in Settings → Car mapping.
+  Unknown firmware: the app offers the confirmed mapping itself once per start (also **Map this car** in
+  Settings → Car mapping); nothing runs without the confirmation.
   `map run` scans the full catalogue in a separate root `app_process`; it publishes only verified
   points through the package API and ledger. Modules stay off unless all their required IDs pass.
 - `map export` and ordinary USB/adb ledger export include a PR-ready `maps/...` folder. Owners send it
@@ -218,6 +225,11 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
 
 ## Known gaps / risks (unverified on a car)
 
+- Every Korean car other than the Ioniq 5 KOR 260902 is untested by us: automatic mapping, the module
+  gates (`cars=*.KOR.*`), the per-onebin `featurexml.cfg` lines and the recipes. korea-projection reports
+  wireless CarPlay on 13 such cars with the same upstream recipes, but with the stock hotspot call a no-op on
+  several of them (it starts `hostapd` directly, 5 GHz channel 149); that hotspot start is not implemented here.
+  Needed per such car: `app_process` stock MD5 (the module's `stock_file.1` is the Ioniq 5 value), a verified map.
 - The 18 v1.0.1, six stock-guidance and eight CarPlay owner map additions have exact-stock host
   evidence and still need on-car reflection.
   Other feature claims require their own evidence.

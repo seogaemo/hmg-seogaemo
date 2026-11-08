@@ -544,7 +544,7 @@ def test_converted_builtin(car):
                  "excludes=", "restart=head_unit", "kmods=88x2bu,8851bu", "owns_ifaces=rtwlan*",
                  "watch=boot,screen_on"),
         "wireless-carplay-and-aa": ("raw_shell=1", "hooks=1", "restart=head_unit",
-                                    "known_stock.1=NEEV.KOR.*.260902:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc",
+                                    "known_stock.1=*.KOR.*:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc",
                                     "owns_lines.1=/system/onebin/neev_kr/featurexml.cfg:-/system/etc/permissions/com.hkmc.software.connectivity.carplay_wireless.xml",
                                     "owns_props=persist.ium.support,persist.sys.iap2.wifi,persist.iap2.iden.wireless"),
     }
