@@ -10,7 +10,7 @@ Status: current - field notes ported from the HMG-API wireless mod work. Nothing
 - **Trace:** `Dipo.trace()` (fixed on) logs numbers only (route guidance, maneuver, lane, `turn skip ... no icon for maneuver ... type X side Y junction Z exit E`), no road/destination names, to logcat tag `HMG-Seogaemo-Wireless`. HMG-API also copied it to a USB folder with a root service (not ported, below).
 
 ## Open problems (need a drive log)
-- Updates sometimes do not reach the cluster. Hypothesis: `Maneuver.read` resets the exit angle each update, icon becomes 0, `turn()` returns early. Fix idea: keep the previous angle for the same maneuver type.
+- Partial maneuver updates (neither type nor exit angle) keep the previous exit angle and `hasExit` (`Maneuver.read`); an update naming the type again is a whole maneuver. Not yet seen on a drive.
 - Lanes are not cleared when the phone stops sending lane guidance (item 18 ignored).
 - Maneuver may arrive before the route update; Naver's real lane status values are unknown.
 - NEEV.KOR hook map: if trace lines `T ...` never appear, the hooks are off.
