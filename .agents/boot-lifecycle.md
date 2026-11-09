@@ -55,14 +55,23 @@ their reviewed steps without replanning.
 
 ## Watch events
 
-- `watch=boot,screen_on` are the only events. The watcher invokes `root/<id>.sh watch <event>` only while the module's desired state is on, under the root operation lock, waits for `sys.boot_completed=1` with a slow sleep and no hard exit, re-reads desired state every loop, and never passes arbitrary event names or arguments. Boot is dispatched once per module per kernel boot (marker `watch/boot.<id>`
+- `watch=boot,screen_on,usb_change` are the only events. The watcher invokes `root/<id>.sh watch <event>` only while the module's desired state is on, under the root operation lock, waits for `sys.boot_completed=1` with a slow sleep and no hard exit, re-reads desired state every loop, and never passes arbitrary event names or arguments. Boot is dispatched once per module per kernel boot (marker `watch/boot.<id>`
   holding `/proc/sys/kernel/random/boot_id`). Screen-on = display off→on transition read from `dumpsys power` every 5 s
   (keys `mWakefulness=`, `mDisplayPowerRequest.policy=`; `mScreenOn=`/`mInteractive=` also accepted); uncertain readings do not
   trigger. With no enabled watch module the watcher idles on a 300 s sleep (can delay noticing a newly enabled one).
 - Receipts are published only after successful dispatch. At most six attempts per boot/event, delays 5, 10, 20, 40, 60 s
-  (uptime clock); reservations survive watcher restart. A new observed screen off/on edge starts a fresh screen budget; failures
+  (uptime clock); reservations survive watcher restart. A new observed screen off/on edge or USB signature starts a fresh event budget; failures
   stay queued while the screen stays on. Disable, stock pause and the dispatcher intent lock suppress calls. Every Binder attempt
   uses `sg_service_call` and its ledger; the consent module treats only `sg_service_call_ok_this_boot` as boot completion.
+- USB change: while any desired-on module declares `usb_change`, each active poll reads physical USB
+  `idVendor`, `idProduct`, `devnum` under `/sys/bus/usb/devices` and the `ifindex` of interfaces matching
+  that module's `owns_ifaces` under `/sys/class/net`. Link flags are excluded so module link operations cannot
+  trigger themselves. Host seams are `SG_USB_DEVICES_DIR` and `SG_SYS_NET_ROOT`. First observation each kernel
+  boot and any changed signature queue one event, including unplug, same-port replug with a new devnum,
+  and delayed driver interface creation. Per-module `watch/usb-signature.<id>` and `watch/usb.<id>` persist
+  observed identity and boot-scoped pending work; `watch/retry.<id>.usb_change` reserves attempts before
+  dispatch. Successful dispatch alone clears pending. Restart, disable and stock pause retain signature,
+  pending and attempts; calls resume when permitted. USB polling is independent of display state.
 - Reasserted properties: each active poll compares saved applied values for enabled modules with `watch=screen_on` +
   `reassert_props` (ready baseline and applied marker required); a mismatch reuses fixed `watch screen_on` dispatch under the lock
   and desired/pause guards. No new event or root argument. Failed reassertions retry on later polls; timing after

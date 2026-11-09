@@ -1,4 +1,4 @@
-Status: current — implemented off-car; built-in STA car-verified as wifi-client (2026-11-03); USB roles and the takeover unverified on the car.
+Status: current — built-in STA car-verified as wifi-client (2026-11-03); USB hotspot with wireless Android Auto owner-reported working on a tester car; USB replug recovery and the takeover unverified on a car.
 
 # wifi module (former wifi-client)
 
@@ -46,9 +46,16 @@ again while the module is on):
   `kernel/usb-wifi/build.sh`; the module test checks hashes and vermagic). The four drivers make the bundled package
   about 16.6 MB of the 16 MiB extractor cap; another driver needs a per-platform split.
 - Every USB effect is a transient runtime record (contract "Transient effects"): gone at a restart, made again by boot
-  reconcile (apply) and by the `screen_on` watch (`rerun_on=boot,screen_on`), which also brings a replugged adapter back.
-  An absent adapter is not an error (`state=on`, detail "USB Wi-Fi adapter not connected"). A failed USB step runs
-  `sg_revert_transient` (module on) or `sg_revert_all` (first enable).
+  reconcile (apply), `screen_on`, and `usb_change` watches (`rerun_on=boot,screen_on,usb_change`). The watcher polls
+  USB identity/devnum and owned-interface ifindex every five seconds while enabled, including with the display on.
+  Successful bring-up records boot ID and `rtwlan0/ifindex` in `usb-generation`; status and peer readiness require
+  that generation as well as live daemons. A missing/changed generation clears peer readiness and runs
+  `sg_revert_transient keep_kmods` before bring-up: daemons release the old netdev, address/firewall records drop,
+  and the driver remains loaded for reprobe. An absent adapter is not an error (`state=on`, detail "USB Wi-Fi adapter
+  not connected"); a present replacement with stale daemons reports failed until recovered. A failed USB step uses
+  the same driver-retaining cleanup (module on) or `sg_revert_all` (first enable). Driver operations are bounded
+  to 15 seconds plus signal grace; a timeout retains records and requires restart before another driver operation.
+  These recovery paths are host-tested, unverified on a car.
 - Client: `usb-wpa.conf` in the module state holds `ctrl_interface=<state>/wpa` and the chosen network. The app's picker
   runs `action wifi_scan` (needs `/system/bin/wpa_cli`, absent on the owner's car; then only "Other network" with a typed
   name works) and `action wifi_join`, which reads the fixed app file `files/wifi/usb-join` (`ssid=<hex>`,
@@ -131,7 +138,8 @@ restart Bluetooth for nothing there. Not yet run on a car. Reference: korea-proj
 `getprop`/`setprop`/`pm`/`ifconfig`/`netcfg`, fake `insmod`/`rmmod`/`ip`/`iptables` and daemon executables under
 `HMG_SEOGAEMO_TOOL_ROOT`, fake sysfs USB ids, fake `wpa_cli`; restricted PATH with failing stubs for tools absent on
 the unit. Covers the former wifi-client cases (apply/reapply/revert, gates, drift, owner, warnings), role exclusivity,
-adapter detection, USB client apply/scan/join/watch/revert, USB hotspot apply/credentials/peer info/revert, stale
+adapter detection, USB client apply/scan/join/watch/revert, unplug daemon cleanup, new-ifindex recovery with new
+hostapd/dnsmasq PIDs and re-added address, stale-daemon status, USB hotspot credentials/peer info/revert, stale
 records after a restart, failed driver load and the built-in hotspot role. Takeover: `tools/test-module-install.py`
 `test_replaces`. Picker request encoding: `tools/WifiNetworkTest.java`. Plan rule: `tools/test-module-switch.py`.
 

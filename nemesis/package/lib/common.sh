@@ -1695,7 +1695,28 @@ sg_kmod_present() {
 # Read-only: 0 when kernel module $1 is loaded and was loaded by this module this boot.
 sg_kmod_loaded() {
     sg_tr_kmod_name "$1" || return 2
+    ! sg_tr_current "$HMG_SEOGAEMO_STATE/kmod.$1.pending" || return 1
     sg_tr_current "$HMG_SEOGAEMO_STATE/kmod.$1" && sg_kmod_present "$1"
+}
+# Kernel calls can remain uninterruptible even after KILL. Never wait for those
+# children on timeout; keep a boot-bound uncertainty marker to prevent races with
+# a late completion. Output must not keep the caller's pipes open either.
+sg_kmod_command() {
+    sg_kc_op=$1; sg_kc_name=$2; shift 2
+    (
+        case "$sg_kc_op" in
+            load) exec "${HMG_SEOGAEMO_TOOL_ROOT:-}/system/bin/insmod" "$@" ;; # android44-shell: allow -- fixed insmod path with host-test seam
+            unload) exec "${HMG_SEOGAEMO_TOOL_ROOT:-}/system/bin/rmmod" "$@" ;; # android44-shell: allow -- fixed rmmod path with host-test seam
+        esac
+    ) </dev/null >> "$HMG_SEOGAEMO_STATE/kernel.$sg_kc_name.log" 2>&1 &
+    sg_kc_pid=$!
+    sg_bounded_wait "$sg_kc_pid" 15 no_wait && return 0
+    sg_kc_rc=$?
+    if [ "$sg_kc_rc" -eq 124 ]; then
+        sg_tr_record "$HMG_SEOGAEMO_STATE/kmod.$sg_kc_name.pending" "$(sg_boot_id)" "$sg_kc_pid" || :
+        sg_log "kernel module $sg_kc_name $sg_kc_op timed out; restart required" || :
+    fi
+    return "$sg_kc_rc"
 }
 # Loads payload kernel module $1 (kmods=, kmod.<name>.<ro.board.platform>= or
 # kmod.<name>=, optional kmod_params.<name>=). 2 undeclared, 3 loaded by someone
@@ -1706,6 +1727,11 @@ sg_kmod_load() {
     if sg_transient_owner kmod "$1" >/dev/null; then return 3; fi
     sg_ready || return 1
     sg_km_record=$HMG_SEOGAEMO_STATE/kmod.$1
+    if sg_tr_current "$sg_km_record.pending"; then
+        sg_log "kernel module $1 has a timed-out operation; restart required" || :
+        return 1
+    fi
+    rm -f "$sg_km_record.pending"
     if sg_kmod_present "$1"; then
         sg_tr_current "$sg_km_record" && return 0
         sg_log "conflict: kernel module $1 is already loaded and not ours" || :
@@ -1731,8 +1757,8 @@ sg_kmod_load() {
     # Record first: an interrupted load is still found and unloaded by revert.
     sg_tr_record "$sg_km_record" "$sg_km_boot" "$sg_km_ko" "$sg_km_params" || return 1
     sg_changed kmod "$1" || return 1
-    if ! sg_tool_insmod "$sg_km_file" $sg_km_params; then
-        rm -f "$sg_km_record"
+    if sg_kmod_command load "$1" "$sg_km_file" $sg_km_params; then :; else
+        sg_tr_current "$sg_km_record.pending" || rm -f "$sg_km_record"
         sg_tr_ledger kmod_load "$1" absent "insmod $sg_km_ko $sg_km_params" failed || :
         return 1
     fi
@@ -1742,14 +1768,15 @@ sg_kmod_load() {
 sg_kmod_revert() {
     sg_km_record=$HMG_SEOGAEMO_STATE/kmod.$1
     [ -f "$sg_km_record" ] || return 0
+    ! sg_tr_current "$sg_km_record.pending" || return 1
     if sg_tr_current "$sg_km_record" && sg_kmod_present "$1"; then
-        sg_tool_rmmod "$1" || { sg_log "could not unload kernel module $1" || :; return 1; }
+        sg_kmod_command unload "$1" "$1" || { sg_log "could not unload kernel module $1" || :; return 1; }
         ! sg_kmod_present "$1" || return 1
         sg_tr_ledger kmod_unload "$1" loaded absent || return 1
     else
         sg_tr_ledger kmod_unload "$1" 'not loaded in this boot' absent absent || return 1
     fi
-    rm -f "$sg_km_record"
+    rm -f "$sg_km_record" "$sg_km_record.pending"
 }
 sg_daemon_expand() (
     set -f
@@ -2091,7 +2118,9 @@ sg_iface_addr_revert() {
 # and properties stay applied, so a module can back out a failed transient step
 # without restoring stock files. Return codes as sg_revert_all.
 sg_revert_transient() {
-    [ "$#" -eq 0 ] && [ -n "$HMG_SEOGAEMO_STATE" ] || return 2
+    [ "$#" -le 1 ] && [ -n "$HMG_SEOGAEMO_STATE" ] || return 2
+    sg_rt_keep=0
+    if [ "$#" -eq 1 ]; then [ "$1" = keep_kmods ] || return 2; sg_rt_keep=1; fi
     sg_rt_changes=$HMG_SEOGAEMO_STATE/changes
     [ -f "$sg_rt_changes" ] || return 0
     sg_rt_reverse=
@@ -2101,7 +2130,7 @@ sg_revert_transient() {
     for sg_rt_item in $sg_rt_reverse; do
         sg_rt_kind=${sg_rt_item%%:*}; sg_rt_target=${sg_rt_item#*:}
         case "$sg_rt_kind" in
-            kmod) sg_kmod_revert "$sg_rt_target" ;;
+            kmod) [ "$sg_rt_keep" -eq 0 ] || continue; sg_kmod_revert "$sg_rt_target" ;;
             daemon) sg_daemon_revert "$sg_rt_target" ;;
             net) sg_net_rule_revert "$sg_rt_target" ;;
             addr) sg_iface_addr_revert "${sg_rt_target%%@*}" "${sg_rt_target#*@}" ;;
@@ -2724,6 +2753,7 @@ sg_bounded_wait() {
     done
     if kill -0 "$sg_bw_pid" 2>/dev/null; then
         sg_kill_tree "$sg_bw_pid" 3
+        [ "${3:-}" != no_wait ] || return 124
         wait "$sg_bw_pid" 2>/dev/null || :
         return 124
     fi

@@ -141,6 +141,50 @@ def test_conflict_pushes_nothing():
         assert git(fx.clone, "status", "--porcelain") == ""
 
 
+JAR = "modules/wireless-carplay-and-aa/files/wireless-mod.jar"
+MAKEFILE = "module-build:\n\tcat src.txt > " + JAR + "\n"
+
+
+def build_output_fixture(temp, makefile=MAKEFILE):
+    """beta and main both change src.txt (merges cleanly) and the jar built from it (conflicts)."""
+    fx = Fixture(temp)
+    git(fx.clone, "checkout", "main")
+    (fx.clone / JAR).parent.mkdir(parents=True)
+    commit(fx.clone, ".gitattributes", "*.jar binary\n", "jars are binary, as on the real branch")
+    commit(fx.clone, "Makefile", makefile, "build")
+    commit(fx.clone, "src.txt", "a\nb\nc\n", "source")
+    commit(fx.clone, JAR, "a\nb\nc\n", "jar")
+    git(fx.clone, "push", "origin", "main")
+    git(fx.clone, "checkout", "-B", "beta")
+    commit(fx.clone, "src.txt", "a\nb\nbeta\n", "beta source")
+    commit(fx.clone, JAR, "a\nb\nbeta\n", "beta jar")
+    git(fx.clone, "push", "origin", "beta")
+    git(fx.clone, "checkout", "main")
+    commit(fx.clone, "src.txt", "main\nb\nc\n", "main source")
+    commit(fx.clone, JAR, "main\nb\nc\n", "main jar")
+    fx.release_final("0.1.49")
+    return fx
+
+
+def test_build_output_rebuilt():
+    with tempfile.TemporaryDirectory() as temp:
+        fx = build_output_fixture(temp)
+        code, out = run_tool(fx.clone, "final", "v0.1.49")
+        assert code == 0, out
+        assert show(fx.origin, JAR) == "main\nb\nbeta" == show(fx.origin, "src.txt")
+        assert show(fx.origin, "VERSION") == "0.1.50" and show(fx.origin, "PRERELEASE") == "beta.1"
+
+
+def test_build_output_rebuild_failure_pushes_nothing():
+    with tempfile.TemporaryDirectory() as temp:
+        fx = build_output_fixture(temp, MAKEFILE + "\techo changed > src.txt\n")
+        before = git(fx.origin, "rev-parse", "beta")
+        code, out = run_tool(fx.clone, "final", "v0.1.49")
+        assert code == 1 and "also changed: src.txt" in out and "Nothing was pushed" in out, out
+        assert git(fx.origin, "rev-parse", "beta") == before
+        assert git(fx.clone, "status", "--porcelain") == ""
+
+
 def test_refusals():
     with tempfile.TemporaryDirectory() as temp:
         fx = Fixture(temp)

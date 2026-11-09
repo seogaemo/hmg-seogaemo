@@ -4,7 +4,7 @@ Status: current — implemented architecture; per-module car evidence is in each
 
 HMG-Seogaemo on Gen5W (Android 4.4.2/API 19, 1920×720 hdpi, English default + Korean), installed by NEMESIS 1.16.4+, target setup NEMESIS + HMG-Seogaemo only (no HMG-API). Built-in modules (`wifi`, `wireless-adb`, `wireless-carplay-and-aa`, `skip-consent-screen`, `user-button-*`; the list is generated from `modules/*`) are compiled into one APK and one NEMESIS package; no third-party loader (installable `.hsm` packages: [installable-modules.md](installable-modules.md)). Wi-Fi client and ADB are independent implementations; wireless projection ports AGPL-covered HMG-API code with attribution ([wireless-carplay-and-aa.md](wireless-carplay-and-aa.md)). Per-module behavior: [wifi.md](wifi.md), [wireless-adb.md](wireless-adb.md), [skip-consent-screen.md](skip-consent-screen.md), [user-button-shortcut.md](user-button-shortcut.md). Interfaces: [module-runtime-contract.md](module-runtime-contract.md).
 
-NEMESIS services: `reconcile` (`background`, boot reconciliation + OTA health) and `watcher` (`svc/watcher.sh`, `mode=restart`; dispatches fixed boot/screen-on watch events, never apply/revert) — see [boot-lifecycle.md](boot-lifecycle.md).
+NEMESIS services: `reconcile` (`background`, boot reconciliation + OTA health) and `watcher` (`svc/watcher.sh`, `mode=restart`; dispatches fixed boot/screen-on/USB-change watch events, never apply/revert) — see [boot-lifecycle.md](boot-lifecycle.md).
 
 ## Module contract
 

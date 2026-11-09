@@ -7,8 +7,10 @@
 
 Runs inside a clone with an `origin` remote and a committer identity; it pushes
 only `beta`. Re-running after success changes nothing. A conflicting merge pushes
-nothing and fails (only VERSION/PRERELEASE conflicts are resolved, in favour of
-beta, because they are rewritten right after).
+nothing and fails. Two kinds of conflict are resolved: VERSION/PRERELEASE in favour
+of beta (they are rewritten right after), and committed build outputs (GENERATED)
+by rebuilding them from the merged sources with their make target; the rebuild must
+change no other tracked file.
 """
 import argparse
 import pathlib
@@ -25,6 +27,8 @@ BRANCH = "beta"
 FIRST = "beta.1"
 PUSH_ATTEMPTS = 3
 VERSION_FILES = ("VERSION", "PRERELEASE")
+# Committed build outputs and the make target that rebuilds each from its sources.
+GENERATED = {"modules/wireless-carplay-and-aa/files/wireless-mod.jar": "module-build"}
 TAG = re.compile(r"v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))(?:-beta\.([1-9][0-9]?))?")
 
 
@@ -116,15 +120,40 @@ def merge_final(tag, commit):
     merged = git("merge", "--no-ff", "--no-commit", commit, check=False)
     if merged.returncode:
         conflicts = git("diff", "--name-only", "--diff-filter=U").stdout.split()
-        if not conflicts or set(conflicts) - set(VERSION_FILES):
-            git("merge", "--abort", check=False)
-            raise Failure(f"merging {tag} into {BRANCH} conflicts in: {' '.join(conflicts) or '(unknown)'}.\n"
-                          f"Nothing was pushed. Merge {tag} into {BRANCH} by hand, resolve it, then set "
-                          "VERSION to the next patch and PRERELEASE to beta.1 in a separate commit.")
-        git("checkout", "--ours", "--", *conflicts)
-        git("add", *conflicts)
+        if not conflicts or set(conflicts) - set(VERSION_FILES) - set(GENERATED):
+            abort_merge(tag, f"conflicts in: {' '.join(conflicts) or '(unknown)'}")
+        versions = [name for name in conflicts if name in VERSION_FILES]
+        if versions:
+            git("checkout", "--ours", "--", *versions)
+            git("add", *versions)
+        outputs = [name for name in conflicts if name in GENERATED]
+        if outputs:
+            rebuild(tag, outputs)
     git("commit", "-m", f"Merge {tag} into {BRANCH}")
     return True
+
+
+def abort_merge(tag, reason):
+    git("merge", "--abort", check=False)
+    git("reset", "--hard", "-q", "HEAD", check=False)  # a failed rebuild may have touched tracked files
+    raise Failure(f"merging {tag} into {BRANCH} {reason}.\n"
+                  f"Nothing was pushed. Merge {tag} into {BRANCH} by hand, resolve it, then set "
+                  "VERSION to the next patch and PRERELEASE to beta.1 in a separate commit.")
+
+
+def rebuild(tag, outputs):
+    """Rebuild conflicting build outputs from the merged sources and stage them."""
+    git("checkout", "--theirs", "--", *outputs)
+    for target in sorted({GENERATED[name] for name in outputs}):
+        built = subprocess.run(["make", target], capture_output=True, text=True)
+        if built.returncode:
+            tail = (built.stdout + built.stderr)[-2000:]
+            abort_merge(tag, f"conflicts in {' '.join(outputs)} and `make {target}` failed:\n{tail}")
+    git("add", "--", *outputs)
+    # Only the outputs may change; anything else means the build is not reproducible here.
+    stray = git("diff", "--name-only").stdout.split()
+    if stray:
+        abort_merge(tag, f"rebuild of {' '.join(outputs)} also changed: {' '.join(stray)}")
 
 
 def sync_final(tag, version, remote):

@@ -193,6 +193,22 @@ def test_lifecycle(car):
     car.root("sample", "status", code=2)
 
 
+def test_usb_watch_event(car):
+    for events in ("usb_change", "boot,screen_on,usb_change", "usb_change,screen_on,boot"):
+        files = variant(**{"module.properties": SAMPLE["module.properties"].replace("rerun_on=boot", "rerun_on=" + events)})
+        car.root("module", "install", car.offer(files))
+        assert "watch=" + events in (car.data / "installed/sample.properties").read_text().splitlines()
+        car.root("sample", "apply")
+        car.prop("persist.test.mode", "reset")
+        assert "state=on" in car.root("sample", "watch", "usb_change")
+        assert car.prop("persist.test.mode") == "safe"
+        car.root("sample", "watch", "bogus", code=2)
+        car.root("module", "remove", "sample")
+    for events in ("usb_changed", "usb_change,bogus"):
+        files = variant(**{"module.properties": SAMPLE["module.properties"].replace("rerun_on=boot", "rerun_on=" + events)})
+        assert "HSM-E204" in car.root("module", "install", car.offer(files), code=1)
+
+
 def test_reconcile_reapplies(car):
     car.root("module", "install", car.offer(SAMPLE))
     car.root("sample", "apply")
@@ -543,7 +559,7 @@ def test_converted_builtin(car):
         "wifi": ("raw_shell=1", "owns_props=persist.wifi.state",
                  "owns_files=/system/etc/permissions/android.hardware.wifi.xml",
                  "excludes=", "restart=head_unit", "kmods=88x2bu,8851bu", "owns_ifaces=rtwlan*",
-                 "watch=boot,screen_on"),
+                 "watch=boot,screen_on,usb_change"),
         "wireless-carplay-and-aa": ("raw_shell=1", "hooks=1", "restart=head_unit",
                                     "known_stock.1=NEEV.KOR.*.260902:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc",
                                     "owns_lines.1=/system/onebin/neev_kr/featurexml.cfg:-/system/etc/permissions/com.hkmc.software.connectivity.carplay_wireless.xml",
@@ -777,7 +793,7 @@ def on_car(test):
 
 if __name__ == "__main__":
     run_tests([on_car(test) for test in (
-        test_install_validation, test_lifecycle, test_reconcile_reapplies, test_hook_host, test_usb_import,
+        test_install_validation, test_lifecycle, test_usb_watch_event, test_reconcile_reapplies, test_hook_host, test_usb_import,
         test_button_action, test_bundled, test_add_bundled, test_replaces, test_merged_takeover, test_converted_builtin, test_installed_shared_line,
         test_action_kind, test_action_kind_refusals, test_onebin_token)],
         "installed module tests passed")

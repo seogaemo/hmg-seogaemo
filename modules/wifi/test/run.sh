@@ -169,6 +169,7 @@ name = os.path.basename(sys.argv[1])[:-3]
 open(work + "/proc/modules", "a").write(name + " 16384 0 - Live 0xbf000000\n")
 os.makedirs(work + "/sys/class/net/rtwlan0", exist_ok=True)
 open(work + "/sys/class/net/rtwlan0/flags", "w").write("0x1002\n")
+open(work + "/sys/class/net/rtwlan0/ifindex", "w").write("10\n")
 EOF
 cat > "$work/tools/system/bin/rmmod" <<EOF
 #!$python
@@ -266,6 +267,18 @@ cat > "$work/bin/chown" <<'EOF'
 #!/bin/sh
 echo "chown $*" >> "$TEST_WORK/chowns"
 EOF
+# sg_kmod_load calls sg_ready after the module's first generation check.
+# Replace the netdev there to exercise a replug before its startup snapshot.
+host_chmod=$(command -v chmod)
+cat > "$work/bin/chmod" <<EOF
+#!/bin/sh
+if [ -f "\$TEST_WORK/replug-on-ready" ]; then
+    rm -f "\$TEST_WORK/replug-on-ready" "\$TEST_WORK/kernel/addr.rtwlan0"
+    echo 12 > "\$TEST_WORK/sys/class/net/rtwlan0/ifindex"
+    echo 0x1002 > "\$TEST_WORK/sys/class/net/rtwlan0/flags"
+fi
+exec "$host_chmod" "\$@"
+EOF
 chmod +x "$work/bin/"* "$work/tools/system/bin/"*
 
 # Rewrite only fixed filesystem roots in a private copy.
@@ -281,12 +294,12 @@ export TEST_WORK=$work HMG_SEOGAEMO_BASE=$work/base HMG_SEOGAEMO_STATE=$state HM
 # Keep the test harness on the host PATH, but execute the module with only
 # toolbox-like commands. Forbidden names are explicit failing stubs.
 mkdir "$work/allowed"
-for tool in cat cmp cp dd grep rm mkdir mv chmod ls date sleep; do
+for tool in cat cmp cp dd grep rm mkdir mv ls date sleep; do
     ln -s "$(command -v "$tool")" "$work/allowed/$tool"
 done
 ln -s "$repo/tools/testlib/fakebin/md5" "$work/allowed/md5"
 ln -s "$python" "$work/allowed/python3"
-for tool in getprop setprop pm ifconfig netcfg dmesg app_process chown; do
+for tool in getprop setprop pm ifconfig netcfg dmesg app_process chown chmod; do
     ln -s "$work/bin/$tool" "$work/allowed/$tool"
 done
 for tool in awk sed tail head cut tr wc sort uniq xargs find stat readlink sha256sum sha1sum tar unzip busybox toybox; do
@@ -314,8 +327,16 @@ plug() {
     mkdir -p "$work/sys/bus/usb/devices/1-1"
     sg_print "$1" > "$work/sys/bus/usb/devices/1-1/idVendor"
     sg_print "$2" > "$work/sys/bus/usb/devices/1-1/idProduct"
+    if [ -s "$work/proc/modules" ]; then
+        mkdir -p "$work/sys/class/net/rtwlan0"
+        sg_print 0x1002 > "$work/sys/class/net/rtwlan0/flags"
+        sg_print 11 > "$work/sys/class/net/rtwlan0/ifindex"
+    fi
 }
-unplug() { rm -rf "$work/sys/bus/usb/devices/1-1"; }
+unplug() {
+    rm -rf "$work/sys/bus/usb/devices/1-1" "$work/sys/class/net/rtwlan0"
+    rm -f "$work/kernel/addr.rtwlan0"
+}
 
 # --- Built-in radio, client role (the former wifi-client module, default settings) ---
 # No SDIO/WLAN devices exist: precheck and apply must still work with radio off.
@@ -510,7 +531,20 @@ done
 grep -Fxq '	key_mgmt=NONE' "$state/usb-wpa.conf"
 fails action other; [ ! -s "$work/output" ]
 
-# Unplug and replug: the screen_on watch brings the client back.
+# USB hotplug releases the old supplicant/DHCP, retaining the driver for reprobe.
+wpa=$(daemon_pid usb-wpa); dhcp=$(daemon_pid usb-dhcp)
+sg_write on > "$data/desired/wifi"
+unplug
+run watch usb_change; assert_state on; assert_line 'detail=USB Wi-Fi adapter not connected'
+[ ! -e "$work/proc/$wpa" ] && [ ! -e "$work/proc/$dhcp" ]
+[ ! -e "$state/daemon.usb-wpa" ] && [ -s "$work/proc/modules" ]
+plug 0bda b82c
+run watch usb_change; assert_state on
+[ "$(daemon_pid usb-wpa)" != "$wpa" ] && [ "$(daemon_pid usb-dhcp)" != "$dhcp" ]
+[ "$(calls | grep -c insmod)" -eq 1 ]
+rm "$data/desired/wifi"
+
+# A dead daemon is still recovered by screen_on.
 wpa=$(daemon_pid usb-wpa)
 kill "$wpa"
 while [ -d "$work/proc/$wpa" ]; do sleep 0.1; done
@@ -556,6 +590,41 @@ for key in radio:usb interface:rtwlan0 ip:192.168.50.1 ssid:HMG-Seogaemo-6f1d pa
     [ "$(peer "${key%%:*}")" = "${key#*:}" ] || { echo "peer ${key%%:*}: $(peer "${key%%:*}")"; exit 1; }
 done
 # Credentials stay the same across applies and boots.
+hostapd=$(daemon_pid usb-hostapd); dnsmasq=$(daemon_pid usb-dnsmasq)
+sg_write on > "$data/desired/wifi"
+# A replug after the initial health check must not adopt the old daemon PIDs.
+: > "$work/replug-on-ready"
+run watch usb_change; assert_state on
+[ ! -e "$work/replug-on-ready" ]
+[ "$(cat "$state/usb-generation")" = boot-a:12 ]
+[ "$(daemon_pid usb-hostapd)" != "$hostapd" ] && [ "$(daemon_pid usb-dnsmasq)" != "$dnsmasq" ]
+[ ! -d "$work/proc/$hostapd" ] && [ ! -d "$work/proc/$dnsmasq" ]
+[ "$(cat "$work/kernel/addr.rtwlan0")" = 192.168.50.1/24 ]
+[ "$(peer ready)" = 1 ]
+hostapd=$(daemon_pid usb-hostapd); dnsmasq=$(daemon_pid usb-dnsmasq)
+# A complete unplug/replug between polls leaves old PIDs alive on a new ifindex.
+unplug; plug 0bda b82c
+[ -d "$work/proc/$hostapd" ] && [ -d "$work/proc/$dnsmasq" ]
+fails status; assert_state failed
+run watch usb_change; assert_state on
+[ "$(daemon_pid usb-hostapd)" != "$hostapd" ] && [ "$(daemon_pid usb-dnsmasq)" != "$dnsmasq" ]
+[ ! -d "$work/proc/$hostapd" ] && [ ! -d "$work/proc/$dnsmasq" ]
+[ "$(cat "$work/kernel/addr.rtwlan0")" = 192.168.50.1/24 ]
+[ "$(peer ready)" = 1 ]
+hostapd=$(daemon_pid usb-hostapd); dnsmasq=$(daemon_pid usb-dnsmasq)
+unplug
+run watch usb_change; assert_state on; assert_line 'detail=USB Wi-Fi adapter not connected'
+[ ! -d "$work/proc/$hostapd" ] && [ ! -d "$work/proc/$dnsmasq" ]
+[ ! -e "$state/daemon.usb-hostapd" ] && [ ! -e "$state/addr.rtwlan0@192.168.50.1-24" ]
+[ ! -s "$work/kernel/iptables" ] && [ ! -e "$work/kernel/addr.rtwlan0" ]
+[ "$(peer ready)" = 0 ] && [ -s "$work/proc/modules" ]
+plug 0bda b82c
+run watch usb_change; assert_state on
+[ "$(daemon_pid usb-hostapd)" != "$hostapd" ] && [ "$(daemon_pid usb-dnsmasq)" != "$dnsmasq" ]
+[ "$(cat "$work/kernel/addr.rtwlan0")" = 192.168.50.1/24 ]
+[ "$(peer ready)" = 1 ] && [ "$(calls | grep -c insmod)" -eq 1 ]
+if calls | grep -q rmmod; then exit 1; fi
+rm "$data/desired/wifi"
 sg_print 00000000-0000-4000-8000-000000000000 > "$work/uuid"
 run apply; assert_state on
 [ "$(peer ssid)" = HMG-Seogaemo-6f1d ]

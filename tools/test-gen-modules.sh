@@ -215,6 +215,19 @@ reset_fixture
 printf 'owns_props=demo\nwatch=boot\n' >> "$fixture/modules/alpha/module.properties"
 expect_failure 'watch requires reboot restore or reassert_props'
 
+# USB watch is a fixed event; all subsets and orderings are accepted, no duplicates.
+for events in usb_change boot,usb_change usb_change,screen_on screen_on,usb_change,boot; do
+    reset_fixture
+    printf 'restore=reboot\nwatch=%s\n' "$events" >> "$fixture/modules/alpha/module.properties"
+    PROJECT_ROOT="$fixture" sh "$repo/tools/gen-modules.sh"
+    grep -Fxq "watch=$events" "$fixture/out/package/modules/alpha.properties"
+done
+for events in usb_change,usb_change usb_change,bogus usb_change, ,usb_change boot,,usb_change; do
+    reset_fixture
+    printf 'restore=reboot\nwatch=%s\n' "$events" >> "$fixture/modules/alpha/module.properties"
+    expect_failure 'invalid watch events'
+done
+
 # App-private generated directories: exact project-named getDir paths only.
 reset_fixture
 printf 'owns_generated_dirs=/data/data/com.example.app/app_hmg-seogaemo-demo\n' >> "$fixture/modules/alpha/module.properties"

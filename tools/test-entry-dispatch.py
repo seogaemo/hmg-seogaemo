@@ -48,6 +48,8 @@ with tempfile.TemporaryDirectory() as tmp:
         result = run(stable / entry, *args)
         assert result.returncode == 0 and result.stdout.startswith('selected\n'), (entry, result)
     dispatcher = stable / entries[0]
+    result = run(dispatcher, 'wifi', 'watch', 'usb_change')
+    assert result.returncode == 0 and 'arg=usb_change' in result.stdout, result
     for args in [(), ('device', 'bad'), ('stock', 'restore', 'extra'),
                  ('map', 'shell'), ('bad/path', 'status'), ('wifi', 'watch', 'bad')]:
         result = run(dispatcher, *args)

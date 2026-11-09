@@ -38,7 +38,7 @@ case "$1" in
         case "$#:$2" in 2:apply|2:revert|2:status|2:precheck|2:tbt-reset) ;;
             3:action) case "$3" in ''|*[!a-z0-9_]*) refuse 2 failed 'Invalid command';; esac
                 [ "${#3}" -le 40 ] || refuse 2 failed 'Invalid command' ;;
-            3:watch) case "$3" in boot|screen_on) ;; *) refuse 2 failed 'Invalid command';; esac ;;
+            3:watch) case "$3" in boot|screen_on|usb_change) ;; *) refuse 2 failed 'Invalid command';; esac ;;
             4:set) case "$3" in ''|*[!a-z0-9_]*) refuse 2 failed 'Invalid command';; esac
                 case "$4" in ''|*[!a-z0-9_.-]*) refuse 2 failed 'Invalid command';; esac ;;
             *) refuse 2 failed 'Invalid command';; esac ;;
@@ -234,7 +234,7 @@ case "$1" in
     ''|*[!a-z0-9-]*|-*|*--*|*-) refuse 2 failed 'Invalid command' ;;
 esac
 case "$2:$#" in apply:2|revert:2|status:2|precheck:2|tbt-reset:2|set:4|action:3) ;; watch:3)
-    case "$3" in boot|screen_on) ;; *) refuse 2 failed 'Invalid command';; esac ;;
+    case "$3" in boot|screen_on|usb_change) ;; *) refuse 2 failed 'Invalid command';; esac ;;
     *) refuse 2 failed 'Invalid command' ;;
 esac
 [ "$base" != "$0" ] || refuse 2 failed 'Invalid command'

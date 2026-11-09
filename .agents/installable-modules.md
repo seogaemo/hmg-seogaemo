@@ -106,7 +106,7 @@ limits and writes only into the staging extraction directory.
 | `api` | `1` | unknown API refuses install; later versions only add verbs and blocks, existing meanings never change | |
 | `cars` | csv of `ro.build.product` globs | at least one must match at install and apply; bundled modules use `*` and rely on the verified car map (runtime contract, "Car gate") | product checks in scripts |
 | `restart` | `none`, `adbd`, `head_unit` | maximum restart this module can request | `restart` |
-| `rerun_on` | csv of `boot`, `screen_on` | re-run `apply.sh` in reassert mode (Lifecycle) | `watch` |
+| `rerun_on` | csv of `boot`, `screen_on`, `usb_change` | re-run `apply.sh` in reassert mode (Lifecycle) | `watch` |
 | `depends` | csv of module IDs | enabled first in the same confirmed plan | `depends` |
 | `uses` | csv of `<resource>[:<mode>]` | see Conflicts | `excludes` (mostly) |
 | `not_with` | csv of module IDs | rare: a specific module that cannot be on together | `excludes` |
@@ -349,7 +349,9 @@ hook host on; stock restore and uninstall exact.
 - Revert: `sg_revert_all`; there is no revert script.
 - Re-run (`rerun_on`): `apply.sh` again while desired on. A re-run never captures a new baseline; a verb whose
   target has no baseline fails. `set_prop --reassert` marks a property rewritten on drift when stock firmware
-  changes it (replaces `reassert_props`).
+  changes it (replaces `reassert_props`). `usb_change` observes USB vendor/product/devnum and owned interface
+  ifindex, dispatches on the first observation per boot and each change, and keeps pending retries through
+  watcher restarts and pauses (see [boot-lifecycle.md](boot-lifecycle.md)). Link flags never trigger it.
 - Setting change while on: `<id> set KEY VALUE` saves the validated value, reverts the module and applies it
   again, so nothing from the previous value or branch survives. While off it only saves the value.
 - Button: `hmg-seogaemo-root <id> action <name>` (`[a-z0-9_]{1,40}`, installed modules only, name must be a

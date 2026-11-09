@@ -1,4 +1,4 @@
-Status: current — USB Wi-Fi dongle support; `wifi` module roles and the CarPlay/AA side implemented off-car (2026-11-07), not run on a car.
+Status: current — USB hotspot with wireless Android Auto owner-reported working on a tester car; replug recovery host-tested, unverified on a car.
 
 # External (USB) Wi-Fi dongle
 
@@ -100,9 +100,12 @@ Implemented in `lib/common.sh` (off-car host tests only, `tools/test-transient.p
 `sg_daemon_running`. Manifest keys, validation, ownership and revert rules are normative in
 [module-runtime-contract.md](module-runtime-contract.md#transient-effects). Added for the `wifi` module:
 `sg_revert_transient`, `sg_daemon_restart`, and peer info (`sg_peer_publish`, `sg_peer_info`, contract
-[Peer info](module-runtime-contract.md#peer-info)). None of it has run on a car: toolbox `insmod`/`rmmod`,
-the KitKat `iptables`/`ip` binaries and daemon detachment from the NEMESIS root shell still need on-car
-checks with the `wifi` USB roles.
+[Peer info](module-runtime-contract.md#peer-info)). The owner reports the USB hotspot with wireless Android Auto
+working on a tester car, but unplug/replug left it disconnected while status stayed on. Recovery now uses
+`usb_change` watches and boot/ifindex generation checks, stops stale daemons/address/firewall effects while keeping
+the driver loaded, and republishes readiness after bring-up. Both driver load and unload have a 15-second bound;
+a timeout retains restore records and blocks later operations until restart. Recovery and bounded-call behavior
+remain unverified on a car.
 
 ## Interface for the CarPlay module
 
@@ -194,10 +197,13 @@ units report, and that the phone then joins. The DiPO and PhoneProjection logs s
 
 ## Still unverified on a car
 
-1. The whole USB path: hostapd/dnsmasq on `rtwlan0`, the iPhone joining with the credentials iAP2 sends, and whether
+1. USB recovery after unplug/replug (including a quick replug while the display stays on), daemon release before
+   reprobe, truthful readiness/status and wireless Android Auto reconnection without restarting the head unit.
+   The owner reports the initial USB hotspot/Android Auto connection working. The iPhone joining with the credentials iAP2 sends, and whether
    CarPlay Bonjour/AirPlay (native) binds or advertises on `rtwlan0`.
-2. Android Auto getting past the popup now that GPM sees an enabled hotspot (needs a car run), then reaching `192.168.50.1:40515` (GPM logs `findHostInterfaceAndIp`), and the phone accepting the adapter's
-   MAC as BSSID.
+2. Android Auto reconnecting after the hotspot returns. The zygote caches only stable interface/credentials/channel;
+   `UsbHotspot.apUp()` rereads flags and hostapd argv each call, so a new hostapd PID requires no hook reload by static
+   review. Actual reconnection still needs a tester-car run.
 3. Whether the car firewall (`iptrules`) still drops anything on `rtwlan0` beyond the `wifi` module's INPUT accept rule.
 4. That Dalvik hooks on `NetworkInterface` getters and `WifiManager.getWifiApConfiguration` take effect in those apps
    (trivial getters could be inlined if a caller is compiled before the hook; hooks install at app load).

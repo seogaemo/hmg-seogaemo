@@ -251,6 +251,6 @@ case "$1:$#" in
     apply:1) hm_apply ;;
     revert:1) hm_revert ;;
     action:2) hm_action "$2" ;;
-    watch:2) case "$2" in boot|screen_on) hm_watch ;; *) exit 2 ;; esac ;;
+    watch:2) case "$2" in boot|screen_on|usb_change) hm_watch ;; *) exit 2 ;; esac ;;
     *) exit 2 ;;
 esac

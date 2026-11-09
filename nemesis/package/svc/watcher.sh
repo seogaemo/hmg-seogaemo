@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# Dispatches boot/screen_on watch events to enabled modules. Never applies or reverts.
+# Dispatches fixed watch events to enabled modules. Never applies or reverts.
 umask 077
 base=${0%/*}
 base=${base%/svc}
@@ -54,6 +54,43 @@ queue_screen() {
     sg_write "$boot_id" > "$state/watch/screen.$1"
     rm -f "$state/watch/retry.$1.screen_on"
 }
+# Read physical USB identity once per poll. Device numbers change even if a
+# quick unplug/replug occurs entirely between polls on the same physical port.
+usb_devices_signature() {
+    for usb_device in "${SG_USB_DEVICES_DIR:-/sys/bus/usb/devices}"/*; do
+        [ -f "$usb_device/idVendor" ] && [ -f "$usb_device/idProduct" ] || continue
+        read -r usb_vendor < "$usb_device/idVendor" || continue
+        read -r usb_product < "$usb_device/idProduct" || continue
+        read -r usb_devnum < "$usb_device/devnum" || continue
+        sg_print "usb:${usb_device##*/}:$usb_vendor:$usb_product:$usb_devnum"
+    done
+}
+usb_signature() (
+    sg_print "$boot_id" "$usb_devices"
+    usb_ifaces=
+    while IFS='=' read -r usb_field usb_value; do
+        [ "$usb_field" != owns_ifaces ] || usb_ifaces=$usb_value
+    done < "$(sg_module_props "$base" "$1")"
+    while IFS= read -r usb_pattern; do
+        [ -n "$usb_pattern" ] || continue
+        for usb_iface in "${SG_SYS_NET_ROOT:-/sys/class/net}"/*; do
+            case "${usb_iface##*/}" in $usb_pattern)
+                [ -f "$usb_iface/ifindex" ] || continue
+                read -r usb_ifindex < "$usb_iface/ifindex" || continue
+                sg_print "net:${usb_iface##*/}:$usb_ifindex"
+            ;; esac
+        done
+    done <<EOF
+$(sg_csv_items "$usb_ifaces")
+EOF
+)
+queue_usb() {
+    sg_write "$boot_id" > "$state/watch/usb.$1.tmp.$$" &&
+        mv "$state/watch/usb.$1.tmp.$$" "$state/watch/usb.$1" || return 1
+    rm -f "$state/watch/retry.$1.usb_change" || return 1
+    sg_write "$usb_current" > "$state/watch/usb-signature.$1.tmp.$$" &&
+        mv "$state/watch/usb-signature.$1.tmp.$$" "$state/watch/usb-signature.$1"
+}
 dispatch_watch() {
     watch_id=$1; watch_event=$2
     watch_retry=$state/watch/retry.$watch_id.$watch_event
@@ -79,8 +116,10 @@ dispatch_watch() {
         if [ "$watch_event" = boot ]; then
             sg_write "$boot_id" > "$state/watch/boot.$watch_id.tmp.$$" &&
                 mv "$state/watch/boot.$watch_id.tmp.$$" "$state/watch/boot.$watch_id" || return 1
-        else
+        elif [ "$watch_event" = screen_on ]; then
             rm -f "$state/watch/screen.$watch_id"
+        else
+            rm -f "$state/watch/usb.$watch_id"
         fi
         rm -f "$watch_retry"
     else
@@ -97,6 +136,7 @@ while :; do
     watch_now || { sleep 5; continue; }
     boot_ids=
     screen_ids=
+    usb_ids=
     for id in $(sg_module_list "$base"); do
         [ ! -f "$state/stock/paused" ] || continue
         [ "$(cat "$state/desired/$id" 2>/dev/null)" = on ] || continue
@@ -106,9 +146,10 @@ while :; do
             [ "$field" = watch ] || continue
             case ",$value," in *,boot,*) boot_ids="$boot_ids $id" ;; esac
             case ",$value," in *,screen_on,*) screen_ids="$screen_ids $id" ;; esac
+            case ",$value," in *,usb_change,*) usb_ids="$usb_ids $id" ;; esac
         done < "$manifest"
     done
-    if [ -z "$boot_ids$screen_ids" ]; then
+    if [ -z "$boot_ids$screen_ids$usb_ids" ]; then
         last_display=unknown
         interval=${HMG_SEOGAEMO_WATCH_IDLE:-300}
     else
@@ -117,6 +158,18 @@ while :; do
             [ "$(cat "$state/watch/boot.$id" 2>/dev/null)" = "$boot_id" ] && continue
             dispatch_watch "$id" boot || :
         done
+        if [ -n "$usb_ids" ]; then
+            usb_devices=$(usb_devices_signature)
+            for id in $usb_ids; do
+                usb_current=$(usb_signature "$id")
+                if [ "$(cat "$state/watch/usb-signature.$id" 2>/dev/null)" != "$usb_current" ]; then
+                    queue_usb "$id" || continue
+                fi
+                if [ "$(cat "$state/watch/usb.$id" 2>/dev/null)" = "$boot_id" ]; then
+                    dispatch_watch "$id" usb_change || :
+                fi
+            done
+        fi
         if [ -n "$screen_ids" ]; then
             current_display=$(display_state)
             for id in $screen_ids; do

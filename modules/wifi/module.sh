@@ -14,7 +14,7 @@
 #   carplay_ap  driver, hostapd (nl80211) and dnsmasq on 192.168.50.1/24, one INPUT accept rule
 #   off         untouched
 # USB effects are transient runtime records (gone at a restart); boot reconcile and the
-# screen_on watch create them again. Only one radio may be carplay_ap; that hotspot is
+# screen_on and usb_change watches create them again. Only one radio may be carplay_ap; that hotspot is
 # published for other modules with sg_peer_publish (read with sg_peer_info wifi <key>).
 set -u
 . "$HMG_SEOGAEMO_BASE/lib/common.sh"
@@ -251,9 +251,31 @@ usb_kmod() {
     sg_write "$2"
 }
 
+# A surviving PID says nothing about which incarnation of the netdev it uses.
+# Keep the successful generation boot-bound, and never mark a partial bring-up live.
+usb_generation() {
+    ug_index=
+    [ -f "$net_root/$usb_iface/ifindex" ] || return 1
+    read -r ug_index < "$net_root/$usb_iface/ifindex" || return 1
+    case "$ug_index" in ''|0|*[!0-9]*) return 1;; esac
+    ug_boot=$(sg_boot_id) || return 1
+    sg_print "$ug_boot:$ug_index"
+}
+usb_generation_current() {
+    ug_now=$(usb_generation) || return 1
+    [ "$(cat "$HMG_SEOGAEMO_STATE/usb-generation" 2>/dev/null)" = "$ug_now" ]
+}
+usb_disconnect() {
+    sg_ready || return 1
+    : > "$HMG_SEOGAEMO_STATE/usb-generation" || return 1
+    publish || return 1
+    sg_revert_transient keep_kmods
+}
+
 usb_live() {
     [ "$usb_role" != off ] || return 0
-    ul_kmod=$(usb_kmod) || return 0
+    ul_kmod=$(usb_kmod) || return 1
+    usb_generation_current || return 1
     sg_kmod_loaded "$ul_kmod" || return 1
     case "$usb_role" in
         client) sg_daemon_running usb-wpa && sg_daemon_running usb-dhcp ;;
@@ -262,12 +284,18 @@ usb_live() {
 }
 
 # Brings the USB role up; every step is idempotent while it runs. An absent adapter is
-# not an error (boot reconcile must not fail): the screen_on watch retries.
+# not an error (boot reconcile must not fail): usb_change watches for its return.
 usb_apply() {
     [ "$usb_role" != off ] || return 0
-    ua_kmod=$(usb_kmod) || { sg_log 'USB Wi-Fi adapter not connected'; return 0; }
+    ua_kmod=$(usb_kmod) || { usb_disconnect || return $?; sg_log 'USB Wi-Fi adapter not connected'; return 0; }
+    if ! usb_generation_current; then usb_disconnect || return $?; fi
     sg_kmod_load "$ua_kmod" || { ua_failed $? "load $ua_kmod"; return $?; }
     wait_iface || { sg_log "no $usb_iface after loading $ua_kmod"; return 1; }
+    ua_generation=$(usb_generation) || return 1
+    # A replug after the first check must not adopt surviving old-generation PIDs.
+    if [ "$(cat "$HMG_SEOGAEMO_STATE/usb-generation" 2>/dev/null)" != "$ua_generation" ]; then
+        usb_disconnect || return $?
+    fi
     case "$usb_role" in
         client)
             usb_wpa_conf || { ua_failed $? 'write usb-wpa.conf'; return $?; }
@@ -281,6 +309,9 @@ usb_apply() {
             sg_daemon_start usb-dnsmasq || { ua_failed $? 'start usb-dnsmasq'; return $?; }
             sg_net_rule 1 || { ua_failed $? 'add INPUT rule'; return $?; } ;;
     esac
+    # Unplug during startup must not publish readiness for another generation.
+    [ "$(usb_generation)" = "$ua_generation" ] || return 1
+    sg_print "$ua_generation" > "$HMG_SEOGAEMO_STATE/usb-generation"
 }
 # Android hostapd reports to logcat, not to its output; keep its lines beside the daemon logs.
 # No -t: it counts unfiltered lines, and this unit logs hundreds per second.
@@ -390,7 +421,8 @@ status() {
 usb_failed() {
     uf_code=$1
     # A first enable leaves nothing behind; a running module keeps its built-in role.
-    if desired_file_on; then sg_revert_transient || :; else sg_revert_all || :; fi
+    : > "$HMG_SEOGAEMO_STATE/usb-generation"
+    if desired_file_on; then sg_revert_transient keep_kmods || :; else sg_revert_all || :; fi
     publish || :
     case "$uf_code" in
         3) result conflict none 'USB Wi-Fi driver or interface is used by something else' ;;
@@ -431,7 +463,7 @@ apply() {
 }
 
 watch() {
-    case "$1" in boot|screen_on) ;; *) exit 2 ;; esac
+    case "$1" in boot|screen_on|usb_change) ;; *) exit 2 ;; esac
     applying=1
     compatible
     usb_apply || usb_failed $?

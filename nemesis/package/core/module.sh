@@ -121,7 +121,7 @@ mi_csv_each() {
     while IFS= read -r mi_item; do
         case "$2" in
             glob) hsm_ok_glob "$mi_item" ;;
-            event) case "$mi_item" in boot|screen_on) ;; *) false;; esac ;;
+            event) case "$mi_item" in boot|screen_on|usb_change) ;; *) false;; esac ;;
             known) sg_module_known "$base" "$mi_item" ;;
             id) hsm_ok_id "$mi_item" ;;
             owner) sg_owner_present "$mi_item"; [ $? -ne 2 ] ;;

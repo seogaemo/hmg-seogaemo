@@ -274,6 +274,39 @@ def test_kmod_refusals(base):
     assert claimed.calls() == []
 
 
+def test_kmod_timeout(base):
+    for op in ("insmod", "rmmod"):
+        car = Car(base / op)
+        if op == "rmmod":
+            car.sh("sg_kmod_load r8188eu")
+        executable(car.base / "tools/system/bin" / op,
+                   f"#!{sys.executable}\nimport time\ntime.sleep(120)\n")
+        # Exercise the real timeout loop quickly. Model an uninterruptible child
+        # by leaving it alive after the signal helper; no final wait is allowed.
+        command = "sg_kmod_load r8188eu" if op == "insmod" else "sg_revert_all"
+        started = time.monotonic()
+        try:
+            car.sh('sleep() { /bin/sleep 0.001; }\nsg_kill_tree() { :; }\n' + command, code=1)
+            assert time.monotonic() - started < 10
+            assert (car.state / "kmod.r8188eu").exists()
+            assert "kmod\tr8188eu" in (car.state / "changes").read_text()
+            pending = car.state / "kmod.r8188eu.pending"
+            pid = int(pending.read_text().splitlines()[1])
+            assert alive(pid)
+            assert "timed out" in (car.state / "module.log").read_text()
+            car.sh("sg_kmod_load r8188eu", code=1)
+            car.sh("sg_kmod_loaded r8188eu", code=1)
+            car.sh("sg_revert_all", code=1)
+        finally:
+            if (car.state / "kmod.r8188eu.pending").exists():
+                pid = int((car.state / "kmod.r8188eu.pending").read_text().splitlines()[1])
+                os.kill(pid, signal.SIGKILL)
+        car.reboot()
+        (car.proc / "modules").write_text("")
+        car.sh("sg_revert_all")
+        assert not pending.exists()
+
+
 def test_daemon_apply_revert(base):
     car = Car(base)
     try:
@@ -510,8 +543,12 @@ def test_revert_transient_keeps_persistent(base):
         pid = car.daemon_pid()
         # A persistent record stays: only transient kinds are undone and dropped from changes.
         (car.state / "changes").write_text((car.state / "changes").read_text() + "prop\tpersist.kept\n")
-        car.sh("sg_revert_transient")
+        car.sh("sg_revert_transient keep_kmods")
         wait_gone(pid)
+        assert (car.state / "changes").read_text() == "kmod\tr8188eu\nprop\tpersist.kept\n"
+        car.sh("sg_kmod_loaded r8188eu")
+        assert car.lines("iptables") == [] and not any(row.startswith("rmmod") for row in car.calls())
+        car.sh("sg_revert_transient")
         assert (car.state / "changes").read_text() == "prop\tpersist.kept\n"
         assert (car.proc / "modules").read_text() == "" and car.lines("iptables") == []
         assert car.calls()[-2:] == ["iptables -t nat -D POSTROUTING -o rtwlan0 -j MASQUERADE", "rmmod r8188eu"]
@@ -673,5 +710,6 @@ run_tests([
     test_daemon_user,
     test_derived_program,
     test_peer_info,
+    test_kmod_timeout,
     test_mutation_lint,
 ], "transient runtime tests passed")

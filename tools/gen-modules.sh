@@ -101,7 +101,15 @@ while IFS= read -r props; do
     fi
     if [ -n "$watch" ]; then
         [ "$restore" = reboot ] || [ -n "$reassert_props" ] || { echo "gen-modules: watch requires reboot restore or reassert_props in $props" >&2; exit 1; }
-        case "$watch" in boot|screen_on|boot,screen_on|screen_on,boot) ;; *) echo "gen-modules: invalid watch events in $props" >&2; exit 1;; esac
+        case "$watch" in ,*|*,|*,,*) echo "gen-modules: invalid watch events in $props" >&2; exit 1;; esac
+        old_ifs=$IFS; IFS=,
+        watch_seen=,
+        for event in $watch; do
+            case "$event" in boot|screen_on|usb_change) ;; *) echo "gen-modules: invalid watch events in $props" >&2; exit 1;; esac
+            case "$watch_seen" in *,$event,*) echo "gen-modules: invalid watch events in $props" >&2; exit 1;; esac
+            watch_seen=$watch_seen$event,
+        done
+        IFS=$old_ifs
     fi
     if [ -n "$service_calls" ]; then
         old_ifs=$IFS; IFS=,
