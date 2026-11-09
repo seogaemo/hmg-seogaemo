@@ -1,0 +1,150 @@
+// HMG-Seogaemo: the stock hotspot on units whose connectivity call does not bring it up. SPDX-License-Identifier: AGPL-3.0-or-later
+package hmgapi.mods.wireless;
+
+import android.net.wifi.WifiConfiguration;
+
+/**
+ * Wireless projection joins the hotspot "for connectivity" (WifiManager mode 2): the iAP2 server and GPM hand the phone
+ * its ConnectivitySSID/ConnectivityPSK, and DiPO or PhoneProjection start it with setWifiApEnabledForConnectivity. On
+ * some units (owner report: Grandeur IG, IGPE) that call brings up the normal hotspot instead, or nothing at all
+ * (korea-projection: Niro, Sonata DN8, Grandeur IG, Veloster N KOR 260902), so the phone looks for a network that is not
+ * there. Owners worked around it by giving the normal hotspot the connectivity name and passphrase. Here the phone is
+ * given the normal hotspot's own name and passphrase instead (nothing is written), Android Auto is told the hotspot is
+ * in mode 2, and when nothing came up the normal hotspot is started with its saved configuration.
+ * State and mode are read at each call; a unit whose connectivity hotspot comes up (enabled, mode 2) is left stock.
+ */
+public final class StockHotspot {
+    /** WifiManager.WIFI_AP_STATE_* (AOSP 4.4) */
+    static final int DISABLED = 11, ENABLED = 13, FAILED = 14;
+    /** WifiManager.getWifiApMode() of the hotspot for connectivity */
+    static final int MODE_CONNECTIVITY = 2;
+    /** after a connectivity start request: how long the hotspot may take before the normal one is started (host test: 0) */
+    static long startWaitMs = 10000L;
+
+    /** where a scheduled start reports (the app's module log) */
+    public interface Log {
+        void log(String message);
+    }
+
+    /** set while a hook reads the real mode, so the mode hook leaves it alone */
+    private static final ThreadLocal<Boolean> READING = new ThreadLocal<Boolean>();
+    private static boolean pending;
+
+    private StockHotspot() {}
+
+    /** the normal hotspot serves: enabled, not in the connectivity mode */
+    static boolean normalServes(int state, int mode) {
+        return state == ENABLED && mode != MODE_CONNECTIVITY;
+    }
+
+    /** no hotspot serves and none is starting */
+    static boolean nothingServes(int state) {
+        return state == DISABLED || state == FAILED;
+    }
+
+    /** the phone should be given the normal hotspot's credentials */
+    static boolean shareNormal(int state, int mode) {
+        return normalServes(state, mode) || nothingServes(state);
+    }
+
+    /** getWifiApMode() as GPM and PhoneProjection see it */
+    static int apMode(int state, int mode) {
+        return normalServes(state, mode) ? MODE_CONNECTIVITY : mode;
+    }
+
+    /**
+     * Copies the normal hotspot's SSID and passphrase into the connectivity fields of this configuration (a copy the
+     * framework returned). False when there is nothing to copy: no such fields, no normal credentials, already equal.
+     */
+    static boolean useNormal(WifiConfiguration c) {
+        if (c == null || empty(c.SSID) || empty(c.preSharedKey)) return false;
+        try {
+            java.lang.reflect.Field ssid = c.getClass().getField("ConnectivitySSID");
+            java.lang.reflect.Field psk = c.getClass().getField("ConnectivityPSK");
+            if (c.SSID.equals(ssid.get(c)) && c.preSharedKey.equals(psk.get(c))) return false;
+            ssid.set(c, c.SSID);
+            psk.set(c, c.preSharedKey);
+            return true;
+        } catch (NoSuchFieldException absent) {
+            return false;
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("connectivity fields", e);
+        }
+    }
+
+    static boolean empty(String s) {
+        return s == null || s.length() == 0;
+    }
+
+    /** WifiManager.getWifiApState() (hidden on API 19); -1 when it cannot be read */
+    static int state(Object wifi) {
+        return call(wifi, "getWifiApState");
+    }
+
+    /** WifiManager.getWifiApMode() (Hyundai) as the framework reports it, past this mod's own hook; -1 when unreadable */
+    static int mode(Object wifi) {
+        READING.set(Boolean.TRUE);
+        try {
+            return call(wifi, "getWifiApMode");
+        } finally {
+            READING.set(Boolean.FALSE);
+        }
+    }
+
+    /** true inside mode(): the getWifiApMode hook must return the framework's value */
+    static boolean reading() {
+        return Boolean.TRUE.equals(READING.get());
+    }
+
+    /**
+     * After a connectivity start request: startWaitMs later, when no hotspot serves or is starting, starts the normal
+     * one. One check at a time per process; the result goes to log.
+     */
+    public static void startLater(final Object wifi, final Log log) {
+        synchronized (StockHotspot.class) {
+            if (pending) return;
+            pending = true;
+        }
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(startWaitMs);
+                    int state = state(wifi);
+                    if (!nothingServes(state)) {
+                        log.log("hotspot after the connectivity request: " + describe(state, mode(wifi)));
+                        return;
+                    }
+                    log.log("no hotspot after the connectivity request (state " + state + "): normal hotspot started -> " + startNormal(wifi));
+                } catch (Throwable x) {
+                    log.log("normal hotspot start failed: " + x);
+                } finally {
+                    synchronized (StockHotspot.class) {
+                        pending = false;
+                    }
+                }
+            }
+        }, "hmg-seogaemo-hotspot");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    static int call(Object wifi, String name) {
+        try {
+            Object r = wifi.getClass().getMethod(name).invoke(wifi);
+            return r instanceof Integer ? (Integer) r : -1;
+        } catch (Throwable t) {
+            return -1;
+        }
+    }
+
+    /** setWifiApEnabled(null, true): the normal hotspot with its saved configuration (a null one is not stored) */
+    static Object startNormal(Object wifi) throws Exception {
+        return wifi.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class).invoke(wifi, null, true);
+    }
+
+    /** a short description for logs, never credentials */
+    static String describe(int state, int mode) {
+        return "state " + state + " mode " + mode;
+    }
+}

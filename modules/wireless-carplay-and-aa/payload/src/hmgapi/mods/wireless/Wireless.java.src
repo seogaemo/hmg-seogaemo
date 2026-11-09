@@ -88,14 +88,14 @@ public final class Wireless extends ModEntry {
         if (NAVIGATION.equals(pkg)) loadPart("navigation", "navigation", mod, app);
         if (IAP2.equals(pkg)) {
             loadPart("iap2", "iap2", mod, app);
-            if (UsbHotspot.active()) loadPart("usb_hotspot", null, mod, app);
+            loadPart(UsbHotspot.active() ? "usb_hotspot" : "stock_hotspot", null, mod, app);
         }
         if (GPM.equals(pkg)) {
             loadPart("gpm_usb", "gpm_usb", mod, app);
             loadPart("gpm_tbt", "gpm", mod, app);
-            if (UsbHotspot.active()) loadPart("usb_hotspot", null, mod, app);
+            loadPart(UsbHotspot.active() ? "usb_hotspot" : "stock_hotspot", null, mod, app);
         }
-        if (PHONE_PROJECTION.equals(pkg) && UsbHotspot.active()) loadPart("usb_hotspot", null, mod, app);
+        if (PHONE_PROJECTION.equals(pkg)) loadPart(UsbHotspot.active() ? "usb_hotspot" : "stock_hotspot", null, mod, app);
         if (BTSETTINGS.equals(pkg)) loadPart("btsettings", "btsettings", mod, app);
         if (DIPO.equals(pkg)) loadPart("dipo", "dipo", mod, app);
     }
@@ -115,6 +115,7 @@ public final class Wireless extends ModEntry {
             }
             else if ("dipo".equals(part)) dipo(mod, app);
             else if ("usb_hotspot".equals(part)) usbHotspot(mod, app);
+            else if ("stock_hotspot".equals(part)) stockHotspot(mod, app);
             RuntimeResult.phase("part." + part, "loaded", "gpm_tbt".equals(part) && Car.stepOfSpec() >= 999
                     ? "stock turn-by-turn active; native AA recipe inapplicable" : "initialization returned");
         } catch (Throwable t) {
@@ -442,6 +443,73 @@ public final class Wireless extends ModEntry {
             Hooks.findAndHookMethod(NetworkInterface.class, "getDisplayName", rename);
         }
         mod.log("USB hotspot " + UsbHotspot.iface() + " for wireless projection in " + app.processName);
+    }
+
+    /**
+     * The stock hotspot (part "stock_hotspot", no map points; contract "Peer info"; StockHotspot) on units whose
+     * setWifiApEnabledForConnectivity brings up the normal hotspot or nothing. The iAP2 server and GPM give the phone the
+     * normal hotspot's name and passphrase while the normal one serves or none does; GPM and PhoneProjection see mode 2
+     * while the normal one serves (their start checks want it); after PhoneProjection's own connectivity request the
+     * normal hotspot is started when nothing came up. A unit whose connectivity hotspot comes up is left stock.
+     */
+    private void stockHotspot(final ModContext mod, LoadedApp app) {
+        final String proc = app.processName;
+        if (IAP2.equals(app.packageName) || GPM.equals(app.packageName)) {
+            Hooks.findAndHookMethod(WifiManager.class, "getWifiApConfiguration", new MethodHook() {
+                @Override
+                protected void afterHookedMethod(Param p) {
+                    try {
+                        Object c = p.getResult();
+                        if (!(c instanceof WifiConfiguration)) return;
+                        int state = StockHotspot.state(p.thisObject), mode = StockHotspot.mode(p.thisObject);
+                        if (StockHotspot.shareNormal(state, mode) && StockHotspot.useNormal((WifiConfiguration) c))
+                            noteStock(mod, proc, "getWifiApConfiguration", "the normal hotspot's name and passphrase (" + StockHotspot.describe(state, mode) + ")");
+                    } catch (Throwable t) {
+                        mod.error("stock hotspot configuration", t);
+                    }
+                }
+            });
+        }
+        if (GPM.equals(app.packageName) || PHONE_PROJECTION.equals(app.packageName)) {
+            Hooks.findAndHookMethod(WifiManager.class, "getWifiApMode", new MethodHook() {
+                @Override
+                protected void afterHookedMethod(Param p) {
+                    Object real = p.getResult();
+                    if (StockHotspot.reading() || !(real instanceof Integer)) return;
+                    int state = StockHotspot.state(p.thisObject);
+                    int seen = StockHotspot.apMode(state, (Integer) real);
+                    if (seen == (Integer) real) return;
+                    noteStock(mod, proc, "getWifiApMode", "2 for the normal hotspot (" + StockHotspot.describe(state, (Integer) real) + ")");
+                    p.setResult(Integer.valueOf(seen));
+                }
+            });
+        }
+        if (PHONE_PROJECTION.equals(app.packageName)) {
+            Hooks.findAndHookMethod(WifiManager.class, "setWifiApEnabledForConnectivity", WifiConfiguration.class, boolean.class,
+                new MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(Param p) {
+                        if (!Boolean.TRUE.equals(p.args[1])) return;
+                        StockHotspot.startLater(p.thisObject, new StockHotspot.Log() {
+                            @Override
+                            public void log(String message) {
+                                mod.log(message);
+                            }
+                        });
+                    }
+                });
+        }
+        mod.log("stock hotspot checks for wireless projection in " + proc);
+    }
+
+    private static final java.util.Set<String> STOCK_LOGGED = new java.util.HashSet<String>();
+
+    /** Evidence for a problem report: the first time each app and call is answered for the normal hotspot. */
+    private static void noteStock(ModContext mod, String app, String call, String what) {
+        synchronized (STOCK_LOGGED) {
+            if (!STOCK_LOGGED.add(app + " " + call)) return;
+        }
+        mod.log(app + " " + call + " answered with " + what);
     }
 
     /**

@@ -32,6 +32,12 @@ if [ "$3" = status ]; then sg_print state=off restart=none "detail=verification 
 [ "$3" = run ] || [ "$3" = verify ] || exit 2
 work=$6
 for name in map.json car.json; do cp "$SG_FAKE_MAP/$name" "$work/$name" || exit 1; done
+if [ -n "${SG_FAKE_INCOMPLETE:-}" ] && [ "$3" = run ]; then
+    sg_print maps/hyundai/ioniq5/kor/260902 > "$work/layout"
+    sg_print btsettings.projection_helper.device_connections_available > "$work/incomplete"
+    sg_print state=failed restart=none 'detail=IllegalStateException: required point failed: btsettings.projection_helper.device_connections_available'
+    exit 1
+fi
 sg_print NEEV.KOR.0000.V039.001.260902 abc boot > "$work/verified"
 sg_print 0123456789abcdef0123456789abcdef > "$work/hash-id"
 sg_print abcdef0123456789abcdef0123456789 > "$work/map-id"
@@ -96,4 +102,37 @@ sg_print state=on restart=none "detail=map verified"
     assert exported.returncode==0,(exported.stdout,exported.stderr)
     public_tree(usb/"HMG-Seogaemo-export")
     assert usb.stat().st_mode & 0o777 == 0o711
+    # A scan that fails a required point publishes nothing, yet its candidate stays exportable.
+    failed_id="btsettings.projection_helper.device_connections_available"
+    state2=t/"state-incomplete"
+    state2.mkdir(mode=0o700)
+    failing=dict(env,SG_DATA_ROOT=str(state2),SG_FAKE_INCOMPLETE="1",SG_USB_DIRS=str(t/"no-usb"))
+    failed=subprocess.run(command+["map","run"],env=failing,capture_output=True,text=True)
+    assert failed.returncode==1 and "required point failed" in failed.stdout,(failed.stdout,failed.stderr)
+    assert not (state2/"car-maps/active").exists()
+    kept=state2/"car-maps/incomplete"
+    assert (kept/"incomplete").read_text().strip()==failed_id
+    assert (kept/"product").read_text().strip()=="NEEV.KOR.0000.V039.001.260902"
+    assert not list((state2/"car-maps").glob(".work.*")) and not list((state2/"car-maps").glob(".incomplete.*"))
+    assert "map_contents" in (state2/"ledger/ledger.tsv").read_text()
+    exported=subprocess.run(command+["map","export"],env=failing,capture_output=True,text=True)
+    assert exported.returncode==0 and "info.export_kind=incomplete" in exported.stdout,(exported.stdout,exported.stderr)
+    folder=Path(exported.stdout.split("detail=",1)[1].strip())/"maps/hyundai/ioniq5/kor/260902"
+    for name in ("map.json","car.json","incomplete.txt"):assert (folder/name).is_file(),name
+    assert (folder/"incomplete.txt").read_text().strip()==failed_id
+    public_tree(t/"export")
+    ledger_export=subprocess.run(command+["export","adb"],env=failing,capture_output=True,text=True)
+    assert ledger_export.returncode==0,(ledger_export.stdout,ledger_export.stderr)
+    assert (Path(ledger_export.stdout.split("detail=",1)[1].strip())/"maps/hyundai/ioniq5/kor/260902/incomplete.txt").is_file()
+    # The kept candidate belongs to the firmware it was scanned on.
+    other=t/"bin-other";other.mkdir()
+    (other/"getprop").write_text("#!/bin/sh\ncase \"$1\" in ro.build.product) echo OTHER.KOR.1;; esac\n")
+    (other/"getprop").chmod(0o755)
+    elsewhere=subprocess.run(command+["map","export"],env=dict(failing,PATH=str(other)+":"+env["PATH"]),capture_output=True,text=True)
+    assert elsewhere.returncode==1 and "no verified map" in elsewhere.stdout,(elsewhere.stdout,elsewhere.stderr)
+    # A published map replaces it.
+    passing={key:value for key,value in failing.items() if key!="SG_FAKE_INCOMPLETE"}
+    published=subprocess.run(command+["map","run"],env=passing,capture_output=True,text=True)
+    assert published.returncode==0,(published.stdout,published.stderr)
+    assert not kept.exists() and (state2/"car-maps/active").is_file()
 print("map root verbs, ledger publish, and PR export passed")

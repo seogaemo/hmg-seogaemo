@@ -25,6 +25,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 
 import hmgapi.hook.Points;
+import hmgapi.mods.wireless.StockHotspot;
 import hmgapi.mods.wireless.UsbHotspot;
 
 /**
@@ -889,6 +890,13 @@ final class Bridge {
             }
             Object r = k.getMethod("setWifiApEnabledForConnectivity", WifiConfiguration.class, boolean.class).invoke(wifi, use, true);
             log("setWifiApEnabledForConnectivity -> " + r + " (was on=" + on + " mode=" + mode + ")");
+            // Units whose connectivity call brings up nothing get the normal hotspot (contract "Peer info", stock_hotspot).
+            StockHotspot.startLater(wifi, new StockHotspot.Log() {
+                @Override
+                public void log(String message) {
+                    Bridge.log(message);
+                }
+            });
         } catch (Throwable t) {
             error("ensureHotspot", t);
         }

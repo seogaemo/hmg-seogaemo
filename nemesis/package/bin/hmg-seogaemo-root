@@ -108,12 +108,40 @@ if [ "$1" = export ]; then
     else
         export_base=${SG_EXPORT_ROOT:-/data/local/tmp/hmg-seogaemo-export}
     fi
+    # USB keeps ledger.tsv whole but only the before/after records of the current
+    # boot and the last 12 hours: the ledger is append-only and a full copy grows
+    # every export (1,798 files took 145 s on 2026-11-06). adb exports it all.
+    ledger=$SG_DATA_ROOT/ledger
+    now=$(date +%s)
+    since=$((now - 43200))
+    uptime=
+    { read -r uptime _ < "${SG_UPTIME_FILE:-/proc/uptime}"; } 2>/dev/null || uptime=
+    uptime=${uptime%%.*}
+    case "$uptime" in ''|*[!0-9]*) ;; *) [ $((now - uptime)) -ge "$since" ] || since=$((now - uptime));; esac
     size=0
-    for record in "$SG_DATA_ROOT"/ledger/ledger.tsv "$SG_DATA_ROOT"/ledger/before/* "$SG_DATA_ROOT"/ledger/after/*; do
-        [ -f "$record" ] || continue
-        set -- $(ls -ln "$record")
-        case "$5" in *[!0-9]*|'') record_size=$4;; *) record_size=$5;; esac
-        size=$((size + record_size))
+    [ ! -f "$ledger/ledger.tsv" ] || size=$(sg_file_size "$ledger/ledger.tsv") || refuse 1 failed 'Could not prepare export'
+    ledger_before=; ledger_after=
+    for sub in before after; do
+        [ -d "$ledger/$sub" ] || continue
+        listing=$(sg_export_sizes "$ledger/$sub" '') || refuse 1 failed 'Could not prepare export'
+        picked=
+        set -f
+        IFS='
+'
+        for line in $listing; do
+            record=${line#*	}
+            record_time=${record%%.*}
+            if [ "$export_mode" = usb ]; then
+                case "$record_time" in ''|*[!0-9]*) ;; *) [ "$record_time" -ge "$since" ] || continue;; esac
+            fi
+            size=$((size + ${line%%	*}))
+            picked="$picked$record
+"
+        done
+        IFS=' 	
+'
+        set +f
+        if [ "$sub" = before ]; then ledger_before=$picked; else ledger_after=$picked; fi
     done
     [ "$size" -le 52428800 ] || {
         echo 'state=failed'; echo 'restart=none'; echo 'detail=Ledger exceeds 50 MB'; exit 1;
@@ -125,8 +153,35 @@ if [ "$1" = export ]; then
     dest=$container/$stamp
     sg_path_safe "$dest" || refuse 1 failed 'Could not prepare export'
     mkdir -p "$dest" || refuse 1 failed 'Could not prepare export'
-    if [ -d "$SG_DATA_ROOT/ledger" ]; then
-        cp -R "$SG_DATA_ROOT/ledger" "$dest/ledger" || refuse 1 failed 'Could not prepare export'
+    if [ -d "$ledger" ] && [ "$export_mode" = adb ]; then
+        cp -R "$ledger" "$dest/ledger" || refuse 1 failed 'Could not prepare export'
+    elif [ -d "$ledger" ]; then
+        mkdir -p "$dest/ledger/before" "$dest/ledger/after" || refuse 1 failed 'Could not prepare export'
+        [ ! -f "$ledger/ledger.tsv" ] || cp "$ledger/ledger.tsv" "$dest/ledger" || refuse 1 failed 'Could not prepare export'
+        for sub in before after; do
+            if [ "$sub" = before ]; then picked=$ledger_before; else picked=$ledger_after; fi
+            # One cp per 200 records keeps the argument list short.
+            set --
+            set -f
+            IFS='
+'
+            for record in $picked; do
+                set -- "$@" "$ledger/$sub/$record"
+                [ "$#" -lt 200 ] && continue
+                IFS=' 	
+'
+                cp "$@" "$dest/ledger/$sub" || refuse 1 failed 'Could not prepare export'
+                IFS='
+'
+                set --
+            done
+            IFS=' 	
+'
+            set +f
+            [ "$#" -eq 0 ] || cp "$@" "$dest/ledger/$sub" || refuse 1 failed 'Could not prepare export'
+        done
+        sg_print "since=$since" 'scope=ledger.tsv whole; before/after records of the current boot and the last 12 hours' \
+            'full=hmg-seogaemo-root export adb' > "$dest/ledger/WINDOW" || refuse 1 failed 'Could not prepare export'
     fi
     mkdir -p "$dest/desired" || refuse 1 failed 'Could not prepare export'
     for record in "$SG_DATA_ROOT"/desired/*; do
@@ -136,7 +191,7 @@ if [ "$1" = export ]; then
     grep '^package-version=' "$base/NEMESIS.data" > "$dest/package-version"
     HMG_SEOGAEMO_BASE=$base HMG_SEOGAEMO_STATE=$SG_DATA_ROOT/core/map
     export HMG_SEOGAEMO_BASE HMG_SEOGAEMO_STATE SG_DATA_ROOT
-    hmg_seogaemo_map_active_dir >/dev/null 2>&1 && hmg_seogaemo_map_export "$dest" || true
+    hmg_seogaemo_map_export "$dest" || true
     . "$base/lib/diagnostics.sh"
     HMG_SEOGAEMO_EXPORT_LOGS=$export_logs
     hmg_seogaemo_diagnostics "$dest" || refuse 1 failed 'Could not collect diagnostics'

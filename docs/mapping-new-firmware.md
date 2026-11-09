@@ -50,7 +50,7 @@ adb shell /data/local/tmp/nemesis-d root -c '/data/nemesis/apps/hmg-seogaemo/bin
 adb pull /data/local/tmp/hmg-seogaemo-export/
 ```
 
-`map run` scans the full catalogue outside the UI and zygote, verifies all resolved points by reflection, and publishes only verified entries through the package API. `map verify` rechecks a matching bundled or generated map for this boot. `map export` chooses a mounted USB drive when available, otherwise the adb export directory; its `detail=` line gives the exact destination. The ordinary `export adb|usb` change-ledger command also includes the active PR-ready map folder. Exported files contain point names and stock MD5s, without raw DEX or personal identifiers.
+`map run` scans the full catalogue outside the UI and zygote, verifies all resolved points by reflection, and publishes only verified entries through the package API. `map verify` rechecks a matching bundled or generated map for this boot. `map export` chooses a mounted USB drive when available, otherwise the adb export directory; its `detail=` line gives the exact destination. When the scan failed a required point, nothing is published and there is no verified map; `map export` then writes the kept candidate instead (`info.export_kind=incomplete`): the same `maps/...` folder plus `incomplete.txt` (the failed required IDs), with every unresolved point and its reason under `missing` in `car.json`. Use it to see why the point failed; it is never an installable map. The ordinary `export adb|usb` change-ledger command also includes the active PR-ready map folder. Exported files contain point names and stock MD5s, without raw DEX or personal identifiers.
 
 Compare host and on-car results after copying the exported folder to a separate local location:
 

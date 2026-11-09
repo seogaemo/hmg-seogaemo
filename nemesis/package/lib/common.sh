@@ -777,17 +777,21 @@ sg_public_readable() (
     done
 )
 # Call only for dedicated export containers, never USB roots or private state.
+# One chmod per directory: a per-file chmod costs a process each on the head unit.
 sg_export_public() (
     set +f
     sg_path_safe "$1" && [ -d "$1" ] || exit 3
     chmod 0755 "$1" || exit 1
-    for entry in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+    sg_ep_dir=$1
+    set --
+    for entry in "$sg_ep_dir"/* "$sg_ep_dir"/.[!.]* "$sg_ep_dir"/..?*; do
         [ ! -L "$entry" ] || exit 3
         [ -e "$entry" ] || continue
         if [ -d "$entry" ]; then sg_export_public "$entry" || exit 1
-        elif [ -f "$entry" ]; then chmod 0644 "$entry" || exit 1
+        elif [ -f "$entry" ]; then set -- "$@" "$entry"
         else exit 3; fi
     done
+    [ "$#" -eq 0 ] || chmod 0644 "$@" || exit 1
 )
 # Size in bytes of a regular file from toolbox ls -l (no stat on the unit).
 sg_file_size() (
@@ -798,15 +802,54 @@ sg_file_size() (
     case "$sg_fs_size" in ''|*[!0-9]*) exit 1;; esac
     sg_write "$sg_fs_size"
 )
+# "<size><TAB><prefix><name>" for every regular file under $1, from one
+# ls -lna per directory (a per-file ls costs two processes each on the head unit).
+# Falls back to one ls per file when a listing line does not parse to exactly
+# one name of a regular file, or when it misses a file the glob sees.
 sg_export_sizes() (
     set +f
-    for entry in "$1"/* "$1"/.[!.]* "$1"/..?*; do
-        [ -e "$entry" ] || continue
-        if [ -d "$entry" ]; then sg_export_sizes "$entry" "$2${entry##*/}/" || exit 1
-        elif [ -f "$entry" ]; then
+    sg_xs_dir=$1; sg_xs_prefix=$2; sg_xs_out=; sg_xs_listed=0; sg_xs_files=0; sg_xs_ok=1
+    sg_xs_nl='
+'
+    sg_xs_list=$(ls -lna "$sg_xs_dir") || exit 1
+    set -f
+    IFS=$sg_xs_nl
+    for sg_xs_line in $sg_xs_list; do
+        IFS=' 	'
+        # Intentional field splitting of one listing line.
+        # shellcheck disable=SC2086
+        set -- $sg_xs_line
+        case "$1" in -*) ;; *) continue;; esac
+        # Android toolbox: mode uid gid size date time name; desktop ls adds the
+        # link count and a three-field date.
+        case "$#:$5" in
+            7:*[!0-9]*) sg_xs_size=$4; shift 6;;
+            9:[0-9]*) sg_xs_size=$5; shift 8;;
+            *) sg_xs_ok=0; break;;
+        esac
+        if [ ! -f "$sg_xs_dir/$1" ] || [ -L "$sg_xs_dir/$1" ]; then sg_xs_ok=0; break; fi
+        case "$sg_xs_size" in ''|*[!0-9]*) sg_xs_ok=0; break;; esac
+        sg_xs_out=$sg_xs_out$sg_xs_size'	'$sg_xs_prefix$1$sg_xs_nl
+        sg_xs_listed=$((sg_xs_listed + 1))
+    done
+    IFS=' 	
+'
+    set +f
+    for entry in "$sg_xs_dir"/* "$sg_xs_dir"/.[!.]* "$sg_xs_dir"/..?*; do
+        [ -f "$entry" ] && [ ! -L "$entry" ] && sg_xs_files=$((sg_xs_files + 1))
+    done
+    if [ "$sg_xs_ok" = 1 ] && [ "$sg_xs_listed" = "$sg_xs_files" ]; then
+        [ -z "$sg_xs_out" ] || sg_print "${sg_xs_out%"$sg_xs_nl"}" || exit 1
+    else
+        for entry in "$sg_xs_dir"/* "$sg_xs_dir"/.[!.]* "$sg_xs_dir"/..?*; do
+            [ -f "$entry" ] && [ ! -L "$entry" ] || continue
             size=$(sg_file_size "$entry") || exit 1
-            sg_print "$size	$2${entry##*/}" || exit 1
-        fi
+            sg_print "$size	$sg_xs_prefix${entry##*/}" || exit 1
+        done
+    fi
+    for entry in "$sg_xs_dir"/* "$sg_xs_dir"/.[!.]* "$sg_xs_dir"/..?*; do
+        [ -d "$entry" ] && [ ! -L "$entry" ] || continue
+        sg_export_sizes "$entry" "$sg_xs_prefix${entry##*/}/" || exit 1
     done
 )
 # The head unit mounts the stick write-back: a name can reach the stick while its
@@ -822,10 +865,20 @@ sg_export_seal() (
     sg_print "$sg_es_sizes" > "$sg_es_dest/MANIFEST" && chmod 0644 "$sg_es_dest/MANIFEST" || exit 1
     sync || exit 4
     [ "$sg_es_mode" = usb ] || exit 0
-    while IFS='	' read -r sg_es_size sg_es_rel; do
-        [ -n "$sg_es_rel" ] || continue
-        [ "$(sg_file_size "$sg_es_dest/$sg_es_rel")" = "$sg_es_size" ] || exit 4
-    done < "$sg_es_dest/MANIFEST"
+    # Re-list after the sync: every recorded file keeps its size, nothing else appeared.
+    sg_es_again=$(sg_export_sizes "$sg_es_dest" '') || exit 4
+    sg_es_check=
+    set -f
+    sg_es_ifs=$IFS
+    IFS='
+'
+    for sg_es_line in $sg_es_again; do
+        case "$sg_es_line" in *'	MANIFEST') ;; *) sg_es_check=$sg_es_check$sg_es_line'
+';; esac
+    done
+    IFS=$sg_es_ifs
+    set +f
+    [ "${sg_es_check%?}" = "$sg_es_sizes" ] || exit 4
     for sg_es_key do
         sg_es_rel=${sg_es_key%%=*}
         sg_es_have=$(sg_file_size "$sg_es_dest/$sg_es_rel") || exit 4
@@ -3120,7 +3173,51 @@ hmg_seogaemo_map_publish() {
     sg_ledger map_contents "$hmg_seogaemo_map_final/map.json" "" "$hmg_seogaemo_map_final/map.json" "" || return 1
     sg_ledger map_contents "$hmg_seogaemo_map_final/car.json" "" "$hmg_seogaemo_map_final/car.json" "" || return 1
     rm -f "$hmg_seogaemo_map_root/.before.$$"
+    rm -rf "$hmg_seogaemo_map_root/incomplete"
     hmg_seogaemo_map_prune "$hmg_seogaemo_map_root/$hmg_seogaemo_map_product" "$hmg_seogaemo_map_hash/$hmg_seogaemo_map_id" || :
+}
+# A scan that fails a required point publishes nothing. Keep its candidate (resolved points, the per-point
+# failure reasons, the failed required IDs) so the owner can still export it. One copy, never an active map:
+# nothing reads it except `map export`, and the next published map removes it.
+hmg_seogaemo_map_keep_incomplete() {
+    hmg_seogaemo_map_input=$1
+    [ "$hmg_seogaemo_map_input" = "$HMG_SEOGAEMO_MAP_WORK" ] || return 2
+    for hmg_seogaemo_map_name in map.json car.json layout incomplete; do
+        [ -s "$hmg_seogaemo_map_input/$hmg_seogaemo_map_name" ] && [ ! -L "$hmg_seogaemo_map_input/$hmg_seogaemo_map_name" ] || return 1
+    done
+    hmg_seogaemo_map_product=$(getprop ro.build.product)
+    case "$hmg_seogaemo_map_product" in ''|*[!a-zA-Z0-9._-]*) return 2;; esac
+    hmg_seogaemo_map_layout=$(cat "$hmg_seogaemo_map_input/layout")
+    case "$hmg_seogaemo_map_layout" in
+        maps/*/*/*/*) case "$hmg_seogaemo_map_layout" in *..*|*[!a-zA-Z0-9_./-]*) return 2;; esac ;;
+        *) return 2;;
+    esac
+    hmg_seogaemo_map_root=$SG_DATA_ROOT/car-maps
+    hmg_seogaemo_map_stage=$hmg_seogaemo_map_root/.incomplete.$$
+    mkdir -p "$hmg_seogaemo_map_stage" || return 1
+    chmod 700 "$hmg_seogaemo_map_root" "$hmg_seogaemo_map_stage" || { rm -rf "$hmg_seogaemo_map_stage"; return 1; }
+    for hmg_seogaemo_map_name in map.json car.json layout incomplete; do
+        cp "$hmg_seogaemo_map_input/$hmg_seogaemo_map_name" "$hmg_seogaemo_map_stage/$hmg_seogaemo_map_name" &&
+            cmp "$hmg_seogaemo_map_input/$hmg_seogaemo_map_name" "$hmg_seogaemo_map_stage/$hmg_seogaemo_map_name" >/dev/null 2>&1 &&
+            chmod 600 "$hmg_seogaemo_map_stage/$hmg_seogaemo_map_name" || { rm -rf "$hmg_seogaemo_map_stage"; return 1; }
+    done
+    sg_print "$hmg_seogaemo_map_product" > "$hmg_seogaemo_map_stage/product" &&
+        chmod 600 "$hmg_seogaemo_map_stage/product" || { rm -rf "$hmg_seogaemo_map_stage"; return 1; }
+    rm -rf "$hmg_seogaemo_map_root/incomplete"
+    mv "$hmg_seogaemo_map_stage" "$hmg_seogaemo_map_root/incomplete" || { rm -rf "$hmg_seogaemo_map_stage"; return 1; }
+    HMG_SEOGAEMO_STATE=$SG_DATA_ROOT/core/map
+    mkdir -p "$HMG_SEOGAEMO_STATE" || return 1
+    sg_ledger map_contents "$hmg_seogaemo_map_root/incomplete/map.json" "" "$hmg_seogaemo_map_root/incomplete/map.json" "" || return 1
+    sg_ledger map_contents "$hmg_seogaemo_map_root/incomplete/car.json" "" "$hmg_seogaemo_map_root/incomplete/car.json" "" || return 1
+}
+# The kept candidate counts only for the firmware it was scanned on.
+hmg_seogaemo_map_incomplete_dir() {
+    hmg_seogaemo_map_dir=$SG_DATA_ROOT/car-maps/incomplete
+    [ -d "$hmg_seogaemo_map_dir" ] && [ ! -L "$hmg_seogaemo_map_dir" ] || return 1
+    [ "$(cat "$hmg_seogaemo_map_dir/product" 2>/dev/null)" = "$(getprop ro.build.product)" ] || return 1
+    [ -s "$hmg_seogaemo_map_dir/map.json" ] && [ -s "$hmg_seogaemo_map_dir/car.json" ] &&
+        [ -s "$hmg_seogaemo_map_dir/layout" ] && [ -s "$hmg_seogaemo_map_dir/incomplete" ] || return 1
+    sg_print "$hmg_seogaemo_map_dir"
 }
 # Every verification publishes a new map id and only the active one is read (the hook
 # engines read it once at zygote start), so older copies of this product are removed.
@@ -3146,8 +3243,14 @@ hmg_seogaemo_map_active_dir() {
     [ -f "$SG_DATA_ROOT/car-maps/$hmg_seogaemo_map_rel/verified" ] || return 1
     sg_print "$SG_DATA_ROOT/car-maps/$hmg_seogaemo_map_rel"
 }
+# Exports the active verified map. With none, exports the kept incomplete candidate and sets
+# hmg_seogaemo_map_incomplete=1 so the caller can say so.
 hmg_seogaemo_map_export() {
-    hmg_seogaemo_map_from=$(hmg_seogaemo_map_active_dir) || return 1
+    hmg_seogaemo_map_incomplete=
+    if ! hmg_seogaemo_map_from=$(hmg_seogaemo_map_active_dir); then
+        hmg_seogaemo_map_from=$(hmg_seogaemo_map_incomplete_dir) || return 1
+        hmg_seogaemo_map_incomplete=1
+    fi
     hmg_seogaemo_map_layout=$(cat "$hmg_seogaemo_map_from/layout") || return 1
     case "$hmg_seogaemo_map_layout" in maps/*/*/*/*) ;; *) return 2;; esac
     case "$hmg_seogaemo_map_layout" in *..*|*[!a-zA-Z0-9_./-]*) return 2;; esac
@@ -3156,5 +3259,8 @@ hmg_seogaemo_map_export() {
     cp "$hmg_seogaemo_map_from/map.json" "$hmg_seogaemo_map_to/map.json" &&
         cp "$hmg_seogaemo_map_from/car.json" "$hmg_seogaemo_map_to/car.json" &&
         cmp "$hmg_seogaemo_map_from/map.json" "$hmg_seogaemo_map_to/map.json" >/dev/null 2>&1 &&
-        cmp "$hmg_seogaemo_map_from/car.json" "$hmg_seogaemo_map_to/car.json" >/dev/null 2>&1
+        cmp "$hmg_seogaemo_map_from/car.json" "$hmg_seogaemo_map_to/car.json" >/dev/null 2>&1 &&
+        { [ -z "$hmg_seogaemo_map_incomplete" ] ||
+            { cp "$hmg_seogaemo_map_from/incomplete" "$hmg_seogaemo_map_to/incomplete.txt" &&
+                cmp "$hmg_seogaemo_map_from/incomplete" "$hmg_seogaemo_map_to/incomplete.txt" >/dev/null 2>&1; }; }
 }

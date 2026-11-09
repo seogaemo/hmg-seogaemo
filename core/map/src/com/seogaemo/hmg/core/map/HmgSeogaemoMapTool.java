@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /** Fixed root app_process commands. Result files stay in root-owned scratch until published by the package API. */
@@ -150,11 +152,17 @@ public final class HmgSeogaemoMapTool {
         for(Map.Entry<String,String> item:bad.entrySet()){entries.remove(item.getKey());missing.put(item.getKey(),item.getValue());}
         List<Object> references=(List<Object>)car.get("by_reference");
         if(references!=null)references.retainAll(entries.keySet());
+        Set<String> failedRequired=new LinkedHashSet<String>();
         File required=new File(packageRoot,"hookpoints.required");
         File[] manifests=required.listFiles();
         if(manifests!=null)for(File manifest:manifests)if(manifest.isFile())for(String line:HmgSeogaemoMapFiles.read(manifest).split("\n")){
             String point=line.trim(); if(!point.isEmpty()&&!point.startsWith("#")&&!entries.containsKey(point))
-                throw new IllegalStateException("required point failed: "+point);
+                failedRequired.add(point);
+        }
+        if(!failedRequired.isEmpty()) {
+            keepIncomplete(directory,car,entries,failedRequired);
+            throw new IllegalStateException("required point failed: "+failedRequired.iterator().next()+
+                (failedRequired.size()>1?" (+"+(failedRequired.size()-1)+" more)":""));
         }
         if(entries.isEmpty())throw new IllegalStateException("no verified points");
         if(!scratch.isDirectory()&&!scratch.mkdirs())throw new IOException("scratch unavailable");
@@ -180,6 +188,18 @@ public final class HmgSeogaemoMapTool {
         System.out.println("info.mapped="+((Map<?,?>)map.get("points")).size());
         System.out.println("info.verified="+entries.size());
         System.out.println("info.failed="+bad.size());
+    }
+    /** Required points are all-or-nothing, so nothing is published; keep the candidate in scratch for the owner's export. */
+    private void keepIncomplete(File directory,Map<String,Object> car,Map<String,Map<String,Object>> entries,Set<String> failed) throws Exception {
+        if(!scratch.isDirectory()&&!scratch.mkdirs())throw new IOException("scratch unavailable");
+        car.put("incomplete",new ArrayList<String>(failed));
+        Map<String,Object> candidate=new LinkedHashMap<String,Object>();candidate.put("schema",1);candidate.put("points",entries);
+        HmgSeogaemoMapFiles.write(new File(scratch,"map.json"),HmgSeogaemoJsonIO.encode(candidate)+"\n");
+        HmgSeogaemoMapFiles.write(new File(scratch,"car.json"),HmgSeogaemoJsonIO.encode(car)+"\n");
+        HmgSeogaemoMapFiles.write(new File(scratch,"layout"),layout(directory));
+        StringBuilder ids=new StringBuilder();
+        for(String id:failed)ids.append(id).append('\n');
+        HmgSeogaemoMapFiles.write(new File(scratch,"incomplete"),ids.toString());
     }
     private void run() throws Exception {
         HmgSeogaemoMapScanner scanner=new HmgSeogaemoMapScanner(systemRoot,new File(packageRoot,"maps"));

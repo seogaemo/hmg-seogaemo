@@ -84,15 +84,21 @@ if [ "$1" = export ]; then
     hmg_seogaemo_map_export "$target" || { sg_print "state=failed" "restart=none" "detail=no verified map"; exit 1; }
     sg_export_public "$target" && chmod 0755 "${target%/*}" || exit 1
     # hmg_seogaemo_map_export left the validated layout and active map directory set.
-    sg_export_seal "$target" "$export_mode" \
-        "$hmg_seogaemo_map_layout/map.json=$hmg_seogaemo_map_from/map.json" \
+    set -- "$hmg_seogaemo_map_layout/map.json=$hmg_seogaemo_map_from/map.json" \
         "$hmg_seogaemo_map_layout/car.json=$hmg_seogaemo_map_from/car.json"
+    [ -z "$hmg_seogaemo_map_incomplete" ] ||
+        set -- "$@" "$hmg_seogaemo_map_layout/incomplete.txt=$hmg_seogaemo_map_from/incomplete"
+    sg_export_seal "$target" "$export_mode" "$@"
     case $? in
         0) ;;
         4) sg_print "state=failed" "restart=none" "detail=USB write not flushed"; exit 1 ;;
         *) exit 1 ;;
     esac
-    sg_print "state=on" "restart=none" "info.export_safe=$export_mode" "detail=$target"
+    if [ -n "$hmg_seogaemo_map_incomplete" ]; then
+        sg_print "state=on" "restart=none" "info.export_safe=$export_mode" "info.export_kind=incomplete" "detail=$target"
+    else
+        sg_print "state=on" "restart=none" "info.export_safe=$export_mode" "detail=$target"
+    fi
     exit 0
 fi
 hmg_seogaemo_map_work || { sg_print "state=failed" "restart=none" "detail=map work unavailable"; exit 1; }
@@ -100,6 +106,7 @@ mapper "$1" "$HMG_SEOGAEMO_MAP_WORK" > "$HMG_SEOGAEMO_MAP_WORK/result" 2>&1
 code=$?
 if [ "$code" -ne 0 ]; then
     dd if="$HMG_SEOGAEMO_MAP_WORK/result" bs=1 count=4096 2>/dev/null
+    hmg_seogaemo_map_keep_incomplete "$HMG_SEOGAEMO_MAP_WORK" 2>/dev/null || :
     exit "$code"
 fi
 if ! hmg_seogaemo_map_publish "$HMG_SEOGAEMO_MAP_WORK"; then

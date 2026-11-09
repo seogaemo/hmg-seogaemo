@@ -97,6 +97,11 @@ needs no `restore=reboot`.
 (`before/`), the bytes we wrote (`after/`), file metadata, and property before/after values. It is
 never pruned while any change is active; after a verified uninstall it is kept as a final
 export-able record until the package directory is removed.
+`export adb` copies the whole ledger. `export usb` copies `ledger.tsv` whole but only the
+`before/`/`after/` records whose name stamp (`<epoch>.<pid>.<seq>`) is at or after the
+earlier of this boot (`now - /proc/uptime`) and `now - 12 h`, and writes `ledger/WINDOW`
+(`since=`, scope, and the adb command for the full ledger). The 50 MB limit applies to the
+bytes copied.
 Binder calls record the exact allow-listed pair, time, bounded Parcel summary,
 and outcome in this same ledger; export includes them.
 
@@ -290,6 +295,17 @@ such a snapshot follows a role change after the next head-unit restart.
   ignored because the zygote starts before this boot's reconcile) that call is skipped and the hook part
   `usb_hotspot` (no map points; runtime record `part.usb_hotspot`) loads in `com.tcc.iap2server` and
   `com.google.android.projection.sink`. Anything else, including a missing or unreadable file, is the stock path.
+- On the stock path the hook part `stock_hotspot` (no map points; `com.tcc.iap2server`, GPM,
+  `com.daudio.app.phoneprojection`) covers units whose stock call does not bring up the hotspot for connectivity
+  (`WifiManager.getWifiApState()`/`getWifiApMode()` read at each call, `StockHotspot`):
+  - the normal hotspot serves (state enabled, mode not 2), or nothing serves (state disabled or failed): in the iAP2
+    server and GPM `getWifiApConfiguration()` returns the normal hotspot's SSID and passphrase in
+    `ConnectivitySSID`/`ConnectivityPSK` too (the returned copy only; nothing is written);
+  - the normal hotspot serves: in GPM and PhoneProjection `getWifiApMode()` answers 2;
+  - 10 seconds after a `setWifiApEnabledForConnectivity(config, true)` (DiPO's `ensureHotspot`, or PhoneProjection's own
+    call) the state is still disabled or failed: `setWifiApEnabled(null, true)` starts the normal hotspot with its saved
+    configuration (a null configuration is not stored; the hotspot goes away at a restart like the stock one).
+  A unit whose connectivity hotspot comes up (state enabled, mode 2) sees none of this.
 - `status` prints `info.hotspot_radio=usb|builtin|none`: `usb` for a published USB hotspot; `none` for `radio=none`
   with `wifi` setting `builtin_role=client`; otherwise `builtin` when the stock Broadcom radio exists
   (`tcc.wifi.vendor=broadcom`, non-empty `bcmdhd.ko` and `fw_bcmdhd.bin`), else `none`.
@@ -605,8 +621,9 @@ before its data does.
 `sg_export_seal <dest> <usb|adb> [key...]` after the last write and the public chmod:
 
 - writes `MANIFEST` (`<size><TAB><relative path>` for every exported file, sizes from
-  toolbox `ls -ln`), then runs `sync`;
-- for `usb`, re-reads every listed file and requires the recorded size, and requires
+  one toolbox `ls -lna` per directory, falling back to one `ls -ln` per file when a
+  listing line does not parse), then runs `sync`;
+- for `usb`, re-lists the export and requires exactly the recorded files and sizes, and requires
   each key file to match its source size (`<relative>=<source>`) or be non-empty:
   `ledger/ledger.tsv`, `package-version`, `ro.build.product`, `desired/*` for the ledger
   export, `<layout>/map.json` and `car.json` for the map export;
@@ -623,8 +640,11 @@ must not use the 150-second module-write or 30-second map-status deadline. On
 2026-11-06, each v0.1.30 USB export contained 1,798 files and took 145 seconds
 from its destination timestamp to MANIFEST's modification time, before the USB
 verification pass. The 150-second app deadline could expire while the daemon
-continued exporting. Evidence: `tmp/car-reports/usb-20261106/`. The longer deadline
-is covered off-car; completion of the fixed build still needs car verification.
+continued exporting. Evidence: `tmp/car-reports/usb-20261106/`. Per-file processes
+were the cost: `sg_export_public` now runs one `chmod` per directory and the size
+listing one `ls` per directory (that export's public chmod + seal: 21 s to 1.2 s on a
+host), and USB copies only the recent ledger window above. The longer deadline and
+the faster export are covered off-car; on-car timing still needs verification.
 
 ## Diagnostic export
 
@@ -668,6 +688,13 @@ The zygote hook gate (`HmgApi.zygoteInit`) checks only the first two lines of th
 boot's verification finishes one to three minutes later. Every stock file is
 still compared with the MD5s in `car.json` before the map is used. Module `hookpoints.required` IDs must all survive
 resolution and reflection before publish. `map.json` exposes only verified points.
+A scan that fails a required point publishes nothing (no `active` change). The mapper still writes its
+candidate to scratch (`map.json`, `car.json` with each unresolved point's reason under `missing` and the failed
+required IDs under `incomplete`, `layout`, and `incomplete`, one ID per line), and the package API keeps it through
+`hmg_seogaemo_map_keep_incomplete` as `car-maps/incomplete/` (one copy, plus `product`; ledger `map_contents`).
+No module, hook engine or status reads it. `map export` and the ledger export fall back to it when there is
+no active verified map and `product` still matches: the usual `maps/...` folder plus `incomplete.txt`, and
+`info.export_kind=incomplete`. It is for diagnosis, never an installable map; the next publish removes it.
 
 Car gate: no module is tied to one firmware by name. Bundled modules declare `cars=*`
 and report `incompatible` unless a map exists for this exact `ro.build.product`:

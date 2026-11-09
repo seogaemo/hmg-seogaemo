@@ -175,6 +175,23 @@ while the system property `sys.kp.aa_ap` is 1 (set by its shell script while its
 Behaviour only; nothing was copied. It reports wireless Android Auto working on built-in-radio Korean cars, so it does
 not settle the USB-adapter path.
 
+Its other finding (`svc/hotspot.sh`): on KOR 260902 Niro `DEPEHEV` (car-verified there), Sonata DN8 `DN822HEV`, Grandeur IG
+`IGPE`/`IGPEHEV` and Veloster N `JSN` (reports, not verified) `setWifiApEnabledForConnectivity` brings up no hotspot,
+while stock `hostapd` on `wlan0` works. `softap.conf` there is version 3 with `writeUTF` strings: normal hotspot SSID,
+connectivity SSID, one more, connectivity passphrase. It runs its own `hostapd` with the connectivity SSID/passphrase
+(5 GHz 149, HT40+; 20 MHz did not let the iPhone rejoin after a restart), which needs `svc wifi enable`, taking
+`wpa_supplicant.conf` (owner root, crc32 file removed) and killing `wpa_supplicant`, and yields to any stock `hostapd`.
+An owner report for Grandeur IG says instead that the unit brings up the normal hotspot (`Kia_hotspot_xxxx`), and that
+giving the normal hotspot the connectivity SSID/passphrase by hand makes wireless CarPlay connect.
+
+Ours (`wireless-carplay-and-aa` part `stock_hotspot`, contract "Peer info", 0.1.51) covers both without writing anything:
+the iAP2 server and GPM hand the phone the normal hotspot's SSID/passphrase while the normal hotspot serves (enabled,
+mode not 2) or nothing does, GPM and PhoneProjection see mode 2 while the normal one serves, and 10 s after a
+connectivity request that left the hotspot disabled or failed, `setWifiApEnabled(null, true)` starts the normal hotspot.
+A unit whose connectivity hotspot comes up is unaffected. Unverified on such a car: whether the normal hotspot starts
+there (Grandeur IG reports #52/#53 in korea-projection: `wlan0` never appears), the AP state and mode values those
+units report, and that the phone then joins. The DiPO and PhoneProjection logs say which case a car is in.
+
 ## Still unverified on a car
 
 1. The whole USB path: hostapd/dnsmasq on `rtwlan0`, the iPhone joining with the credentials iAP2 sends, and whether

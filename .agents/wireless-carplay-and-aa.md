@@ -11,7 +11,9 @@ the `tbt-reset` verb stays for 0.1.31 apps. Updates from the built-in or the old
 Hotspot: the module starts one only through DiPO's `setWifiApEnabledForConnectivity` (stock `wlan0`, car-verified). When the
 `wifi` module publishes a USB CarPlay hotspot (`radio=usb`, read once in the zygote), DiPO skips that call and part
 `usb_hotspot` gives the iAP2 server and GPM the adapter's credentials and interface; `status` reports
-`info.hotspot_radio`. Rules: contract "Peer info"; details and open car checks: [external-wifi.md](external-wifi.md).
+`info.hotspot_radio`. Without it, part `stock_hotspot` covers units whose connectivity call brings up the normal hotspot
+or nothing (phone gets the normal hotspot's credentials, AA sees mode 2, the normal hotspot is started 10 s after an
+unanswered request). Rules: contract "Peer info"; details and open car checks: [external-wifi.md](external-wifi.md).
 
 Target: Hyundai Ioniq 5 KOR, `ro.build.product=NEEV.KOR.0000.V039.001.260902`, onebin `neev_kr` (`ro.mobis.onebindir`), Android 4.4.2. Owner confirms HMG-API 1.0.0-beta.5 with its mapping and wireless mod worked on this car (hotspot and wireless CarPlay). The pre-install Car Report at `tmp/car-reports/car-report-neev-kor-260902-20261102-2115.json` has 324 mapped points, 12 by reference, one unrelated ThemeSettings point missing. Its `map.status=none` and `wifi_chip=false` are pre-install observations, not a negation of the owner's working test.
 
@@ -518,7 +520,7 @@ baselines or an authorization channel. Root prepares the private runtime parent
 through the package API before enabling the loader. Root reads only the fixed projection app
 packages: `com.daudio.app.dipo`, `com.tcc.iap2server`,
 `com.google.android.projection.sink`, `com.mnsoft.navi`, `com.android.btsettings`,
-`com.daudio.app.phoneprojection` (no parts of its own; it only loads `usb_hotspot` with a USB hotspot).
+`com.daudio.app.phoneprojection` (no parts of its own; it loads `usb_hotspot` with a USB hotspot, else `stock_hotspot`).
 
 Each process writes `p-<pid>-<start_ticks>.txt` atomically via `.txt.tmp`.
 UTF-8 `key=value` lines, first `=` is the separator; keys `[a-zA-Z0-9_.-]+`,

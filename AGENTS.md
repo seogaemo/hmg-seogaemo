@@ -143,7 +143,9 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
   `stock_file.N=<glob>:<path>:<md5>`; never write a product check into a module script.
 - `map export` and ordinary USB/adb ledger export include a PR-ready `maps/...` folder. Owners send it
   through the `new-firmware-map.yml` issue form, opened from the app's QR code (only firmware ids,
-  versions and map/module states; never personal data); maintainers turn it into a PR. See
+  versions and map/module states; never personal data); maintainers turn it into a PR. A scan that
+  fails a required point publishes nothing; `map export` then exports the kept incomplete candidate
+  (`incomplete.txt`, per-point reasons in `car.json`) for diagnosis only. See
   `docs/mapping-new-firmware.md` for adb, host baksmali mapping, comparison, and PR steps.
 
 ## Build, test, release

@@ -154,6 +154,20 @@ public class PathClassLoader extends java.net.URLClassLoader {
     stock.write_bytes(b'exact stock identity')
     (required / 'example').write_text('example.target.bad_static\n')
     pointer = (state / 'car-maps/active').read_text()
-    assert 'required point failed' in run('verify', success=False)
+    for path in scratch.iterdir():
+        if path.is_file():
+            path.unlink()
+    assert 'required point failed: example.target.bad_static' in run('verify', success=False)
     assert (state / 'car-maps/active').read_text() == pointer
+    # Nothing is published, but the candidate stays in scratch with the reason each point failed.
+    assert (scratch / 'incomplete').read_text() == 'example.target.bad_static\n'
+    assert not (scratch / 'verified').exists() and not (scratch / 'map-id').exists()
+    kept = json.loads((scratch / 'car.json').read_text())
+    assert kept['incomplete'] == ['example.target.bad_static']
+    assert 'example.target.bad_static' in kept['missing']
+    assert 'example.target.bad_static' not in json.loads((scratch / 'map.json').read_text())['points']
+    assert (scratch / 'layout').read_text() == 'maps/x/y/z/relocated\n'
+    (required / 'example').write_text('example.target.bad_static\nexample.target.bad_signature\n')
+    assert 'required point failed: example.target.bad_static (+1 more)' in run('verify', success=False)
+    assert (scratch / 'incomplete').read_text() == 'example.target.bad_static\nexample.target.bad_signature\n'
 print('map reflection static/ref signatures, optional filtering, input/boot invalidation and legacy migration passed')

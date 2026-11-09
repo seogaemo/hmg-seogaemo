@@ -533,6 +533,15 @@ sg_revert_all
     for entry in export_root.rglob("*"):
         assert entry.stat().st_mode & 0o777 == (0o755 if entry.is_dir() else 0o644)
     assert (exported.parents[1] / "ro.build.product").read_text().strip() == "NEEV.KOR.260902"
+    # USB keeps only records of the current boot and the last 12 hours; adb keeps all.
+    old_record = "1000000000.1.0"
+    (base / "data/ledger/before" / old_record).write_text("old before")
+    (base / "data/ledger/after" / old_record).write_text("old after")
+    recent = sorted(p.name for p in (base / "data/ledger/after").iterdir() if p.name != old_record)
+    assert recent
+    uptime = base / "uptime"
+    uptime.write_text("120.50 100.00\n")
+    env["SG_UPTIME_FILE"] = str(uptime)
     usb = base / "usb0"
     usb.mkdir(mode=0o711)
     (usb / "HMG-Seogaemo-export").mkdir(mode=0o700)
@@ -555,8 +564,15 @@ sg_revert_all
     assert sizes["package-version"] != "0" and "MANIFEST" not in sizes
     for relative, size in sizes.items():
         assert str((published / relative).stat().st_size) == size, relative
+    assert not (published / "ledger/before" / old_record).exists()
+    assert not (published / "ledger/after" / old_record).exists()
+    assert sorted(p.name for p in (published / "ledger/after").iterdir()) == recent
+    assert "since=" in (published / "ledger/WINDOW").read_text()
     adb_result = run(base / "bin/hmg-seogaemo-root", "export", "adb", env=env)
     assert "info.export_safe=adb" in adb_result.stdout
+    adb_ledger = Path(adb_result.stdout.split("detail=", 1)[1].split()[0]) / "ledger"
+    assert (adb_ledger / "after" / old_record).read_text() == "old after"
+    assert not (adb_ledger / "WINDOW").exists()
     # Problem report: logs=ours keeps only our area of the Android log and adds NEMESIS log and a summary.
     script(fake / "logcat", 'echo "I/HMG-Seogaemo( 1): ours"; echo "I/SomeVendorApp( 2): other"\n')
     script(fake / "nemesis", 'case "$1" in log) echo "nemesis log line";; *) exit 0;; esac\n')
