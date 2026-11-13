@@ -4,6 +4,7 @@ import android.net.wifi.WifiConfiguration;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Which hotspot the phone is pointed at, the mode Android Auto sees, and the normal hotspot started when none came up. */
 public final class StockHotspotTest {
@@ -39,12 +40,20 @@ public final class StockHotspotTest {
 
     static String startAndWait(FakeWifi wifi) throws Exception {
         final LinkedBlockingQueue<String> lines = new LinkedBlockingQueue<String>();
+        final AtomicReference<Thread> worker = new AtomicReference<Thread>();
         StockHotspot.startLater(wifi, new StockHotspot.Log() {
             @Override
-            public void log(String message) { lines.add(message); }
+            public void log(String message) {
+                worker.set(Thread.currentThread());
+                lines.add(message);
+            }
         });
         String line = lines.poll(5, TimeUnit.SECONDS);
         check(line != null, "the scheduled check reports");
+        // The callback precedes the worker's finally block, which clears pending.
+        // Wait for that cleanup before scheduling the next independent scenario.
+        worker.get().join(5000);
+        check(!worker.get().isAlive(), "the scheduled check finishes");
         return line;
     }
 

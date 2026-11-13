@@ -15,6 +15,9 @@ Hotspot: the module starts one only through DiPO's `setWifiApEnabledForConnectiv
 or nothing (phone gets the normal hotspot's credentials, AA sees mode 2, the normal hotspot is started 10 s after an
 unanswered request). Rules: contract "Peer info"; details and open car checks: [external-wifi.md](external-wifi.md).
 
+The host `test/stockhotspot` waits for the scheduled worker to terminate between scenarios. Its log callback runs
+before the `finally` block clears `pending`; receiving the log alone does not mean another check can be scheduled.
+
 Target: Hyundai Ioniq 5 KOR, `ro.build.product=NEEV.KOR.0000.V039.001.260902`, onebin `neev_kr` (`ro.mobis.onebindir`), Android 4.4.2. Owner confirms HMG-API 1.0.0-beta.5 with its mapping and wireless mod worked on this car (hotspot and wireless CarPlay). The pre-install Car Report at `tmp/car-reports/car-report-neev-kor-260902-20261102-2115.json` has 324 mapped points, 12 by reference, one unrelated ThemeSettings point missing. Its `map.status=none` and `wifi_chip=false` are pre-install observations, not a negation of the owner's working test.
 
 ## Dependencies and port choice
