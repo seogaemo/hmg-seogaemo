@@ -142,6 +142,21 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   that the entry still behaves while a projection runs (stock popup, no crash), that choosing Android Auto there switches
   from CarPlay, and that module off restores the wireless page.
 
+## 1c. wired-adb
+
+Background: [wired-adb.md](wired-adb.md).
+
+- [ ] **First on-car run (CN7 KOR 260902 is the verified base).** Module on, status asks for a key; import
+  `HSM/adbkey.pub` from a USB drive; plug the Mac in; `adb connect 192.168.2.249:5556` (Internet Sharing on) and the
+  `fe80::c7ad:b%<iface>` form; `adb shell id` shows uid 2000 with the adb groups; a computer whose key was not imported
+  stays unauthorized; `adb root`/`tcpip`/`usb` are refused; file push/pull round trip; replug and head-unit restart
+  reconnect; module off stops `cable-link` and removes `sgncm0`; stock adbd state, `persist.*` ADB properties and the
+  wireless projection are unchanged throughout. Check `daemon.cable-link.log` and `logcat` for the privilege drop.
+- [ ] Other units: which USB port carries the Mac (the scan takes any), whether `/dev/net/tun` exists and is usable
+  by root, tcc803x behaviour.
+- [ ] A Mac-side helper that reconnects automatically (the standalone package had a LaunchAgent bound to one Mac's
+  interface names); for now the owner runs `adb connect` by hand.
+
 ## 2. Older open items
 
 - [ ] **Wireless CarPlay call state on the car** (`wireless-carplay-and-aa.md`, "Wireless CarPlay
@@ -152,10 +167,15 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   call (hang up); call OSD and split screen; no duplicate or stuck call screens after the call ends.
   Evidence before the change: `tmp/car-sessions/2026-11-10-carplay-call-button/`.
 
-- [ ] **First car other than the Ioniq 5 KOR.** Install (`os=any`), **Map this car**, then check
-  that modules move from `incompatible` to usable, `@onebin@` resolves the right
-  `featurexml.cfg`, and revert restores it. Add that firmware's stock `app_process` MD5 as a
-  product-scoped `stock_file.N` for CarPlay (runtime contract, "Car gate").
+- [ ] **First car other than the Ioniq 5 KOR.** Candidates with bundled host maps: Avante CN7 KOR
+  `260902` and Avante N CN7N KOR `260319` (`maps/hyundai/cn7*/`, 2026-11-09, no on-car reflection).
+  Install (`os=any`), check that `map status` accepts the bundle and `map verify` passes reflection,
+  that modules move from `incompatible` to usable, `@onebin@` resolves the right `featurexml.cfg`
+  (CN7N has the three wireless lines, CN7 has none), and revert restores it. CN7N still needs its stock
+  `app_process` MD5 as a product-scoped `stock_file.N` for CarPlay (CN7 has it; runtime contract, "Car gate").
+- [ ] `HmgSeogaemoMapTool.run` derives the export layout only for `NEEV` (`maps/hyundai/ioniq5/...`);
+  every other product exports as `maps/unknown/<prefix>/<region>/<firmware>`. Teach it the bundled
+  makes/models (CN7 → `hyundai/cn7`, CN7N → `hyundai/cn7n`) or derive the make from the bundle.
 - [ ] `nemesis root -c` with long commands fails with "daemon write failed"; find the
   limit and keep app/root commands below it (split or script file).
 - [ ] Restore stock stops at the first module conflict and leaves later modules
@@ -174,6 +194,11 @@ Background: `carplay-tbt-learnings.md`, `carplay-tbt-external-research.md` (0x52
   both user buttons after restart and after visiting stock settings
   (`user-button-shortcut.md`); full NEMESIS uninstall leaves the unit byte-identical
   (`stock-restore.md`); QuickBoot/ignition-only cycle behaviour (`boot-lifecycle.md`).
+- [ ] On-car check: Car tab cleanup of `hmgapi-wifi` when `/system/build.prop` holds the
+  `persist.wifi.state=3` line (runtime contract, "Other packages"). Tested off-car only, also on
+  the bytes of a CN7 KOR `260902` car's file; on that car the line was removed by hand
+  (2026-11-14). Check the rewritten file (bytes, mode, owner), the cleared property, the ledger
+  rows and a normal restart.
 
 ## 3. Planned features (owner-approved direction)
 

@@ -1,0 +1,13 @@
+button name=import_key label=@import_key confirm=@import_key_confirm
+button name=clear_key label=@clear_key confirm=@clear_key_confirm danger=1 when=has_key
+warning @no_key_warning when=no_key
+value label=@key_count key=key_count
+value label=@link_state key=link
+value label=@endpoint key=endpoint
+value label=@endpoint6 key=endpoint6
+info @key_note
+info @key_adb_note
+info @connect_note
+info @connect_v6_note
+info @security_note
+info @restore_note

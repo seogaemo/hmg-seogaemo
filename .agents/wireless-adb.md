@@ -51,7 +51,7 @@ Upstream facts kept for reference:
 
 - The pane shows the car hotspot (`info.hotspot_ip`, `info.adb_endpoint` = `<hotspot ip>:5555`; `info.hotspot_ssid` omitted, see above) with a note that ADB works for a computer joined to that hotspot, plus the action "Connect to another Wi-Fi" = `enable module=wifi`. When `wifi` is on with the built-in client role it also shows `info.client_ip` and `info.client_adb_endpoint`. Independent of `wifi` (no `depends`). Off by default; fixed port 5555; `192.168.0.1:5555` applies only while the hotspot runs.
 - Block enable if NEMESIS `adb.tcp` is installed (opposite switch value; edits `/system/build.prop`: `tmp/hmg_nemesis/Sources/packages/adb-tcp/NEMESIS.data:1-12`, `scripts/common.sh:288-300`). Also detect leftover HMG-API `adb` ownership and Leafia's `wireless.carplay.aa` ADB marker (`tmp/HMG-Leafia-Plus/packages/wireless-carplay-aa/scripts/common.sh:313-335`); ambiguous ownership → conflict, no change.
-- Stock adbd has no key authentication: anyone able to reach the TCP port may connect. Owner accepts this; no key-authorizing daemon planned. USB ADB (`persist.sys.usb.config`) is out of scope (it can disrupt wired phone projection and USB drives; needs its own design).
+- Stock adbd has no key authentication: anyone able to reach the TCP port may connect. Owner accepts this for the stock daemon; the separate `wired-adb` module ([wired-adb.md](wired-adb.md)) runs its own key-checking daemon over a USB cable. USB ADB through the stock USB mode (`persist.sys.usb.config`) is out of scope (it can disrupt wired phone projection and USB drives; needs its own design).
 - Do not infer success from property readback alone.
 
 ## Restart rule

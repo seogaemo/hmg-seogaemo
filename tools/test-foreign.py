@@ -122,6 +122,31 @@ def main():
         # A Wi-Fi XML that differs from ours is not ours to judge.
         xml.write_text("<permissions/>")
         assert "hmgapi-wifi" not in root("foreign", "status")
+
+        # An older Wi-Fi patch also adds persist.wifi.state=3 to /system/build.prop, which sets the
+        # property again at every boot with no /data/property file. That line alone is a leftover;
+        # clean removes only it, keeps every other byte and the mode, and clears the live value.
+        xml.unlink()
+        # Like the property service: init took the live value from build.prop, and setting a
+        # persist.* property also writes its /data/property file.
+        live = temp / "live"
+        live.write_text("3")
+        script(fake / "setprop", f'printf %s "$2" > "{live}" && printf %s "$2" > "{temp}/property/$1"\n')
+        build_prop = system / "system/build.prop"
+        head = b"# begin build properties\nro.build.id=KOT49H\n#persist.wifi.state=3\n"
+        tail = b"persist.wifi.state=30\n  ro.sample=a\\b \t\nro.protocol.version=14"
+        build_prop.write_bytes(head + b"persist.wifi.state=3\n" + tail)
+        build_prop.chmod(0o644)
+        remounts = calls.read_text().count("remount rw")
+        out = root("foreign", "status")
+        assert "hmgapi-wifi,delete" in out and "info.count=3" in out, out
+        assert "state=pending-restart" in root("foreign", "clean", "hmgapi-wifi")
+        assert build_prop.read_bytes() == head + tail and build_prop.stat().st_mode & 0o777 == 0o644
+        assert (data / "foreign/hmgapi-wifi.build.prop").read_bytes() == head + b"persist.wifi.state=3\n" + tail
+        assert calls.read_text().count("remount rw") == remounts + 1
+        assert live.read_text() == "" and not (temp / "property/persist.wifi.state").exists()
+        out = root("foreign", "status")
+        assert "hmgapi-wifi" not in out and "info.count=2" in out, out
     print("foreign package tests passed")
     return 0
 

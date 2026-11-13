@@ -880,7 +880,8 @@
     "tools/upstream-diff.sh",
     "modules/wireless-carplay-and-aa/payload/build.sh",
     "modules/wireless-carplay-and-aa/payload/native/build.sh",
-    "modules/wireless-carplay-and-aa/payload/native/syslib-stubs.sh"
+    "modules/wireless-carplay-and-aa/payload/native/syslib-stubs.sh",
+    "modules/wired-adb/payload/build.sh"
   ],
   "unsupported_commands": [
     "printf",

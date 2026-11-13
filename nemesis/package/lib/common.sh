@@ -1861,7 +1861,9 @@ sg_daemon_start() {
             fi
             shift
             set -- "$sg_dm_exec" "$@" ;;
-        *) sg_payload "${1#"$HMG_SEOGAEMO_MODULE_DIR/"}" || return 2 ;;
+        *) sg_payload "${1#"$HMG_SEOGAEMO_MODULE_DIR/"}" || return 2
+            # The package extractor writes payload files without execute permission.
+            chmod 700 "$1" || return 1 ;;
     esac
     [ -f "$1" ] && [ ! -L "$1" ] || return 1
     # Expected /proc/<pid>/cmdline: every argument followed by one NUL byte.

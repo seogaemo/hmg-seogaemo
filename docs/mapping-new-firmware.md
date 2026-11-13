@@ -68,7 +68,7 @@ Owners without a development setup send a map as a GitHub issue. After **Map thi
 
 ## Pull Request
 
-Add a host-side `evidence.json` beside each bundled map, using the existing bundle as the schema reference. Mapping observations bind exact class/member signatures to stock paths and MD5s. Reflection observations list only the point snapshot actually checked on the car, with its date, product, onebin, Android release, stock hashes and signature digest. Keep physical feature outcomes separate, including partial or pending results. An updated map does not inherit reflection or feature claims for new points. The sidecar does not change runtime `car.json` or grant runtime verification.
+Add a host-side `evidence.json` beside each bundled map, using the existing bundle as the schema reference. Mapping observations bind exact class/member signatures to stock paths and MD5s. A class the host mapper found on a boot classpath member that `car.json` does not hash (for example `WindowManagerService` in `/system/framework/services.odex`) is recorded with that file and its MD5; only `/system/framework/*.odex` paths may appear outside `car.json`. Reflection observations list only the point snapshot actually checked on the car, with its date, product, onebin, Android release, stock hashes and signature digest. Keep physical feature outcomes separate, including partial or pending results. An updated map does not inherit reflection or feature claims for new points. The sidecar does not change runtime `car.json` or grant runtime verification.
 
 Validate evidence and regenerate the coverage document:
 

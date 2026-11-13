@@ -2,6 +2,7 @@
 app/build/
 /out/
 /kernel/usb-wifi/out/
+/modules/wired-adb/payload/out/
 AGENTS.local.md
 CLAUDE.local.md
 .claude/worktrees/

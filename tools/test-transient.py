@@ -600,6 +600,19 @@ def test_daemon_exit_reason(base):
     assert ("daemon_start", "fakesupp", "failed") in car.ledger()
 
 
+def test_daemon_payload_mode(base):
+    # The package extractor writes payload files without execute permission.
+    car = Car(base)
+    try:
+        program = car.payload / "bin/fake-daemon"
+        program.chmod(0o600)
+        car.sh("sg_daemon_start fakesupp")
+        assert alive(car.daemon_pid())
+        assert program.stat().st_mode & 0o777 == 0o700
+    finally:
+        car.cleanup()
+
+
 def test_daemon_user(base):
     car = Car(base, MANIFEST + "daemon_user.fakesupp=wifi\n")
     executable(base / "fake/chown", '#!/bin/sh\necho "chown $*" >> "$FAKE_KERNEL/calls"\n')
@@ -707,6 +720,7 @@ run_tests([
     test_daemon_restart,
     test_system_daemon_seam,
     test_daemon_exit_reason,
+    test_daemon_payload_mode,
     test_daemon_user,
     test_derived_program,
     test_peer_info,

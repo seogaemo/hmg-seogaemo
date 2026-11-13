@@ -32,6 +32,8 @@ with tempfile.TemporaryDirectory(prefix='hmg-seogaemo-evidence-') as tmp:
         lambda e: e['reflection'][0].update(points=sorted(e['reflection'][0]['points'] + ['iap2.service.native_handle'])),
         lambda e: e['mapped']['observations'][0]['points']['iap2.service.native_handle']['member'].update(static=False),
         lambda e: e['mapped']['observations'][0]['stock_files'].update({'/system/app/Iap2ServerApp.odex': '0' * 32}),
+        lambda e: e['mapped']['observations'][0]['stock_files'].update({'/system/app/Other.odex': '0' * 32}),
+        lambda e: e['mapped']['observations'][0]['stock_files'].update({'/system/framework/services.odex': 'nothex'}),
         lambda e: e['mapped'].update(observations=[]),
     ):
         record = copy.deepcopy(original)
@@ -53,5 +55,10 @@ with tempfile.TemporaryDirectory(prefix='hmg-seogaemo-evidence-') as tmp:
         pass
     else:
         raise AssertionError('changed mapping accepted under old evidence')
+# A host-only bundle: every point is a mapping observation, and the two WindowManagerService
+# points bind to services.odex, a boot classpath member car.json does not hash.
+record, reflected = evidence.validate(ROOT / 'maps/hyundai/cn7/kor/260902')
+assert not reflected and len(record['mapped']['observations'][0]['points']) == 349
+assert record['mapped']['observations'][0]['points']['framework.window_manager_service']['stock_file'] == '/system/framework/services.odex'
 subprocess.run(['python3', str(ROOT / 'tools/hmg-seogaemo-map-evidence.py'), 'check'], check=True)
 print('map evidence rejects promoted reflection, wrong stock identity and changed signatures')

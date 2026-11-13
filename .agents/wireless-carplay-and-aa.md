@@ -440,7 +440,10 @@ no desired state changes, and the owner resolves it (for example by restoring st
 the saved copy) before retrying. The wireless module declares the product-scoped
 `stock_file.1=NEEV.KOR.*.260902:/system/bin/app_process:33f798115689d1859e8d2159dc88e7dc`
 (installed as the same `known_stock.1`; `cars=*`)
-(the stock build seen on the Ioniq 5 KOR car before and after HMG-API/this module).
+(the stock build seen on the Ioniq 5 KOR car before and after HMG-API/this module) and
+`stock_file.2=CN7.KOR.*.260902:/system/bin/app_process:<same MD5>` (the same build, read from the
+contributor's decrypted CN7 `260902` firmware image on 2026-11-09, not yet seen on a car). CN7N `260319` has
+no declaration yet, so the guard makes no MD5 judgment there.
 The apply-path orphaned-backup check remains.
 
 ### Runtime results and diagnostics

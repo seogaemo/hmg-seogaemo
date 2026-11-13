@@ -14,6 +14,10 @@ HMG-Seogaemo installs through [NEMESIS](https://github.com/xwtk/hmg_nemesis) by 
 
 The `skip-consent-screen` module follows the observed behavior of [HKMC Factory 82](https://github.com/armandodollia/nemesis-package-builds) by armandodollia (MIT). HMG-Seogaemo's module, fixed Binder-call API, and shared `watcher` service are independently written; no HKMC Factory 82 source is included.
 
+## Android Open Source Project (adbd)
+
+The `wired-adb` module ships `cable-adbd`, built from the Android Open Source Project's `adb`, `libcutils` and `libmincrypt` (`android-4.4.4_r1`, Apache-2.0) with the changes in `modules/wired-adb/payload/adbd/cable-adbd.patch`. The upstream notices are in `modules/wired-adb/files/NOTICE.txt`. The build follows HMG-API's adbd build flags at `4fab437`; no HMG-API source is included. The `cable-link` service and the patch are adapted from a contributor's own standalone package.
+
 ## HMG Leafia Plus and Xposed
 
 HMG-API credits [HMG Leafia Plus](https://github.com/VysseCodes/HMG-Leafia-Plus) for the original wireless CarPlay bridge, native patch recipes, and audio converter lineage. HMG-API's Dalvik hook design follows Xposed for Android 4.x; no Xposed source is included here. See HMG-API's upstream `NOTICE.md` for its attributions.

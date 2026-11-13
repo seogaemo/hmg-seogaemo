@@ -34,11 +34,13 @@ through **NEMESIS**, made of toggleable modules. Target setup is **NEMESIS + HMG
 
 No code is tied to this car by name: the package installs on any Gen5W on Android 4.4 (descriptor
 `os=any`, `models=any`), bundled modules declare `cars=*`, and each module needs a car map for the
-exact `ro.build.product` (runtime contract, "Car gate"). Other cars are untested on a car.
+exact `ro.build.product` (runtime contract, "Car gate"). Host-mapped bundles also exist for the
+Hyundai Avante CN7 KOR `260902` and Avante N CN7N KOR `260319` (`maps/hyundai/cn7/`, `maps/hyundai/cn7n/`,
+349/349 points, no on-car reflection yet). Other cars are untested on a car.
 
 - Hyundai Ioniq 5, Korea. `ro.build.product` = `NEEV.KOR.0000.V039.001.260902` (glob
   `NEEV.KOR.*.260902`; NEMESIS compares `os=` to `ro.build.product` with globs, so an exact
-  `NEEV.KOR.260902` never matches). Its map is the only bundled one.
+  `NEEV.KOR.260902` never matches). Its map is the only car-verified bundled one.
 - onebin `neev_kr`, Android 4.4.2 (API 19, Dalvik), Telechips, display 1920x720 hdpi (density 1.5).
 - Owner-verified: HMG-API's car map + wireless mod gave a working hotspot + wireless CarPlay on this
   car; the stock firmware has no Wi-Fi client menu.
@@ -119,7 +121,8 @@ Every module ships as a bundled `.hsm` package, installed on first install and r
 built-in modules. The package's `modules.list`/`modules.graph` hold only the `package-compat` entry so
 installs from 0.1.33 and older accept an OTA payload; the runtime ignores it. Current modules: `wifi` (formerly `wifi-client`; one role per radio, built-in or USB
 adapter; the built-in client role excludes `wireless-carplay-and-aa`),
-`wireless-adb` (independent; offers "Connect to another Wi-Fi"), `wireless-carplay-and-aa`,
+`wireless-adb` (independent; offers "Connect to another Wi-Fi"), `wired-adb` (ADB from a Mac over a
+USB cable; transient daemon only, accepts only owner-imported keys), `wireless-carplay-and-aa`,
 `skip-consent-screen` (factory Binder call on boot and screen wake), and
 `user-button` (both star buttons; merged from `user-button-shortcut` / `user-button-head-unit` with `replaces=`).
 `wireless-carplay-and-aa` claims `featurexml.cfg` stock lines; `wifi` owns only
@@ -131,7 +134,9 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
 
 - The core owns mapping; modules declare stable IDs in `hookpoints.required`. The build validates
   those manifests against the full catalogue. The bundled NEEV KOR map has 349 of 350 points;
-  `themesettings.split_item.type` remains unresolved and no module requires it.
+  `themesettings.split_item.type` remains unresolved and no module requires it. The CN7 and CN7N KOR
+  bundles were host-mapped against the 349-point catalogue and resolve all 349 (host evidence only,
+  `maps/hyundai/cn7*/README.md`); the later optional `dipo.carplay.telephony` is not in them.
 - `map status` is read-only and matches the exact product, onebin, Android release, and MD5 of every
   stock file in `car.json`. Known maps get reflection verification once per boot on a worker.
   Unknown firmware requires the confirmed **Map this car** action in Settings → Car mapping.
@@ -160,7 +165,8 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
 - Local builds are signed with a throwaway debug key. **Install only release-signed builds on a
   car you want to update OTA later**: a signer change forces uninstall and loses app data.
 - Requirements: JDK 17, Android SDK (`platforms;android-19`, `build-tools;34.0.0`), python3,
-  clang + lld (carplay native payload), optional `mksh`.
+  clang + lld (carplay native payload), optional `mksh`. The `wired-adb` programs in
+  `modules/wired-adb/files/` are prebuilt; rebuilding them needs Docker (`modules/wired-adb/payload/build.sh`).
 - CI (`ci.yml`) and release share `.github/actions/setup`: the runner's preinstalled SDK plus a
   cached API 19 platform and mksh .deb, LLVM 18 from the image; `android-actions/setup-android@v3`
   breaks on the removed `tools` package.
@@ -231,7 +237,8 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
 - The 18 v1.0.1 and six stock-guidance map additions have exact-stock host evidence and still
   need on-car reflection.
 - Cars other than the Ioniq 5 KOR: the generic install, car gate and `@onebin@` path are tested off-car
-  only. CarPlay's stock `app_process` MD5 is known only for `NEEV.KOR.*.260902`; elsewhere that
+  only. CarPlay's stock `app_process` MD5 is known for `NEEV.KOR.*.260902` (car) and `CN7.KOR.*.260902`
+  (same build `33f79811…`, read from the contributor's decrypted firmware image, not a car); elsewhere that
   unrecorded-swap check has no reference build.
   Other feature claims require their own evidence.
 - The core hook host replaces `/system/bin/app_process` for every hook module, `wireless-carplay-and-aa`
@@ -243,6 +250,9 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
   names that property, and stock `HKMC_WifiSettings` gates its client menu on `android.hardware.wifi`.
 - OTA: TLS 1.2 to GitHub on 4.4 with bundled roots (`update_roots.pem`), the reboot/resume flow
   through `wifi`, and rollback are untested on a car.
+- `wired-adb` is adapted from a standalone package that was car-verified on a CN7 KOR `260902` unit;
+  this module form (root-started adbd that drops to shell, key import from USB, any USB port) is not
+  verified on a car, and only a Mac can be the computer (`.agents/wired-adb.md`).
 - An official firmware OTA while modules are applied makes restores conflict by design.
 - Removing only the APK (not via NEMESIS) skips the uninstall hook; reconcile must clean up.
 

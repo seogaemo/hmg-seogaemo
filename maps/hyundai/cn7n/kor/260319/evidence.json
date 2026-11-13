@@ -1,0 +1,3553 @@
+{
+  "mapped": {
+    "observations": [
+      {
+        "date": "2026-11-09",
+        "points": {
+          "btsettings.projection_helper": {
+            "class": "com.android.settings2.bluetooth.iP",
+            "member": {
+              "class": "com.android.settings2.bluetooth.iP"
+            },
+            "stock_file": "/system/app/HKMC_BtSettings.odex"
+          },
+          "btsettings.projection_helper.device_connections_available": {
+            "class": "com.android.settings2.bluetooth.iP",
+            "member": {
+              "method": "if",
+              "params": [],
+              "ret": "boolean",
+              "static": true
+            },
+            "stock_file": "/system/app/HKMC_BtSettings.odex"
+          },
+          "btsettings.projection_helper.open_device_connections": {
+            "class": "com.android.settings2.bluetooth.iP",
+            "member": {
+              "method": "a",
+              "params": [
+                "android.content.Context",
+                "int"
+              ],
+              "ret": "void",
+              "static": true
+            },
+            "stock_file": "/system/app/HKMC_BtSettings.odex"
+          },
+          "btsettings.projection_helper.open_other_page": {
+            "class": "com.android.settings2.bluetooth.iP",
+            "member": {
+              "method": "aj",
+              "params": [
+                "android.content.Context"
+              ],
+              "ret": "void",
+              "static": true
+            },
+            "stock_file": "/system/app/HKMC_BtSettings.odex"
+          },
+          "btsettings.projection_helper.open_wireless_page": {
+            "class": "com.android.settings2.bluetooth.iP",
+            "member": {
+              "method": "aQ",
+              "params": [
+                "android.content.Context"
+              ],
+              "ret": "void",
+              "static": true
+            },
+            "stock_file": "/system/app/HKMC_BtSettings.odex"
+          },
+          "buttonsettings.adapter": {
+            "class": "com.android.buttonsettings.util.IconTextListAdapter",
+            "member": {
+              "class": "com.android.buttonsettings.util.IconTextListAdapter"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.adapter.set_boolean_list": {
+            "class": "com.android.buttonsettings.util.IconTextListAdapter",
+            "member": {
+              "method": "setBooleanList",
+              "params": [
+                "boolean[]"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.adapter.set_list_items": {
+            "class": "com.android.buttonsettings.util.IconTextListAdapter",
+            "member": {
+              "method": "setListItems",
+              "params": [
+                "java.util.List"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "class": "com.android.buttonsettings.CustomButtonSetting"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.adapter": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "field": "adapter",
+              "static": false,
+              "type": "com.android.buttonsettings.util.IconTextListAdapter"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.checked_list": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "field": "mCheckedList",
+              "static": false,
+              "type": "boolean[]"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.cur_list": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "field": "mCurList",
+              "static": false,
+              "type": "java.util.List"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.init_custom_key": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "method": "initCustomKey",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.init_list": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "method": "initList",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.keycode": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "field": "mKeycode",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.list_item": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "method": "getListItem",
+              "params": [
+                "int",
+                "java.lang.String",
+                "int"
+              ],
+              "ret": "com.android.buttonsettings.util.IconTextItem",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.menu_list": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "field": "mMenuList",
+              "static": false,
+              "type": "java.util.ArrayList"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.set_selected": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "method": "setSelectedIdem",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.head_screen.title_list": {
+            "class": "com.android.buttonsettings.CustomButtonSetting",
+            "member": {
+              "field": "mCustomKeyTitleList",
+              "static": false,
+              "type": "int[]"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.item": {
+            "class": "com.android.buttonsettings.customviews.CustomItem",
+            "member": {
+              "class": "com.android.buttonsettings.customviews.CustomItem"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.item.get_shortcut": {
+            "class": "com.android.buttonsettings.customviews.CustomItem",
+            "member": {
+              "method": "getShortCut",
+              "params": [],
+              "ret": "java.lang.String",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.item.new": {
+            "class": "com.android.buttonsettings.customviews.CustomItem",
+            "member": {
+              "ctor": [
+                "int",
+                "int",
+                "int",
+                "java.lang.String"
+              ]
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.row": {
+            "class": "com.android.buttonsettings.util.IconTextItem",
+            "member": {
+              "class": "com.android.buttonsettings.util.IconTextItem"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.row.is_check": {
+            "class": "com.android.buttonsettings.util.IconTextItem",
+            "member": {
+              "method": "isCheck",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.row.set_check": {
+            "class": "com.android.buttonsettings.util.IconTextItem",
+            "member": {
+              "method": "setCheck",
+              "params": [
+                "boolean"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "class": "com.android.buttonsettings.CustomButtonSettingSWRC"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.adapter": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "field": "adapter",
+              "static": false,
+              "type": "com.android.buttonsettings.util.IconTextListAdapter"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.checked_list": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "field": "mCheckedList",
+              "static": false,
+              "type": "boolean[]"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.cur_list": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "field": "mCurList",
+              "static": false,
+              "type": "java.util.List"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.init_custom_key": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "method": "initCustomKey",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.init_list": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "method": "initList",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.keycode": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "field": "mKeycode",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.list_item": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "method": "getListItem",
+              "params": [
+                "int",
+                "java.lang.String",
+                "int"
+              ],
+              "ret": "com.android.buttonsettings.util.IconTextItem",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.menu_list": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "field": "mMenuList",
+              "static": false,
+              "type": "java.util.ArrayList"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.set_selected": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "method": "setSelectedIdem",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "buttonsettings.wheel_screen.title_list": {
+            "class": "com.android.buttonsettings.CustomButtonSettingSWRC",
+            "member": {
+              "field": "mCustomKeyTitleList",
+              "static": false,
+              "type": "int[]"
+            },
+            "stock_file": "/system/app/ButtonSettings.odex"
+          },
+          "dipo.bt": {
+            "class": "com.daudio.app.dipo.f.c",
+            "member": {
+              "class": "com.daudio.app.dipo.f.c"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.bt.set_carplay_bt_address": {
+            "class": "com.daudio.app.dipo.f.c",
+            "member": {
+              "method": "o",
+              "params": [
+                "java.lang.String"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.btcm": {
+            "class": "com.broadcom.bt.hfdevice.hfbtcm.HfDeviceBTCMManager",
+            "member": {
+              "class": "com.broadcom.bt.hfdevice.hfbtcm.HfDeviceBTCMManager"
+            },
+            "stock_file": "/system/framework/com.broadcom.bt.jar"
+          },
+          "dipo.btcm.register_listener": {
+            "class": "com.broadcom.bt.hfdevice.hfbtcm.HfDeviceBTCMManager",
+            "member": {
+              "method": "registerHfDeviceStatusListener",
+              "params": [
+                "com.broadcom.bt.hfdevice.hfbtcm.HfDeviceStatusListener"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.broadcom.bt.jar"
+          },
+          "dipo.carplay": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "class": "com.daudio.app.dipo.telechips.CarPlayService"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.iap_message": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "oniAPSendMessage",
+              "params": [
+                "byte[]",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.native_iap_send": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "TccCarPlayNativeMethod_iAPSendMessage",
+              "params": [
+                "byte[]",
+                "int"
+              ],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.session_created": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "onSessionCreated",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.session_finalized": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "onSessionFinalized",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.carplay.session_started": {
+            "class": "com.daudio.app.dipo.telechips.CarPlayService",
+            "member": {
+              "method": "onSessionStarted",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2": {
+            "class": "com.daudio.app.dipo.e.b",
+            "member": {
+              "class": "com.daudio.app.dipo.e.b"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2.bt_address": {
+            "class": "com.daudio.app.dipo.e.b",
+            "member": {
+              "method": "K",
+              "params": [],
+              "ret": "java.lang.String",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2.set_notify_on": {
+            "class": "com.daudio.app.dipo.e.b",
+            "member": {
+              "method": "a",
+              "params": [
+                "com.daudio.app.dipo.e.b",
+                "boolean"
+              ],
+              "ret": "boolean",
+              "static": true
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2_client": {
+            "class": "com.daudio.app.dipo.e.a",
+            "member": {
+              "class": "com.daudio.app.dipo.e.a"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2_client.manager": {
+            "class": "com.daudio.app.dipo.e.a",
+            "member": {
+              "field": "Q",
+              "static": false,
+              "type": "com.daudio.app.dipo.e.b"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2_listener": {
+            "class": "com.daudio.app.dipo.e.g",
+            "member": {
+              "class": "com.daudio.app.dipo.e.g"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2_listener.connected": {
+            "class": "com.daudio.app.dipo.e.g",
+            "member": {
+              "method": "connected",
+              "params": [
+                "int",
+                "java.lang.String"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2_listener.disconnected": {
+            "class": "com.daudio.app.dipo.e.g",
+            "member": {
+              "method": "disconnected",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2_listener.notify": {
+            "class": "com.daudio.app.dipo.e.g",
+            "member": {
+              "method": "notify",
+              "params": [
+                "int",
+                "int",
+                "int",
+                "com.tcc.iap2.Iap2NotiMsg"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2_listener.owner": {
+            "class": "com.daudio.app.dipo.e.g",
+            "member": {
+              "field": "mM",
+              "static": false,
+              "type": "com.daudio.app.dipo.e.a"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.iap2_proxy": {
+            "class": "com.tcc.iap2.IIap2Service$Stub$Proxy",
+            "member": {
+              "class": "com.tcc.iap2.IIap2Service$Stub$Proxy"
+            },
+            "stock_file": "/system/framework/com.tcc.iap2.odex"
+          },
+          "dipo.iap2_proxy.stop_route_guidance": {
+            "class": "com.tcc.iap2.IIap2Service$Stub$Proxy",
+            "member": {
+              "method": "Iap2SvcStopRouteGuidanceUpdate",
+              "params": [
+                "java.lang.String[]"
+              ],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.tcc.iap2.odex"
+          },
+          "dipo.session_listener": {
+            "class": "com.daudio.app.dipo.service.q",
+            "member": {
+              "class": "com.daudio.app.dipo.service.q"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.session_listener.session_details": {
+            "class": "com.daudio.app.dipo.service.q",
+            "member": {
+              "method": "a",
+              "params": [
+                "java.lang.String",
+                "java.lang.String",
+                "java.lang.String",
+                "java.lang.String"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.utils": {
+            "class": "com.daudio.app.dipo.i.e",
+            "member": {
+              "class": "com.daudio.app.dipo.i.e"
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "dipo.utils.is_support_wireless_carplay": {
+            "class": "com.daudio.app.dipo.i.e",
+            "member": {
+              "method": "isSupportWirelessCarPlay",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_DiPO.odex"
+          },
+          "framework.activity_thread": {
+            "class": "android.app.ActivityThread",
+            "member": {
+              "class": "android.app.ActivityThread"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.activity_thread.handle_bind_application": {
+            "class": "android.app.ActivityThread",
+            "member": {
+              "method": "handleBindApplication",
+              "params": [
+                "android.app.ActivityThread$AppBindData"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.activity_thread.initial_application": {
+            "class": "android.app.ActivityThread",
+            "member": {
+              "field": "mInitialApplication",
+              "static": false,
+              "type": "android.app.Application"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.app_bind_data": {
+            "class": "android.app.ActivityThread$AppBindData",
+            "member": {
+              "class": "android.app.ActivityThread$AppBindData"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.app_bind_data.app_info": {
+            "class": "android.app.ActivityThread$AppBindData",
+            "member": {
+              "field": "appInfo",
+              "static": false,
+              "type": "android.content.pm.ApplicationInfo"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.app_bind_data.process_name": {
+            "class": "android.app.ActivityThread$AppBindData",
+            "member": {
+              "field": "processName",
+              "static": false,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.bcm_listener": {
+            "class": "com.hkmc.bcm.IBCMListener",
+            "member": {
+              "class": "com.hkmc.bcm.IBCMListener"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_listener_stub": {
+            "class": "com.hkmc.bcm.IBCMListener$Stub",
+            "member": {
+              "class": "com.hkmc.bcm.IBCMListener$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_listener_stub.as_interface": {
+            "class": "com.hkmc.bcm.IBCMListener$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.bcm.IBCMListener",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_listener_stub.heating": {
+            "class": "com.hkmc.bcm.IBCMListener$Stub",
+            "member": {
+              "field": "TRANSACTION_onRemoteTeleHeatingStatusChanged",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "class": "com.hkmc.bcm.IBCMService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.ast_seat_heat_option": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getAstSeatHeatOption",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.ast_seat_heat_state": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getAstSeatHeatState",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.batt_cond_indicator": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getBattCondIndSta",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.charge_door": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "requestChargeLockDoor",
+              "params": [
+                "boolean"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.drv_seat_heat_option": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getDrvSeatHeatOption",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.drv_seat_heat_state": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getDrvSeatHeatState",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.register_listener": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "registerBCMListener",
+              "params": [
+                "com.hkmc.bcm.IBCMListener",
+                "android.os.IBinder"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.rl_seat_heat_option": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getRLSeatHeatOption",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.rl_seat_heat_state": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getRLSeatHeatState",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.rr_seat_heat_option": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getRRSeatHeatOption",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service.rr_seat_heat_state": {
+            "class": "com.hkmc.bcm.IBCMService",
+            "member": {
+              "method": "getRRSeatHeatState",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service_stub": {
+            "class": "com.hkmc.bcm.IBCMService$Stub",
+            "member": {
+              "class": "com.hkmc.bcm.IBCMService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.bcm_service_stub.as_interface": {
+            "class": "com.hkmc.bcm.IBCMService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.bcm.IBCMService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.build_info": {
+            "class": "com.hkmc.BuildInfo",
+            "member": {
+              "class": "com.hkmc.BuildInfo"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.build_info.region": {
+            "class": "com.hkmc.BuildInfo",
+            "member": {
+              "field": "REGION",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "class": "com.hkmc.Service"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.bcm": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "BCM_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.cluster": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "CLUSTER_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.datc": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "DATC_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.factory": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "FACTORY_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.hev": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "HEV_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.micom_data": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "MICOMDATA_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.pgs": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "PGS_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.regulation": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "REGULATION_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.system": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "SYSTEM_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.usm": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "USM_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.car_services.vr": {
+            "class": "com.hkmc.Service",
+            "member": {
+              "field": "VR_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_listener": {
+            "class": "com.hkmc.cluster.INavigationClusterListener",
+            "member": {
+              "class": "com.hkmc.cluster.INavigationClusterListener"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_listener_stub": {
+            "class": "com.hkmc.cluster.INavigationClusterListener$Stub",
+            "member": {
+              "class": "com.hkmc.cluster.INavigationClusterListener$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_listener_stub.as_interface": {
+            "class": "com.hkmc.cluster.INavigationClusterListener$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.cluster.INavigationClusterListener",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_listener_stub.battery_info": {
+            "class": "com.hkmc.cluster.INavigationClusterListener$Stub",
+            "member": {
+              "field": "TRANSACTION_onHandleBatteryInfoResp",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_service": {
+            "class": "com.hkmc.cluster.IClusterService",
+            "member": {
+              "class": "com.hkmc.cluster.IClusterService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_service.add_listener": {
+            "class": "com.hkmc.cluster.IClusterService",
+            "member": {
+              "method": "addNavigationClusterListener",
+              "params": [
+                "com.hkmc.cluster.INavigationClusterListener"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_service.battery_info": {
+            "class": "com.hkmc.cluster.IClusterService",
+            "member": {
+              "method": "requestBatteryInfoReq",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_service_stub": {
+            "class": "com.hkmc.cluster.IClusterService$Stub",
+            "member": {
+              "class": "com.hkmc.cluster.IClusterService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.cluster_service_stub.as_interface": {
+            "class": "com.hkmc.cluster.IClusterService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.cluster.IClusterService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.context_impl": {
+            "class": "android.app.ContextImpl",
+            "member": {
+              "class": "android.app.ContextImpl"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.context_impl.start_service": {
+            "class": "android.app.ContextImpl",
+            "member": {
+              "method": "startService",
+              "params": [
+                "android.content.Intent"
+              ],
+              "ret": "android.content.ComponentName",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.crossroad_name": {
+            "class": "com.hkmc.cluster.NavigationCluster$CrossroadName",
+            "member": {
+              "class": "com.hkmc.cluster.NavigationCluster$CrossroadName"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.crossroad_name.name": {
+            "class": "com.hkmc.cluster.NavigationCluster$CrossroadName",
+            "member": {
+              "field": "name",
+              "static": false,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.crossroad_name.new": {
+            "class": "com.hkmc.cluster.NavigationCluster$CrossroadName",
+            "member": {
+              "ctor": []
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_listener": {
+            "class": "com.hkmc.datc.IDATCListener",
+            "member": {
+              "class": "com.hkmc.datc.IDATCListener"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_listener_stub": {
+            "class": "com.hkmc.datc.IDATCListener$Stub",
+            "member": {
+              "class": "com.hkmc.datc.IDATCListener$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_listener_stub.as_interface": {
+            "class": "com.hkmc.datc.IDATCListener$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.datc.IDATCListener",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_listener_stub.status": {
+            "class": "com.hkmc.datc.IDATCListener$Stub",
+            "member": {
+              "field": "TRANSACTION_onDatcStatus",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_service": {
+            "class": "com.hkmc.datc.IDATCService",
+            "member": {
+              "class": "com.hkmc.datc.IDATCService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_service.register_listener": {
+            "class": "com.hkmc.datc.IDATCService",
+            "member": {
+              "method": "registerDATCListener",
+              "params": [
+                "com.hkmc.datc.IDATCListener",
+                "android.os.IBinder"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_service_stub": {
+            "class": "com.hkmc.datc.IDATCService$Stub",
+            "member": {
+              "class": "com.hkmc.datc.IDATCService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_service_stub.as_interface": {
+            "class": "com.hkmc.datc.IDATCService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.datc.IDATCService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_status": {
+            "class": "com.hkmc.datc.DatcStatus",
+            "member": {
+              "class": "com.hkmc.datc.DatcStatus"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_status.ambient_c": {
+            "class": "com.hkmc.datc.DatcStatus",
+            "member": {
+              "method": "getAmbientTempC",
+              "params": [],
+              "ret": "float",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_status.ambient_f": {
+            "class": "com.hkmc.datc.DatcStatus",
+            "member": {
+              "method": "getAmbientTempF",
+              "params": [],
+              "ret": "float",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_status.ambient_state_c": {
+            "class": "com.hkmc.datc.DatcStatus",
+            "member": {
+              "method": "getAmbientTempStateC",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.datc_status.creator": {
+            "class": "com.hkmc.datc.DatcStatus",
+            "member": {
+              "field": "CREATOR",
+              "static": true,
+              "type": "android.os.Parcelable$Creator"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.destination_name": {
+            "class": "com.hkmc.cluster.NavigationCluster$DestinationName",
+            "member": {
+              "class": "com.hkmc.cluster.NavigationCluster$DestinationName"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.destination_name.name": {
+            "class": "com.hkmc.cluster.NavigationCluster$DestinationName",
+            "member": {
+              "field": "name",
+              "static": false,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.destination_name.new": {
+            "class": "com.hkmc.cluster.NavigationCluster$DestinationName",
+            "member": {
+              "ctor": []
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.destination_name.type": {
+            "class": "com.hkmc.cluster.NavigationCluster$DestinationName",
+            "member": {
+              "field": "type",
+              "static": false,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.dipo_manager": {
+            "class": "android.dipo.DiPOManager",
+            "member": {
+              "class": "android.dipo.DiPOManager"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.dipo_manager.current_mode": {
+            "class": "android.dipo.DiPOManager",
+            "member": {
+              "method": "getCurrentDiPOMode",
+              "params": [],
+              "ret": "android.dipo.DiPOMode",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.dipo_manager.current_stat": {
+            "class": "android.dipo.DiPOManager",
+            "member": {
+              "method": "getCurrentDiPOStat",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.dipo_manager.is_turn_by_turn": {
+            "class": "android.dipo.DiPOManager",
+            "member": {
+              "method": "isDiPOTurnByTurnMode",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.dipo_mode": {
+            "class": "android.dipo.DiPOMode",
+            "member": {
+              "class": "android.dipo.DiPOMode"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.dipo_mode.phone_call": {
+            "class": "android.dipo.DiPOMode",
+            "member": {
+              "method": "getPhoneCall",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.dipo_mode.speech": {
+            "class": "android.dipo.DiPOMode",
+            "member": {
+              "method": "getSpeech",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.factory_service": {
+            "class": "com.hkmc.factory.IMicomFactoryService",
+            "member": {
+              "class": "com.hkmc.factory.IMicomFactoryService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.factory_service.hide_consent_screen": {
+            "class": "com.hkmc.factory.IMicomFactoryService",
+            "member": {
+              "method": "hideConsentScreen",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.factory_service_stub": {
+            "class": "com.hkmc.factory.IMicomFactoryService$Stub",
+            "member": {
+              "class": "com.hkmc.factory.IMicomFactoryService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.factory_service_stub.as_interface": {
+            "class": "com.hkmc.factory.IMicomFactoryService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.factory.IMicomFactoryService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.gpm_manager": {
+            "class": "com.hkmc.gpm.GpmManager",
+            "member": {
+              "class": "com.hkmc.gpm.GpmManager"
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.gpm_manager.is_activated": {
+            "class": "com.hkmc.gpm.GpmManager",
+            "member": {
+              "method": "isGpmActivated",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.gpm_manager.is_call": {
+            "class": "com.hkmc.gpm.GpmManager",
+            "member": {
+              "method": "isGpmCall",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.gpm_manager.is_navi_guidance": {
+            "class": "com.hkmc.gpm.GpmManager",
+            "member": {
+              "method": "isGpmNaviGuidance",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.gpm_manager.is_vr": {
+            "class": "com.hkmc.gpm.GpmManager",
+            "member": {
+              "method": "isGpmVR",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.gpm_manager.new": {
+            "class": "com.hkmc.gpm.GpmManager",
+            "member": {
+              "ctor": [
+                "android.content.Context"
+              ]
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.hev_flag": {
+            "class": "com.hkmc.hev.HEVManager$HEVFlag",
+            "member": {
+              "class": "com.hkmc.hev.HEVManager$HEVFlag"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_flag.batt_cond_failure": {
+            "class": "com.hkmc.hev.HEVManager$HEVFlag",
+            "member": {
+              "field": "BMS_BATTCONDFAILPOPUP",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_flag.battery_conditioning": {
+            "class": "com.hkmc.hev.HEVManager$HEVFlag",
+            "member": {
+              "field": "EV_BATTERYCONDITIONING",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_flag.display_soc": {
+            "class": "com.hkmc.hev.HEVManager$HEVFlag",
+            "member": {
+              "field": "DISPLAY_SOC",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_flag.ev_ready": {
+            "class": "com.hkmc.hev.HEVManager$HEVFlag",
+            "member": {
+              "field": "EV_RDY",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_flag.odometer": {
+            "class": "com.hkmc.hev.HEVManager$HEVFlag",
+            "member": {
+              "field": "ODOMETER",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_service": {
+            "class": "com.hkmc.hev.IHEVService",
+            "member": {
+              "class": "com.hkmc.hev.IHEVService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_service.batt_cond_remain_time": {
+            "class": "com.hkmc.hev.IHEVService",
+            "member": {
+              "method": "setBattCondRemainTime",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_service.batt_cond_route_distance": {
+            "class": "com.hkmc.hev.IHEVService",
+            "member": {
+              "method": "setBattCondRouteDis",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_service.batt_cond_station": {
+            "class": "com.hkmc.hev.IHEVService",
+            "member": {
+              "method": "setBattCondEvStation",
+              "params": [
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_service.hev_status": {
+            "class": "com.hkmc.hev.IHEVService",
+            "member": {
+              "method": "getHEVStatus",
+              "params": [
+                "int"
+              ],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_service_stub": {
+            "class": "com.hkmc.hev.IHEVService$Stub",
+            "member": {
+              "class": "com.hkmc.hev.IHEVService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hev_service_stub.as_interface": {
+            "class": "com.hkmc.hev.IHEVService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.hev.IHEVService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.hkmc_loader": {
+            "class": "com.hkmc.internal.Loader",
+            "member": {
+              "class": "com.hkmc.internal.Loader"
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.hkmc_loader.automotive_service": {
+            "class": "com.hkmc.internal.Loader",
+            "member": {
+              "method": "getAutomotiveServiceJar",
+              "params": [
+                "android.content.Context"
+              ],
+              "ret": "com.hkmc.internal.Loader",
+              "static": true
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.hkmc_loader.class_loader": {
+            "class": "com.hkmc.internal.Loader",
+            "member": {
+              "field": "mClassLoader",
+              "static": false,
+              "type": "java.lang.ClassLoader"
+            },
+            "stock_file": "/system/framework/framework2.odex"
+          },
+          "framework.hscan_adapter": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.TM_HSCANAdapter",
+            "member": {
+              "class": "com.hkmc.telematics.hscan.tm_interface.TM_HSCANAdapter"
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_adapter.service_name": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.TM_HSCANAdapter",
+            "member": {
+              "field": "TM_HSCAN_SERVICE",
+              "static": true,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService"
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service.accel_pedal": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "method": "getAccelPdlVal",
+              "params": [],
+              "ret": "float",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service.battery_12v_soc": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "method": "getBatSoc",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service.brake_pressure": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "method": "getCylPrsrVal",
+              "params": [],
+              "ret": "float",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service.car_speed": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "method": "getCarSpeed",
+              "params": [
+                "byte"
+              ],
+              "ret": "float",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service.charging_status": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "method": "getChargingStatus",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service.hv_health": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "method": "getXEV_Bms_GDS_SOH",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service.moving": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "method": "IsCarMoving",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service.steering_angle": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+            "member": {
+              "method": "navi_getSasAngleVal",
+              "params": [],
+              "ret": "float",
+              "static": false
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service_stub": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService$Stub",
+            "member": {
+              "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService$Stub"
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.hscan_service_stub.as_interface": {
+            "class": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService",
+              "static": true
+            },
+            "stock_file": "/system/framework/com.hkmc.ext.hcan.odex"
+          },
+          "framework.io_bridge": {
+            "class": "libcore.io.IoBridge",
+            "member": {
+              "class": "libcore.io.IoBridge"
+            },
+            "stock_file": "/system/framework/core.odex"
+          },
+          "framework.io_bridge.connect": {
+            "class": "libcore.io.IoBridge",
+            "member": {
+              "method": "connect",
+              "params": [
+                "java.io.FileDescriptor",
+                "java.net.InetAddress",
+                "int"
+              ],
+              "ret": "boolean",
+              "static": true
+            },
+            "stock_file": "/system/framework/core.odex"
+          },
+          "framework.io_bridge.connect_timeout": {
+            "class": "libcore.io.IoBridge",
+            "member": {
+              "method": "connect",
+              "params": [
+                "java.io.FileDescriptor",
+                "java.net.InetAddress",
+                "int",
+                "int"
+              ],
+              "ret": "boolean",
+              "static": true
+            },
+            "stock_file": "/system/framework/core.odex"
+          },
+          "framework.micomdata_callback_stub": {
+            "class": "com.hkmc.micom.IMicomDataCallback$Stub",
+            "member": {
+              "class": "com.hkmc.micom.IMicomDataCallback$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.micomdata_service": {
+            "class": "com.hkmc.micom.IMicomDataService",
+            "member": {
+              "class": "com.hkmc.micom.IMicomDataService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.micomdata_service.register": {
+            "class": "com.hkmc.micom.IMicomDataService",
+            "member": {
+              "method": "registerCallback",
+              "params": [
+                "java.lang.String",
+                "byte",
+                "com.hkmc.micom.IMicomDataCallback"
+              ],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.micomdata_service.unregister": {
+            "class": "com.hkmc.micom.IMicomDataService",
+            "member": {
+              "method": "unregisterCallback",
+              "params": [
+                "java.lang.String",
+                "byte",
+                "com.hkmc.micom.IMicomDataCallback"
+              ],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.micomdata_service_stub": {
+            "class": "com.hkmc.micom.IMicomDataService$Stub",
+            "member": {
+              "class": "com.hkmc.micom.IMicomDataService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.micomdata_service_stub.as_interface": {
+            "class": "com.hkmc.micom.IMicomDataService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.micom.IMicomDataService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.mode_key_dispatcher": {
+            "class": "com.hkmc.micom.ModeKeyDispatcher",
+            "member": {
+              "class": "com.hkmc.micom.ModeKeyDispatcher"
+            },
+            "stock_file": "/system/framework/automotive-service.odex"
+          },
+          "framework.mode_key_dispatcher.intercept_key": {
+            "class": "com.hkmc.micom.ModeKeyDispatcher",
+            "member": {
+              "method": "interceptKeyFromAndroid",
+              "params": [
+                "android.view.InputChannel",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive-service.odex"
+          },
+          "framework.mode_manager_service": {
+            "class": "com.hkmc.micom.ModeManagerService",
+            "member": {
+              "class": "com.hkmc.micom.ModeManagerService"
+            },
+            "stock_file": "/system/framework/automotive-service.odex"
+          },
+          "framework.mode_manager_service.intercept_key_dispatching": {
+            "class": "com.hkmc.micom.ModeManagerService",
+            "member": {
+              "method": "interceptKeyBeforeDispatching",
+              "params": [
+                "android.view.InputChannel",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive-service.odex"
+          },
+          "framework.mode_manager_service.intercept_key_queueing": {
+            "class": "com.hkmc.micom.ModeManagerService",
+            "member": {
+              "method": "interceptKeyBeforeQueueing",
+              "params": [
+                "android.view.InputChannel",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive-service.odex"
+          },
+          "framework.navigation_cluster": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "class": "com.hkmc.cluster.NavigationCluster"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.new": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "ctor": [
+                "android.content.Context"
+              ]
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_clu_data_new_14": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateCluDataNew_14",
+              "params": [
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_lane_info": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateLaneInfo",
+              "params": [
+                "byte[]"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_remain_dis": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateRemainDis",
+              "params": [
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tbt_info": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTBTInfo",
+              "params": [
+                "int",
+                "int",
+                "float",
+                "float",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tbt_sub_info": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTBTSubInfo",
+              "params": [
+                "float",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "float",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tbt_sub_info2": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTBTSubInfo2",
+              "params": [
+                "float",
+                "int",
+                "float",
+                "int",
+                "float",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tbt_sub_info2_b": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTBTSubInfo2",
+              "params": [
+                "float",
+                "int",
+                "int",
+                "float",
+                "int",
+                "int",
+                "float",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tbt_sub_info_2c": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTBTSubInfo2C",
+              "params": [
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tbt_sub_info_b": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTBTSubInfo",
+              "params": [
+                "float",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "float",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tbt_trap_info": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTBTTrapInfo",
+              "params": [
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tbt_trap_info_new": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTBTTrapInfoNew",
+              "params": [
+                "com.hkmc.cluster.NavigationCluster$NaviTbtTrapInfo"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tp_crossroad_name": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTPCrossroadName",
+              "params": [
+                "com.hkmc.cluster.NavigationCluster$CrossroadName"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tp_destination_name": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTPFlexibleDestinationName",
+              "params": [
+                "com.hkmc.cluster.NavigationCluster$DestinationName"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tp_lane_info": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTPLaneInfo",
+              "params": [
+                "com.hkmc.cluster.NavigationCluster$LaneInformation"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tp_turn_list": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTPTurnList",
+              "params": [
+                "com.hkmc.cluster.NavigationCluster$TurnList[]"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.navigation_cluster.update_tp_turn_list_new": {
+            "class": "com.hkmc.cluster.NavigationCluster",
+            "member": {
+              "method": "updateTPTurnListNew",
+              "params": [
+                "byte[]"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.pgs_service": {
+            "class": "com.hkmc.pgs.IPgsService",
+            "member": {
+              "class": "com.hkmc.pgs.IPgsService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.pgs_service.guide_lines": {
+            "class": "com.hkmc.pgs.IPgsService",
+            "member": {
+              "method": "getRvmGuideLineState",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.pgs_service.request_guide_lines": {
+            "class": "com.hkmc.pgs.IPgsService",
+            "member": {
+              "method": "requestGuideLineState",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.pgs_service_stub": {
+            "class": "com.hkmc.pgs.IPgsService$Stub",
+            "member": {
+              "class": "com.hkmc.pgs.IPgsService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.pgs_service_stub.as_interface": {
+            "class": "com.hkmc.pgs.IPgsService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.pgs.IPgsService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.regulation_manager": {
+            "class": "com.hkmc.regulation.RegulationActivityManager",
+            "member": {
+              "class": "com.hkmc.regulation.RegulationActivityManager"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.regulation_manager.get_instance": {
+            "class": "com.hkmc.regulation.RegulationActivityManager",
+            "member": {
+              "method": "getInstance",
+              "params": [
+                "android.content.Context"
+              ],
+              "ret": "com.hkmc.regulation.RegulationActivityManager",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.regulation_manager.show_popup": {
+            "class": "com.hkmc.regulation.RegulationActivityManager",
+            "member": {
+              "method": "showRegulationPopup",
+              "params": [
+                "java.lang.String"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.regulation_manager.status": {
+            "class": "com.hkmc.regulation.RegulationActivityManager",
+            "member": {
+              "method": "getStatus",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.regulation_service": {
+            "class": "com.hkmc.regulation.IRegulationManager",
+            "member": {
+              "class": "com.hkmc.regulation.IRegulationManager"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.regulation_service.status": {
+            "class": "com.hkmc.regulation.IRegulationManager",
+            "member": {
+              "method": "getStatus",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.regulation_service_stub": {
+            "class": "com.hkmc.regulation.IRegulationManager$Stub",
+            "member": {
+              "class": "com.hkmc.regulation.IRegulationManager$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.regulation_service_stub.as_interface": {
+            "class": "com.hkmc.regulation.IRegulationManager$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.regulation.IRegulationManager",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.resources": {
+            "class": "android.content.res.Resources",
+            "member": {
+              "class": "android.content.res.Resources"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.resources.get_drawable": {
+            "class": "android.content.res.Resources",
+            "member": {
+              "method": "getDrawable",
+              "params": [
+                "int"
+              ],
+              "ret": "android.graphics.drawable.Drawable",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.resources.get_text": {
+            "class": "android.content.res.Resources",
+            "member": {
+              "method": "getText",
+              "params": [
+                "int"
+              ],
+              "ret": "java.lang.CharSequence",
+              "static": false
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.runtime": {
+            "class": "java.lang.Runtime",
+            "member": {
+              "class": "java.lang.Runtime"
+            },
+            "stock_file": "/system/framework/core.odex"
+          },
+          "framework.runtime.load": {
+            "class": "java.lang.Runtime",
+            "member": {
+              "method": "load",
+              "params": [
+                "java.lang.String",
+                "java.lang.ClassLoader"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/core.odex"
+          },
+          "framework.runtime.load_library": {
+            "class": "java.lang.Runtime",
+            "member": {
+              "method": "loadLibrary",
+              "params": [
+                "java.lang.String",
+                "java.lang.ClassLoader"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/core.odex"
+          },
+          "framework.service_manager": {
+            "class": "android.os.ServiceManager",
+            "member": {
+              "class": "android.os.ServiceManager"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.service_manager.get_service": {
+            "class": "android.os.ServiceManager",
+            "member": {
+              "method": "getService",
+              "params": [
+                "java.lang.String"
+              ],
+              "ret": "android.os.IBinder",
+              "static": true
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.system_properties": {
+            "class": "android.os.SystemProperties",
+            "member": {
+              "class": "android.os.SystemProperties"
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.system_properties.get_int": {
+            "class": "android.os.SystemProperties",
+            "member": {
+              "method": "getInt",
+              "params": [
+                "java.lang.String",
+                "int"
+              ],
+              "ret": "int",
+              "static": true
+            },
+            "stock_file": "/system/framework/framework.odex"
+          },
+          "framework.system_service": {
+            "class": "com.hkmc.micom.ISystemService",
+            "member": {
+              "class": "com.hkmc.micom.ISystemService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.system_service.gear_p_status": {
+            "class": "com.hkmc.micom.ISystemService",
+            "member": {
+              "method": "getGearPStatus",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.system_service.parking_brake_status": {
+            "class": "com.hkmc.micom.ISystemService",
+            "member": {
+              "method": "getEPBStatus",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.system_service.sml_configuration": {
+            "class": "com.hkmc.micom.ISystemService",
+            "member": {
+              "method": "setSMLConfiguration",
+              "params": [
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.system_service.sml_rgb": {
+            "class": "com.hkmc.micom.ISystemService",
+            "member": {
+              "method": "setSMLRGB",
+              "params": [
+                "byte[]",
+                "byte[]",
+                "byte[]"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.system_service.sml_status": {
+            "class": "com.hkmc.micom.ISystemService",
+            "member": {
+              "method": "requestSMLStatus",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.system_service_stub": {
+            "class": "com.hkmc.micom.ISystemService$Stub",
+            "member": {
+              "class": "com.hkmc.micom.ISystemService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.system_service_stub.as_interface": {
+            "class": "com.hkmc.micom.ISystemService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.micom.ISystemService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.tbt_trap_info": {
+            "class": "com.hkmc.cluster.NavigationCluster$NaviTbtTrapInfo",
+            "member": {
+              "class": "com.hkmc.cluster.NavigationCluster$NaviTbtTrapInfo"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.tbt_trap_info.bar_graph_level": {
+            "class": "com.hkmc.cluster.NavigationCluster$NaviTbtTrapInfo",
+            "member": {
+              "field": "barGraphLevel",
+              "static": false,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.tbt_trap_info.new": {
+            "class": "com.hkmc.cluster.NavigationCluster$NaviTbtTrapInfo",
+            "member": {
+              "ctor": []
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "class": "com.hkmc.cluster.NavigationCluster$TurnList"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.direction": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "field": "direction",
+              "static": false,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.distance": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "field": "distance",
+              "static": false,
+              "type": "float"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.exit_number": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "field": "exitNumber",
+              "static": false,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.name": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "field": "name",
+              "static": false,
+              "type": "java.lang.String"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.new": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "ctor": []
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.no": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "field": "no",
+              "static": false,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.traffic": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "field": "traffic",
+              "static": false,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.type": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "field": "type",
+              "static": false,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.turn_list.unit": {
+            "class": "com.hkmc.cluster.NavigationCluster$TurnList",
+            "member": {
+              "field": "unit",
+              "static": false,
+              "type": "int"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_manager": {
+            "class": "com.hkmc.usm.USMManager",
+            "member": {
+              "class": "com.hkmc.usm.USMManager"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_manager.distance_speed_unit": {
+            "class": "com.hkmc.usm.USMManager",
+            "member": {
+              "method": "getDistanceSpeedUnit",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_manager.new": {
+            "class": "com.hkmc.usm.USMManager",
+            "member": {
+              "ctor": [
+                "android.content.Context"
+              ]
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "class": "com.hkmc.usm.IUSMService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service.seat_heat_driver": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "method": "setFrontSeatHeatDrvStep",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service.seat_heat_driver_option": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "method": "getFrontSeatHeat_DrvOption",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service.seat_heat_driver_state": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "method": "getFrontSeatHeat_DrvState",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service.seat_heat_passenger": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "method": "setFrontSeatHeatAstStep",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service.seat_heat_passenger_option": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "method": "getFrontSeatHeat_AstOption",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service.seat_heat_passenger_state": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "method": "getFrontSeatHeat_AstState",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service.seat_heat_rear_left": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "method": "setRearSeatHeatLeftStep",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service.seat_heat_rear_right": {
+            "class": "com.hkmc.usm.IUSMService",
+            "member": {
+              "method": "setRearSeatHeatRightStep",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service_stub": {
+            "class": "com.hkmc.usm.IUSMService$Stub",
+            "member": {
+              "class": "com.hkmc.usm.IUSMService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.usm_service_stub.as_interface": {
+            "class": "com.hkmc.usm.IUSMService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.usm.IUSMService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.vr_service": {
+            "class": "com.hkmc.vr.IVRService",
+            "member": {
+              "class": "com.hkmc.vr.IVRService"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.vr_service.wheel_heat": {
+            "class": "com.hkmc.vr.IVRService",
+            "member": {
+              "method": "set_StrgWhlHeated_Cmd_AVN",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.vr_service_stub": {
+            "class": "com.hkmc.vr.IVRService$Stub",
+            "member": {
+              "class": "com.hkmc.vr.IVRService$Stub"
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.vr_service_stub.as_interface": {
+            "class": "com.hkmc.vr.IVRService$Stub",
+            "member": {
+              "method": "asInterface",
+              "params": [
+                "android.os.IBinder"
+              ],
+              "ret": "com.hkmc.vr.IVRService",
+              "static": true
+            },
+            "stock_file": "/system/framework/automotive.odex"
+          },
+          "framework.window_manager_service": {
+            "class": "com.android.server.wm.WindowManagerService",
+            "member": {
+              "class": "com.android.server.wm.WindowManagerService"
+            },
+            "stock_file": "/system/framework/services.odex"
+          },
+          "framework.window_manager_service.intercept_key": {
+            "class": "com.android.server.wm.WindowManagerService",
+            "member": {
+              "method": "interceptKey",
+              "params": [
+                "android.view.KeyEvent"
+              ],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/framework/services.odex"
+          },
+          "gpm.cluster_type": {
+            "class": "com.google.android.projection.proto.Protos$NavigationStatusService$InstrumentClusterType",
+            "member": {
+              "class": "com.google.android.projection.proto.Protos$NavigationStatusService$InstrumentClusterType"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.cluster_type.enum": {
+            "class": "com.google.android.projection.proto.Protos$NavigationStatusService$InstrumentClusterType",
+            "member": {
+              "field": "ENUM",
+              "static": true,
+              "type": "com.google.android.projection.proto.Protos$NavigationStatusService$InstrumentClusterType"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.cluster_type.image": {
+            "class": "com.google.android.projection.proto.Protos$NavigationStatusService$InstrumentClusterType",
+            "member": {
+              "field": "IMAGE",
+              "static": true,
+              "type": "com.google.android.projection.proto.Protos$NavigationStatusService$InstrumentClusterType"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.navigation_status": {
+            "class": "com.google.android.projection.protocol.NavigationStatus",
+            "member": {
+              "class": "com.google.android.projection.protocol.NavigationStatus"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.navigation_status.init": {
+            "class": "com.google.android.projection.protocol.NavigationStatus",
+            "member": {
+              "method": "init",
+              "params": [
+                "int",
+                "long",
+                "int",
+                "com.google.android.projection.proto.Protos$NavigationStatusService$InstrumentClusterType",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.navigation_status.next_turn": {
+            "class": "com.google.android.projection.protocol.NavigationStatus",
+            "member": {
+              "method": "navigationNextTurnCallback",
+              "params": [
+                "java.lang.String",
+                "int",
+                "int",
+                "byte[]",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.navigation_status.next_turn_distance": {
+            "class": "com.google.android.projection.protocol.NavigationStatus",
+            "member": {
+              "method": "navigationNextTurnDistanceCallback",
+              "params": [
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.navigation_status.receiver": {
+            "class": "com.google.android.projection.protocol.NavigationStatus",
+            "member": {
+              "field": "mGalReceiver",
+              "static": false,
+              "type": "com.google.android.projection.protocol.GalReceiver"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.navigation_status.status": {
+            "class": "com.google.android.projection.protocol.NavigationStatus",
+            "member": {
+              "method": "navigationStatusCallback",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.receiver": {
+            "class": "com.google.android.projection.protocol.GalReceiver",
+            "member": {
+              "class": "com.google.android.projection.protocol.GalReceiver"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.receiver.destroy": {
+            "class": "com.google.android.projection.protocol.GalReceiver",
+            "member": {
+              "method": "destroy",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.receiver.focus_native": {
+            "class": "com.google.android.projection.protocol.GalReceiver",
+            "member": {
+              "field": "NAVIGATION_FOCUS_STATE_NATIVE",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.receiver.send_navigation_focus": {
+            "class": "com.google.android.projection.protocol.GalReceiver",
+            "member": {
+              "method": "sendNavigationFocusState",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.receiver_service": {
+            "class": "com.google.android.projection.service.GalReceiverService",
+            "member": {
+              "class": "com.google.android.projection.service.GalReceiverService"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.receiver_service.disconnected": {
+            "class": "com.google.android.projection.service.GalReceiverService",
+            "member": {
+              "method": "onDisconnected",
+              "params": [
+                "int",
+                "boolean",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.sensor_source": {
+            "class": "com.google.android.projection.protocol.SensorSource",
+            "member": {
+              "class": "com.google.android.projection.protocol.SensorSource"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.sensor_source.init": {
+            "class": "com.google.android.projection.protocol.SensorSource",
+            "member": {
+              "method": "init",
+              "params": [
+                "int",
+                "long",
+                "int[]",
+                "int",
+                "int[]",
+                "int[]"
+              ],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.sensor_source.speed": {
+            "class": "com.google.android.projection.protocol.SensorSource",
+            "member": {
+              "field": "SENSOR_TYPE_SPEED",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.video_sink": {
+            "class": "com.google.android.projection.protocol.VideoSink",
+            "member": {
+              "class": "com.google.android.projection.protocol.VideoSink"
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "gpm.video_sink.nearest": {
+            "class": "com.google.android.projection.protocol.VideoSink",
+            "member": {
+              "method": "nearestVideoConfiguration",
+              "params": [
+                "int",
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_GPM.odex"
+          },
+          "homesetting.edit_entry": {
+            "class": "com.hkmc.system.app.homesetting.allmenuedit.c",
+            "member": {
+              "class": "com.hkmc.system.app.homesetting.allmenuedit.c"
+            },
+            "stock_file": "/system/app/HKMC_HomeSetting_WP.odex"
+          },
+          "homesetting.edit_entry.get_class_name": {
+            "class": "com.hkmc.system.app.homesetting.allmenuedit.c",
+            "member": {
+              "method": "getClassName",
+              "params": [],
+              "ret": "java.lang.String",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_HomeSetting_WP.odex"
+          },
+          "homesetting.edit_entry.new": {
+            "class": "com.hkmc.system.app.homesetting.allmenuedit.c",
+            "member": {
+              "ctor": [
+                "com.hkmc.system.app.homesetting.allmenuedit.z",
+                "android.content.Context",
+                "java.lang.String",
+                "java.lang.String",
+                "int",
+                "int",
+                "int"
+              ]
+            },
+            "stock_file": "/system/app/HKMC_HomeSetting_WP.odex"
+          },
+          "homesetting.edit_list": {
+            "class": "com.hkmc.system.app.homesetting.allmenuedit.z",
+            "member": {
+              "class": "com.hkmc.system.app.homesetting.allmenuedit.z"
+            },
+            "stock_file": "/system/app/HKMC_HomeSetting_WP.odex"
+          },
+          "homesetting.edit_list.get_context": {
+            "class": "com.hkmc.system.app.homesetting.allmenuedit.z",
+            "member": {
+              "method": "getContext",
+              "params": [],
+              "ret": "android.content.Context",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_HomeSetting_WP.odex"
+          },
+          "homesetting.edit_list.items": {
+            "class": "com.hkmc.system.app.homesetting.allmenuedit.z",
+            "member": {
+              "field": "cs",
+              "static": true,
+              "type": "java.util.List"
+            },
+            "stock_file": "/system/app/HKMC_HomeSetting_WP.odex"
+          },
+          "homesetting.edit_list.load": {
+            "class": "com.hkmc.system.app.homesetting.allmenuedit.z",
+            "member": {
+              "method": "load",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/app/HKMC_HomeSetting_WP.odex"
+          },
+          "iap2.init_info": {
+            "class": "com.tcc.iap2server.Iap2InitInformationMsg",
+            "member": {
+              "class": "com.tcc.iap2server.Iap2InitInformationMsg"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.init_info.check_supports_features": {
+            "class": "com.tcc.iap2server.Iap2InitInformationMsg",
+            "member": {
+              "method": "checkSupportsFeatures",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.init_info.route_guidance": {
+            "class": "com.tcc.iap2server.Iap2InitInformationMsg",
+            "member": {
+              "field": "iAP2UsedRouteGuidance",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.init_info.use_vehicle_information": {
+            "class": "com.tcc.iap2server.Iap2InitInformationMsg",
+            "member": {
+              "field": "iAP2UsedVehicelInformation",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.init_info.use_vehicle_status": {
+            "class": "com.tcc.iap2server.Iap2InitInformationMsg",
+            "member": {
+              "field": "iAP2UsedVehicleStatus",
+              "static": true,
+              "type": "int"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "class": "com.tcc.iap2server.Iap2Service"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.get_component": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "method": "getComponent",
+              "params": [],
+              "ret": "int",
+              "static": true
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.is_connected": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "method": "isConnected",
+              "params": [],
+              "ret": "boolean",
+              "static": true
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.native_handle": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "field": "mHandleIap2",
+              "static": true,
+              "type": "long"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.native_lock": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "field": "mLock",
+              "static": true,
+              "type": "java.lang.Object"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.on_bind": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "method": "onBind",
+              "params": [
+                "android.content.Intent"
+              ],
+              "ret": "android.os.IBinder",
+              "static": false
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.on_create": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "method": "onCreate",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.on_destroy": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "method": "onDestroy",
+              "params": [],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.receive_connect": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "method": "receiveConnect",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.receive_disconnect": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "method": "receiveDisconnect",
+              "params": [
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service.set_device_serial": {
+            "class": "com.tcc.iap2server.Iap2Service",
+            "member": {
+              "method": "setDeviceSerial",
+              "params": [
+                "java.lang.String"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service_receiver": {
+            "class": "com.tcc.iap2server.Iap2Service$1",
+            "member": {
+              "class": "com.tcc.iap2server.Iap2Service$1"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service_receiver.on_receive": {
+            "class": "com.tcc.iap2server.Iap2Service$1",
+            "member": {
+              "method": "onReceive",
+              "params": [
+                "android.content.Context",
+                "android.content.Intent"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "iap2.service_receiver.service": {
+            "class": "com.tcc.iap2server.Iap2Service$1",
+            "member": {
+              "field": "this$0",
+              "static": false,
+              "type": "com.tcc.iap2server.Iap2Service"
+            },
+            "stock_file": "/system/app/Iap2ServerApp.odex"
+          },
+          "launcher.menu_entry": {
+            "class": "com.android.launcher3.view.a.h",
+            "member": {
+              "class": "com.android.launcher3.view.a.h"
+            },
+            "stock_file": "/system/app/Launcher_WP3.odex"
+          },
+          "launcher.menu_entry.new": {
+            "class": "com.android.launcher3.view.a.h",
+            "member": {
+              "ctor": [
+                "com.android.launcher3.view.a.j",
+                "android.content.Context",
+                "java.lang.String",
+                "java.lang.String",
+                "int",
+                "int",
+                "int"
+              ]
+            },
+            "stock_file": "/system/app/Launcher_WP3.odex"
+          },
+          "launcher.menu_list": {
+            "class": "com.android.launcher3.view.a.j",
+            "member": {
+              "class": "com.android.launcher3.view.a.j"
+            },
+            "stock_file": "/system/app/Launcher_WP3.odex"
+          },
+          "launcher.menu_list.get_context": {
+            "class": "com.android.launcher3.view.a.j",
+            "member": {
+              "method": "getContext",
+              "params": [],
+              "ret": "android.content.Context",
+              "static": false
+            },
+            "stock_file": "/system/app/Launcher_WP3.odex"
+          },
+          "launcher.menu_list.items": {
+            "class": "com.android.launcher3.view.a.j",
+            "member": {
+              "field": "dh",
+              "static": false,
+              "type": "java.util.List"
+            },
+            "stock_file": "/system/app/Launcher_WP3.odex"
+          },
+          "launcher.menu_list.load": {
+            "class": "com.android.launcher3.view.a.j",
+            "member": {
+              "method": "load",
+              "params": [],
+              "ret": "boolean",
+              "static": false
+            },
+            "stock_file": "/system/app/Launcher_WP3.odex"
+          },
+          "launcher.menu_list.lock": {
+            "class": "com.android.launcher3.view.a.j",
+            "member": {
+              "field": "mLock",
+              "static": false,
+              "type": "java.lang.Object"
+            },
+            "stock_file": "/system/app/Launcher_WP3.odex"
+          },
+          "panel.home": {
+            "class": "com.mobis.splitscreen.right.SplitScreenHome",
+            "member": {
+              "class": "com.mobis.splitscreen.right.SplitScreenHome"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.home.build_views": {
+            "class": "com.mobis.splitscreen.right.SplitScreenHome",
+            "member": {
+              "method": "b",
+              "params": [
+                "int",
+                "boolean",
+                "int"
+              ],
+              "ret": "void",
+              "static": false
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.home.page_for_id": {
+            "class": "com.mobis.splitscreen.right.SplitScreenHome",
+            "member": {
+              "method": "aP",
+              "params": [
+                "int"
+              ],
+              "ret": "com.mobis.splitscreen.right.k",
+              "static": false
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.home.test_page": {
+            "class": "com.mobis.splitscreen.right.SplitScreenHome",
+            "member": {
+              "field": "nC",
+              "static": false,
+              "type": "com.mobis.splitscreen.right.subviewExample.a"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.page": {
+            "class": "com.mobis.splitscreen.right.k",
+            "member": {
+              "class": "com.mobis.splitscreen.right.k"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.page.context": {
+            "class": "com.mobis.splitscreen.right.k",
+            "member": {
+              "field": "mContext",
+              "static": false,
+              "type": "android.content.Context"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.page.handler": {
+            "class": "com.mobis.splitscreen.right.k",
+            "member": {
+              "field": "mHandler",
+              "static": false,
+              "type": "android.os.Handler"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.page.view": {
+            "class": "com.mobis.splitscreen.right.k",
+            "member": {
+              "field": "mView",
+              "static": false,
+              "type": "android.view.View"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.page.view_id": {
+            "class": "com.mobis.splitscreen.right.k",
+            "member": {
+              "field": "viewId",
+              "static": false,
+              "type": "int"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.test_gate": {
+            "class": "com.mobis.splitscreen.right.m.v",
+            "member": {
+              "class": "com.mobis.splitscreen.right.m.v"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.test_gate.on": {
+            "class": "com.mobis.splitscreen.right.m.v",
+            "member": {
+              "method": "pf",
+              "params": [],
+              "ret": "boolean",
+              "static": true
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.test_page": {
+            "class": "com.mobis.splitscreen.right.subviewExample.a",
+            "member": {
+              "class": "com.mobis.splitscreen.right.subviewExample.a"
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "panel.test_page.get_view": {
+            "class": "com.mobis.splitscreen.right.subviewExample.a",
+            "member": {
+              "method": "getView",
+              "params": [],
+              "ret": "android.view.View",
+              "static": false
+            },
+            "stock_file": "/system/app/RightScreenHome.odex"
+          },
+          "settings.split_screen": {
+            "class": "com.android.settings.util.SplitScreenUtils",
+            "member": {
+              "class": "com.android.settings.util.SplitScreenUtils"
+            },
+            "stock_file": "/system/app/Settings_W.odex"
+          },
+          "settings.split_screen.supported": {
+            "class": "com.android.settings.util.SplitScreenUtils",
+            "member": {
+              "method": "isSupportViewId",
+              "params": [
+                "android.content.Context",
+                "int"
+              ],
+              "ret": "boolean",
+              "static": true
+            },
+            "stock_file": "/system/app/Settings_W.odex"
+          },
+          "themesettings.split_item": {
+            "class": "com.android.themesettings.splitscreensettings.SplitScreenItem",
+            "member": {
+              "class": "com.android.themesettings.splitscreensettings.SplitScreenItem"
+            },
+            "stock_file": "/system/app/ThemeSettings.odex"
+          },
+          "themesettings.split_item.new": {
+            "class": "com.android.themesettings.splitscreensettings.SplitScreenItem",
+            "member": {
+              "ctor": [
+                "int",
+                "java.lang.String",
+                "boolean"
+              ]
+            },
+            "stock_file": "/system/app/ThemeSettings.odex"
+          },
+          "themesettings.split_item.type": {
+            "class": "com.android.themesettings.splitscreensettings.SplitScreenItem",
+            "member": {
+              "method": "gi",
+              "params": [],
+              "ret": "int",
+              "static": false
+            },
+            "stock_file": "/system/app/ThemeSettings.odex"
+          },
+          "themesettings.split_items": {
+            "class": "com.android.themesettings.splitscreensettings.e",
+            "member": {
+              "class": "com.android.themesettings.splitscreensettings.e"
+            },
+            "stock_file": "/system/app/ThemeSettings.odex"
+          },
+          "themesettings.split_items.available": {
+            "class": "com.android.themesettings.splitscreensettings.e",
+            "member": {
+              "method": "a",
+              "params": [
+                "int",
+                "android.content.Context"
+              ],
+              "ret": "boolean",
+              "static": true
+            },
+            "stock_file": "/system/app/ThemeSettings.odex"
+          },
+          "themesettings.split_items.make": {
+            "class": "com.android.themesettings.splitscreensettings.e",
+            "member": {
+              "method": "a",
+              "params": [
+                "android.content.Context",
+                "java.util.LinkedHashMap"
+              ],
+              "ret": "java.util.ArrayList",
+              "static": true
+            },
+            "stock_file": "/system/app/ThemeSettings.odex"
+          },
+          "themesettings.split_items.string_id": {
+            "class": "com.android.themesettings.splitscreensettings.e",
+            "member": {
+              "method": "s",
+              "params": [
+                "int"
+              ],
+              "ret": "int",
+              "static": true
+            },
+            "stock_file": "/system/app/ThemeSettings.odex"
+          },
+          "themesettings.split_items.view_name": {
+            "class": "com.android.themesettings.splitscreensettings.e",
+            "member": {
+              "method": "d",
+              "params": [
+                "android.content.Context",
+                "int"
+              ],
+              "ret": "java.lang.String",
+              "static": true
+            },
+            "stock_file": "/system/app/ThemeSettings.odex"
+          }
+        },
+        "source": "kor-stock-dex-scan",
+        "stock_files": {
+          "/system/app/ButtonSettings.odex": "1b77a41ba421ce56c7d0e100fff17941",
+          "/system/app/HKMC_BtSettings.odex": "c6eda5d6a3dd072ee339097a44a5f565",
+          "/system/app/HKMC_DiPO.odex": "c74fd57574641ea6082880891d7c3140",
+          "/system/app/HKMC_GPM.odex": "17cf0e8ff6492395027fcbdee264ac70",
+          "/system/app/HKMC_HomeSetting_WP.odex": "6d80b846def39fca7e5e1247a4d3bb0b",
+          "/system/app/Iap2ServerApp.odex": "4c4caec1b105904ea5007eee70225120",
+          "/system/app/Launcher_WP3.odex": "3ec7812eccc11cd4b579946cf457b704",
+          "/system/app/RightScreenHome.odex": "076051262552e8b46e8e14caa9d74d8c",
+          "/system/app/Settings_W.odex": "e1020c2cf47cfd8ebaa28d79463a54a4",
+          "/system/app/ThemeSettings.odex": "e4015e0295fdb870dd38b6e2594b7d2a",
+          "/system/framework/automotive-service.odex": "9911feb0b743400ac5eab89445c88a51",
+          "/system/framework/automotive.odex": "4316832419574e52d9316e50f78b0437",
+          "/system/framework/com.broadcom.bt.jar": "e8dbfb6307b2db57a467bde6cb66cfd8",
+          "/system/framework/com.hkmc.ext.hcan.odex": "1cb555f0419f81331893afe296a64108",
+          "/system/framework/com.tcc.iap2.odex": "9cedd3640a3ae43449a9dc3251931f9e",
+          "/system/framework/core.odex": "58cd5e4652842671aa2b50247cb14df2",
+          "/system/framework/framework.odex": "a4e233ff7104f2b0a57934e118e7a773",
+          "/system/framework/framework2.odex": "e0b0ce4abedb1d9d224eb69fa6c789ef",
+          "/system/framework/services.odex": "ae74016f0a45412929b0179bb4130132"
+        }
+      }
+    ],
+    "points_sha256": "6d67aff163ef71d550f67db8b5bfc68825d9f3c70fb9c607962703a0e80999f1"
+  },
+  "physical_features": [],
+  "reflection": [],
+  "schema": 1
+}

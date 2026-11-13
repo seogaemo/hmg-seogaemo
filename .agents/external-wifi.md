@@ -37,8 +37,10 @@ built-in radio", and `wifi` defaults the built-in role to off there.
 It also read `persist.wifi.state=3` after a Car tab cleanup and restart although
 `/data/property/persist.wifi.state` was absent before the cleanup, so the value comes from boot
 files or another package's init; the problem report now lists `persist.wifi` lines from
-`default.prop`, `build.prop`, `/data/local.prop`, `init*.rc` and `/system/etc` scripts. The
-leftover only blocks the built-in client role. The car has one user USB port (`4-1`), so a report
+`default.prop`, `build.prop`, `/data/local.prop`, `init*.rc` and `/system/etc` scripts. One known
+source is a `persist.wifi.state=3` line an older Wi-Fi patch leaves in `/system/build.prop`, which
+the `hmgapi-wifi` cleanup now removes (runtime contract, "Other packages"); it is not confirmed
+for this car. The leftover only blocks the built-in client role. The car has one user USB port (`4-1`), so a report
 exported from a USB stick misses the adapter unless a hub is used.
 
 ## Constraints

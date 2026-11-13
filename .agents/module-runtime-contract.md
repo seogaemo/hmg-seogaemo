@@ -135,11 +135,28 @@ the full artifact list: `tmp/overlap-inventory.md` (2026-11-06, upstream source 
   for a standalone HMG-API, then reports `pending-restart`/`head_unit`. `delete` removes only
   the catalogue paths. Every step is a ledger row (`foreign_remove`/`foreign_delete`).
   `hmgapi-wifi` (`delete`, overlaps `wifi`): with no HMG-API installed and no `wifi` record (or
-  `wifi-client`, its id before the takeover), `android.hardware.wifi.xml` byte-identical to the `wifi` payload and/or
-  `persist.wifi.state=3` are HMG-API Wi-Fi client leftovers (NEEV KOR stock has neither; seen on a
-  migrated car 2026-11-06). Clean backs up the XML, deletes it under remount, clears the property
-  and its `/data/property` file, then requires a restart. `wifi` reports these leftovers as
-  `conflict` pointing to the Car tab.
+  `wifi-client`, its id before the takeover), `android.hardware.wifi.xml` byte-identical to the `wifi` payload,
+  `/data/property/persist.wifi.state` holding `3` and/or the exact line `persist.wifi.state=3` in
+  `/system/build.prop` are Wi-Fi client leftovers of HMG-API or of the USB script "HMG Gen5W AVN
+  Wi-Fi Module Patcher" (NEEV KOR stock has none of them; XML and property seen on a migrated car
+  2026-11-06, the line on a CN7 KOR `260902` car 2026-11-14). That script (V2.0.0, a NEMESIS
+  `type=execute` script, so no installed package) appends the line to `build.prop`, or rewrites an
+  existing `persist.wifi.state=` line to it; init then sets the property again at every boot, with
+  no `/data/property` file. `wifi` reports these leftovers as `conflict` pointing to the Car tab.
+  Clean backs up the XML and deletes it under remount. It backs up `build.prop` to
+  `<data root>/foreign/hmgapi-wifi.build.prop` (`.meta`: mode, uid, gid), builds a copy without
+  that line, checks its size, and under remount renames a temporary beside the file over it, with
+  the same mode and owner and every other byte kept (`cmp` and metadata are read back). It clears
+  the property and deletes its `/data/property` file when that file held `3`, or when no file
+  existed and the line was there (a file holding another value is left alone), then requires a
+  restart. Removing the line restores stock only where the script appended it. No stock
+  `build.prop` with a `persist.wifi.state=` line is known (NEEV KOR car; on the CN7 KOR car it was
+  the last line), but a value the script overwrote cannot be told from the file: the backup stays,
+  and the script keeps its own pre-change copy in
+  `/data/nemesis/backup/hmg-wifi-module-patcher-only/<run>/build.prop`. Not covered: the script's
+  other changes, a `featurexml.cfg` line `-/system/etc/permissions/android.hardware.wifi.xml`
+  commented out with `#` and `pm install` of the stock `HKMC_WifiSettings.apk` when PackageManager
+  lacked it. The `build.prop` cleanup has only been tested off-car.
   `report` items are refused. Calling `nemesis uninstall` from our root verb is unverified on
   the car. The app shows the findings on the Car tab and cleans them only after a confirm.
 
@@ -233,7 +250,9 @@ on spaces as argv, never evaluated. Tools are fixed absolute paths `/system/bin/
   `bin/<name>.source` holds the stock MD5 and both strings; the copy is rebuilt only when they
   change. Ledger `bin_derive` (`failed` with the helper's exit code).
 - `sg_daemon_start <name>`: executable must be a regular non-symlink file; a `/system` executable
-  named by a `derived_bin.<n>=` runs as `bin/<n>` (made by `sg_bin_derive` first); starts
+  named by a `derived_bin.<n>=` runs as `bin/<n>` (made by `sg_bin_derive` first); a `@payload@`
+  executable is first made mode 700 (the package extractor writes payload files without execute
+  permission); starts
   `( cd <dir> && exec argv ) </dev/null >>daemon.<name>.log 2>&1 &` with `<dir>` the state directory, or
   `run/<name>` for a `daemon_user` daemon (log emptied at a start beyond 64 KiB),
   records boot id and PID plus the expected `/proc/<pid>/cmdline` bytes (each argument followed

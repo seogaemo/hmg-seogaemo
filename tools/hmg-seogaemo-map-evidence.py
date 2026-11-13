@@ -14,6 +14,10 @@ validation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(validation)
 
 
+BOOT_FILE = re.compile(r'/system/framework/[A-Za-z0-9_.-]+\.odex')
+MD5 = re.compile(r'[0-9a-f]{32}')
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
                                      ensure_ascii=True).encode()).hexdigest()
@@ -36,6 +40,7 @@ def validate(directory, stock=None):
     if mapped['points_sha256'] != digest(mapping):
         raise ValueError('mapped evidence snapshot changed')
     observed = set()
+    extra_stock = {}
     for observation in mapped['observations']:
         exact(observation, 'date source points stock_files', 'mapping observation')
         if observation['source'] not in ('owner-preinstall-report', 'kor-stock-dex-scan'):
@@ -54,11 +59,18 @@ def validate(directory, stock=None):
             expected_class = entry.get('class', mapping.get(owner, {}).get('class'))
             if fact['class'] != expected_class or fact['member'] != entry:
                 raise ValueError('point evidence signature changed: ' + point)
-        if not observation['stock_files'] or not set(observation['stock_files']) <= set(car['files']):
+        if not observation['stock_files']:
             raise ValueError('unknown mapping stock files')
         for path, md5 in observation['stock_files'].items():
-            if md5 != car['files'][path]:
-                raise ValueError('mapping stock hash mismatch')
+            if path in car['files']:
+                if md5 != car['files'][path]:
+                    raise ValueError('mapping stock hash mismatch')
+            elif not (BOOT_FILE.fullmatch(path) and MD5.fullmatch(md5)):
+                # A host scan may find a framework class on a boot classpath member the
+                # catalogue does not hash (e.g. services.odex); record it with its MD5.
+                raise ValueError('unknown mapping stock files')
+            elif stock is not None:
+                extra_stock[path] = md5
     reflected = set()
     for event in evidence['reflection']:
         exact(event, 'date source product onebin android files points points_sha256', 'reflection')
@@ -80,7 +92,7 @@ def validate(directory, stock=None):
                 isinstance(feature[key], str) and feature[key] for key in feature):
             raise ValueError('invalid physical feature observation')
     if stock is not None:
-        for path, md5 in car['files'].items():
+        for path, md5 in dict(car['files'], **extra_stock).items():
             actual = hashlib.md5((stock / path[len('/system/'):]).read_bytes()).hexdigest()
             if actual != md5:
                 raise ValueError('dump hash mismatch: ' + path)

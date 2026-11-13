@@ -57,11 +57,33 @@ wifi_xml_left() {
     [ "${1:-}" = "$wifi_ref_md5" ]
 }
 wifi_prop_left() { [ -f "$wifi_prop" ] && [ "$(cat "$wifi_prop" 2>/dev/null)" = 3 ]; }
+# An older Wi-Fi patch also puts this line into /system/build.prop (appended, or in place of an
+# existing persist.wifi.state= line). init then sets the property at every boot, so it comes back
+# after the XML and the /data/property file are gone.
+wifi_build=$sys/system/build.prop
+wifi_build_line=persist.wifi.state=3
+wifi_build_left() {
+    [ -f "$wifi_build" ] && [ ! -L "$wifi_build" ] && grep -Fxq "$wifi_build_line" "$wifi_build" 2>/dev/null
+}
+# Copies $1 to $2 without that line. Every other byte stays, including a last line with no
+# newline; fg_cut is the number of bytes left out, for the caller's size check.
+wifi_build_strip() {
+    fg_cut=0
+    while :; do
+        fg_text=; fg_newline=1
+        IFS= read -r fg_text || fg_newline=0
+        [ "$fg_newline" -eq 1 ] || [ -n "$fg_text" ] || break
+        if [ "$fg_text" = "$wifi_build_line" ]; then fg_cut=$((fg_cut + ${#fg_text} + fg_newline))
+        elif [ "$fg_newline" -eq 1 ]; then sg_print "$fg_text" || return 1
+        else sg_write "$fg_text" || return 1; fi
+        [ "$fg_newline" -eq 1 ] || break
+    done < "$1" > "$2"
+}
 hmgapi_wifi() {
     has_pkg hmgapi && return 1
     hmgapi_installed && return 1
     wifi_recorded && return 1
-    wifi_xml_left || wifi_prop_left
+    wifi_xml_left || wifi_prop_left || wifi_build_left
 }
 leafia_parts='wireless.carplay.bt carplay.wifi.audio projection.menu'
 leafia_orphan() {
@@ -185,6 +207,10 @@ case "$item" in
     pkg-carplay-session) uninstall_pkg carplay.session ;;
     pkg-vr-gates) uninstall_pkg voicehandler.vr-gates ;;
     hmgapi-wifi)
+        # Decided before anything changes. Without a /data/property file the live value comes
+        # from the build.prop line; a file holding another value is not this leftover.
+        fg_prop=0
+        if wifi_prop_left || { wifi_build_left && ! exists "$wifi_prop"; }; then fg_prop=1; fi
         if wifi_xml_left; then
             cp "$wifi_xml" "$HMG_SEOGAEMO_STATE/hmgapi-wifi.xml" || { sg_status failed none 'Could not back up the Wi-Fi feature XML'; exit 1; }
             sg_remount rw || { sg_status failed none 'Could not remount /system'; exit 1; }
@@ -194,7 +220,28 @@ case "$item" in
             [ "$fg_code" -eq 0 ] && [ ! -e "$wifi_xml" ] || { sg_status failed none 'Could not delete the Wi-Fi feature XML'; exit 1; }
             sg_ledger foreign_delete "$wifi_xml" "$HMG_SEOGAEMO_STATE/hmgapi-wifi.xml" /dev/null '' ok || :
         fi
-        if wifi_prop_left; then
+        if wifi_build_left; then
+            fg_keep=$HMG_SEOGAEMO_STATE/hmgapi-wifi.build.prop
+            cp "$wifi_build" "$fg_keep" && sg_file_meta "$wifi_build" > "$fg_keep.meta" &&
+                read -r fg_mode fg_uid fg_gid < "$fg_keep.meta" ||
+                { sg_status failed none 'Could not back up build.prop'; exit 1; }
+            wifi_build_strip "$fg_keep" "$fg_keep.new" && [ -s "$fg_keep.new" ] &&
+                fg_old=$(sg_file_size "$fg_keep") && fg_new=$(sg_file_size "$fg_keep.new") &&
+                [ "$fg_new" -eq "$((fg_old - fg_cut))" ] ||
+                { sg_status failed none 'Could not prepare build.prop without the Wi-Fi line'; exit 1; }
+            sg_remount rw || { sg_status failed none 'Could not remount /system'; exit 1; }
+            fg_tmp=$wifi_build.hmg-seogaemo.$$
+            fg_code=0
+            cp "$fg_keep.new" "$fg_tmp" && chown "$fg_uid:$fg_gid" "$fg_tmp" && chmod "$fg_mode" "$fg_tmp" &&
+                mv "$fg_tmp" "$wifi_build" && sg_equal "$fg_keep.new" "$wifi_build" &&
+                [ "$(sg_file_meta "$wifi_build")" = "$fg_mode $fg_uid $fg_gid" ] || fg_code=1
+            rm -f "$fg_tmp"
+            sg_remount_ro
+            [ "$fg_code" -eq 0 ] || { sg_status failed none 'Could not remove the Wi-Fi line from build.prop'; exit 1; }
+            sg_ledger foreign_delete "$wifi_build" "$fg_keep" "$fg_keep.new" "$fg_keep.meta" ok || :
+            rm -f "$fg_keep.new"
+        fi
+        if [ "$fg_prop" -eq 1 ]; then
             setprop persist.wifi.state '' 2> /dev/null || :
             rm -f "$wifi_prop" && [ ! -e "$wifi_prop" ] || { sg_status failed none 'Could not clear persist.wifi.state'; exit 1; }
             sg_ledger foreign_delete "$wifi_prop" /dev/null /dev/null '' ok || :

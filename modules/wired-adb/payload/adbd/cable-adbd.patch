@@ -1,0 +1,364 @@
+HMG-Seogaemo cable adbd: changes to AOSP android-4.4.4_r1 platform/system/core
+(Apache-2.0; apply with `patch -p1` in the system/core root, see ../build.sh).
+
+Follows the contributor's car-verified "CN7 Mac USB ADB" daemon and HMG-API's
+adbd build at 4fab437 (same sources and compiler flags). What changes:
+
+- adb.c: no property-driven setup, no USB function, no smart socket. The daemon
+  takes one argument, the adb_keys file; it loads the keys once as root, then
+  always becomes the shell user and serves port 5556 on the inherited socket.
+- adb_auth_client.c, adb_auth.h: a fixed key list loaded at start replaces
+  /adb_keys and /data/misc/adb/adb_keys; no framework prompt, no enrollment.
+- transport_local.c: accepts only on file descriptor 3, which the supervisor
+  opened and bound to the cable interface; a refused transport is closed.
+- services.c: root:, tcpip: and usb: are refused.
+- jdwp_service.c: the JDWP control socket is left to the system adbd.
+
+--- a/adb/adb.c
++++ b/adb/adb.c
+@@ -53,6 +53,12 @@
+ static int auth_enabled = 0;
+ 
+ #if !ADB_HOST
++/* HMG-Seogaemo cable adbd: the adb_keys file named on the command line. */
++#define HMG_SEOGAEMO_CABLE_PORT 5556
++static const char *hmg_seogaemo_keys_path;
++#endif
++
++#if !ADB_HOST
+ static const char *adb_device_banner = "device";
+ #endif
+ 
+@@ -1284,85 +1290,37 @@
+         exit(1);
+     }
+ #else
+-    property_get("ro.adb.secure", value, "0");
+-    auth_enabled = !strcmp(value, "1");
+-    if (auth_enabled)
+-        adb_auth_init();
+-
+-    // Our external storage path may be different than apps, since
+-    // we aren't able to bind mount after dropping root.
+-    const char* adb_external_storage = getenv("ADB_EXTERNAL_STORAGE");
+-    if (NULL != adb_external_storage) {
+-        setenv("EXTERNAL_STORAGE", adb_external_storage, 1);
+-    } else {
+-        D("Warning: ADB_EXTERNAL_STORAGE is not set.  Leaving EXTERNAL_STORAGE"
+-          " unchanged.\n");
++    /* HMG-Seogaemo cable adbd: the supervisor passes one listening socket
++     * (fd 3, bound to the cable interface). Authentication is always on and
++     * only the keys read here, once and as root, are accepted. The system
++     * adbd, its properties and its USB function are never touched. */
++    auth_enabled = 1;
++    if (adb_auth_load_keys(hmg_seogaemo_keys_path) < 1) {
++        fprintf(stderr, "cable-adbd: no usable ADB key\n");
++        return 1;
+     }
+-
+-    /* don't listen on a port (default 5037) if running in secure mode */
+-    /* don't run as root if we are running in secure mode */
+-    if (should_drop_privileges()) {
+-        drop_capabilities_bounding_set_if_needed();
+-
+-        /* add extra groups:
+-        ** AID_ADB to access the USB driver
+-        ** AID_LOG to read system logs (adb logcat)
+-        ** AID_INPUT to diagnose input issues (getevent)
+-        ** AID_INET to diagnose network issues (netcfg, ping)
+-        ** AID_GRAPHICS to access the frame buffer
+-        ** AID_NET_BT and AID_NET_BT_ADMIN to diagnose bluetooth (hcidump)
+-        ** AID_SDCARD_R to allow reading from the SD card
+-        ** AID_SDCARD_RW to allow writing to the SD card
+-        ** AID_NET_BW_STATS to read out qtaguid statistics
+-        */
++    {
++        /* The same supplementary groups a stock adbd shell has. The capability
++         * bounding set is left as inherited, as on a debuggable stock build. */
+         gid_t groups[] = { AID_ADB, AID_LOG, AID_INPUT, AID_INET, AID_GRAPHICS,
+                            AID_NET_BT, AID_NET_BT_ADMIN, AID_SDCARD_R, AID_SDCARD_RW,
+                            AID_NET_BW_STATS };
+         if (setgroups(sizeof(groups)/sizeof(groups[0]), groups) != 0) {
+             exit(1);
+         }
+-
+-        /* then switch user and group to "shell" */
+         if (setgid(AID_SHELL) != 0) {
+             exit(1);
+         }
+         if (setuid(AID_SHELL) != 0) {
+             exit(1);
+         }
+-
+-        D("Local port disabled\n");
+-    } else {
+-        char local_name[30];
+-        build_local_name(local_name, sizeof(local_name), server_port);
+-        if(install_listener(local_name, "*smartsocket*", NULL, 0)) {
++        if (getuid() != AID_SHELL || geteuid() != AID_SHELL) {
+             exit(1);
+         }
+     }
+ 
+-    int usb = 0;
+-    if (access(USB_ADB_PATH, F_OK) == 0 || access(USB_FFS_ADB_EP0, F_OK) == 0) {
+-        // listen on USB
+-        usb_init();
+-        usb = 1;
+-    }
+-
+-    // If one of these properties is set, also listen on that port
+-    // If one of the properties isn't set and we couldn't listen on usb,
+-    // listen on the default port.
+-    property_get("service.adb.tcp.port", value, "");
+-    if (!value[0]) {
+-        property_get("persist.adb.tcp.port", value, "");
+-    }
+-    if (sscanf(value, "%d", &port) == 1 && port > 0) {
+-        printf("using port=%d\n", port);
+-        // listen on TCP port specified by service.adb.tcp.port property
+-        local_init(port);
+-    } else if (!usb) {
+-        // listen on default port
+-        local_init(DEFAULT_ADB_LOCAL_TRANSPORT_PORT);
+-    }
++    local_init(HMG_SEOGAEMO_CABLE_PORT);
+ 
+-    D("adb_main(): pre init_jdwp()\n");
+     init_jdwp();
+     D("adb_main(): post init_jdwp()\n");
+ #endif
+@@ -1634,10 +1592,11 @@
+     /* If adbd runs inside the emulator this will enable adb tracing via
+      * adb-debug qemud service in the emulator. */
+     adb_qemu_trace_init();
+-    if((argc > 1) && (!strcmp(argv[1],"recovery"))) {
+-        adb_device_banner = "recovery";
+-        recovery_mode = 1;
++    if (argc != 2 || argv[1][0] != '/') {
++        fprintf(stderr, "usage: cable-adbd <absolute adb_keys path>\n");
++        return 2;
+     }
++    hmg_seogaemo_keys_path = argv[1];
+ 
+     start_device_log();
+     D("Handling main()\n");
+--- a/adb/adb_auth.h
++++ b/adb/adb_auth.h
+@@ -48,6 +48,8 @@
+ int adb_auth_generate_token(void *token, size_t token_size);
+ int adb_auth_verify(void *token, void *sig, int siglen);
+ void adb_auth_confirm_key(unsigned char *data, size_t len, atransport *t);
++/* HMG-Seogaemo: reads the trusted keys once; returns how many were accepted. */
++int adb_auth_load_keys(const char *path);
+ 
+ #endif // ADB_HOST
+ 
+--- a/adb/adb_auth_client.c
++++ b/adb/adb_auth_client.c
+@@ -35,11 +35,9 @@
+     RSAPublicKey key;
+ };
+ 
+-static char *key_paths[] = {
+-    "/adb_keys",
+-    "/data/misc/adb/adb_keys",
+-    NULL
+-};
++/* HMG-Seogaemo: the keys of one file, read once at start while still root. */
++static struct listnode trusted_keys;
++static int trusted_loaded;
+ 
+ static fdevent listener_fde;
+ static int framework_fd = -1;
+@@ -105,20 +103,21 @@
+     }
+ }
+ 
+-static void load_keys(struct listnode *list)
++int adb_auth_load_keys(const char *path)
+ {
+-    char *path;
+-    char **paths = key_paths;
+-    struct stat buf;
++    struct listnode *item;
++    int count = 0;
+ 
+-    list_init(list);
++    if (trusted_loaded)
++        free_keys(&trusted_keys);
++    list_init(&trusted_keys);
++    trusted_loaded = 1;
++    if (path)
++        read_keys(path, &trusted_keys);
+ 
+-    while ((path = *paths++)) {
+-        if (!stat(path, &buf)) {
+-            D("Loading keys from '%s'\n", path);
+-            read_keys(path, list);
+-        }
+-    }
++    list_for_each(item, &trusted_keys)
++        count++;
++    return count;
+ }
+ 
+ int adb_auth_generate_token(void *token, size_t token_size)
+@@ -140,23 +139,18 @@
+ {
+     struct listnode *item;
+     struct adb_public_key *key;
+-    struct listnode key_list;
+     int ret = 0;
+ 
+-    if (siglen != RSANUMBYTES)
++    if (siglen != RSANUMBYTES || !trusted_loaded)
+         return 0;
+ 
+-    load_keys(&key_list);
+-
+-    list_for_each(item, &key_list) {
++    list_for_each(item, &trusted_keys) {
+         key = node_to_item(item, struct adb_public_key, node);
+         ret = RSA_verify(&key->key, sig, siglen, token, SHA_DIGEST_SIZE);
+         if (ret)
+             break;
+     }
+ 
+-    free_keys(&key_list);
+-
+     return ret;
+ }
+ 
+@@ -190,40 +184,11 @@
+ 
+ void adb_auth_confirm_key(unsigned char *key, size_t len, atransport *t)
+ {
+-    char msg[MAX_PAYLOAD];
+-    int ret;
+-
+-    if (!usb_transport) {
+-        usb_transport = t;
+-        add_transport_disconnect(t, &usb_disconnect);
+-    }
+-
+-    if (framework_fd < 0) {
+-        D("Client not connected\n");
+-        needs_retry = true;
+-        return;
+-    }
+-
+-    if (key[len - 1] != '\0') {
+-        D("Key must be a null-terminated string\n");
+-        return;
+-    }
+-
+-    ret = snprintf(msg, sizeof(msg), "PK%s", key);
+-    if (ret >= (signed)sizeof(msg)) {
+-        D("Key too long. ret=%d", ret);
+-        return;
+-    }
+-    D("Sending '%s'\n", msg);
+-
+-    ret = unix_write(framework_fd, msg, ret);
+-    if (ret < 0) {
+-        D("Failed to write PK, errno=%d\n", errno);
+-        return;
+-    }
+-
+-    fdevent_install(&t->auth_fde, framework_fd, adb_auth_event, t);
+-    fdevent_add(&t->auth_fde, FDE_READ);
++    /* HMG-Seogaemo: no enrollment on the head unit. A host whose key is not
++     * in the imported file stays unauthorized. */
++    (void)key;
++    (void)len;
++    (void)t;
+ }
+ 
+ static void adb_auth_listener(int fd, unsigned events, void *data)
+--- a/adb/jdwp_service.c
++++ b/adb/jdwp_service.c
+@@ -726,9 +726,9 @@
+     _jdwp_trackers_list.next = &_jdwp_trackers_list;
+     _jdwp_trackers_list.prev = &_jdwp_trackers_list;
+ 
+-    return jdwp_control_init( &_jdwp_control,
+-                              JDWP_CONTROL_NAME,
+-                              JDWP_CONTROL_NAME_LEN );
++    /* HMG-Seogaemo: the system adbd owns the JDWP control socket; this daemon
++     * only reports an empty process list. */
++    return 0;
+ }
+ 
+ #endif /* !ADB_HOST */
+--- a/adb/services.c
++++ b/adb/services.c
+@@ -372,7 +372,7 @@
+         if(arg == 0) return -1;
+         ret = create_service_thread(reboot_service, arg);
+     } else if(!strncmp(name, "root:", 5)) {
+-        ret = create_service_thread(restart_root_service, NULL);
++        ret = -1; /* HMG-Seogaemo: the cable adbd stays the shell user */
+     } else if(!strncmp(name, "backup:", 7)) {
+         char* arg = strdup(name+7);
+         if (arg == NULL) return -1;
+@@ -380,13 +380,9 @@
+     } else if(!strncmp(name, "restore:", 8)) {
+         ret = backup_service(RESTORE, NULL);
+     } else if(!strncmp(name, "tcpip:", 6)) {
+-        int port;
+-        if (sscanf(name + 6, "%d", &port) == 0) {
+-            port = 0;
+-        }
+-        ret = create_service_thread(restart_tcp_service, (void *)port);
++        ret = -1; /* HMG-Seogaemo: the system adbd's transport is managed separately */
+     } else if(!strncmp(name, "usb:", 4)) {
+-        ret = create_service_thread(restart_usb_service, NULL);
++        ret = -1; /* HMG-Seogaemo: as above */
+ #endif
+     }
+     if (ret >= 0) {
+--- a/adb/transport_local.c
++++ b/adb/transport_local.c
+@@ -162,18 +162,17 @@
+     int port = (int)arg;
+ 
+     D("transport: server_socket_thread() starting\n");
+-    serverfd = -1;
+-    for(;;) {
+-        if(serverfd == -1) {
+-            serverfd = socket_inaddr_any_server(port, SOCK_STREAM);
+-            if(serverfd < 0) {
+-                D("server: cannot bind socket yet\n");
+-                adb_sleep_ms(1000);
+-                continue;
+-            }
+-            close_on_exec(serverfd);
++    /* HMG-Seogaemo: the supervisor opened and bound the only listener. */
++    serverfd = 3;
++    {
++        int listening = 0;
++        socklen_t length = sizeof(listening);
++        if (getsockopt(serverfd, SOL_SOCKET, SO_ACCEPTCONN, &listening, &length) || !listening) {
++            _exit(1);
+         }
+-
++    }
++    close_on_exec(serverfd);
++    for(;;) {
+         alen = sizeof(addr);
+         D("server: trying to get new connection from %d\n", port);
+         fd = adb_socket_accept(serverfd, &addr, &alen);
+@@ -181,7 +180,11 @@
+             D("server: new connection on fd %d\n", fd);
+             close_on_exec(fd);
+             disable_tcp_nagle(fd);
+-            register_socket_transport(fd, "host", port, 1);
++            if (register_socket_transport(fd, "host", port, 1) < 0) {
++                adb_close(fd);
++            }
++        } else {
++            adb_sleep_ms(100);
+         }
+     }
+     D("transport: server_socket_thread() exiting\n");

@@ -1,6 +1,6 @@
-Status: current — core mapping implemented off-car; on-car timing/reflection for the v1.0.1 and stock-guidance additions unverified.
+Status: current — core mapping implemented off-car; on-car timing/reflection for the v1.0.1 and stock-guidance additions unverified; CN7/CN7N bundles host-mapped only.
 
-# Car mapping: NEEV.KOR.260902
+# Car mapping: NEEV.KOR.260902, CN7.KOR.260902, CN7N.KOR.260319
 
 The private Car Report is never committed. Operator workflow:
 `docs/mapping-new-firmware.md`; provenance and stable IDs: `UPSTREAM.md`; AGENTS.md has the mapping summary.
@@ -68,6 +68,20 @@ cluster-ar-view.md and hud-junction-view.md do not establish that verification.
 uniquely in the KOR dump (`HKMC_DiPO.odex` `3b26cdcbf3c43f75623311f2bdfc3471`, unchanged in `car.json`).
 `wireless-carplay-and-aa` uses it as an optional point (CALL key with no call opens the Phone app); a missing or
 failed point leaves the key stock. On-car reflection is pending.
+
+## Avante CN7 KOR 260902 and Avante N CN7N KOR 260319 (2026-11-09)
+
+- Two further bundles, `maps/hyundai/cn7/kor/260902` and `maps/hyundai/cn7n/kor/260319`, were produced
+  with our host mapper (`tools/map-car.py`, baksmali 2.5.2) by a contributor who owns the stock files:
+  CN7 from a read-only dump of the official `260902` system image (product reported by the unit
+  `CN7.KOR.0000.V039.001.260902`, onebin `cn7_kr`, tcc897x), CN7N from files collected read-only on the
+  car (`CN7N.KOR.0000.V037.001.260319`, onebin `cn7n_kr`, tcc803x). Both resolve 349/349, including
+  `themesettings.split_item.type`. The contributor's HMG-API host maps of the same files agree on all
+  325 shared IDs; 347 (CN7) and 339 (CN7N) entries equal the Ioniq 5 KOR names.
+- Evidence sidecars record one `kor-stock-dex-scan` observation per bundle and no reflection; the
+  README of each bundle lists the per-firmware facts (CN7 `featurexml.cfg` has none of the three
+  wireless lines, CN7N has all three; CN7 stock `app_process` MD5 `33f79811…` equals NEEV KOR and is
+  declared as `stock_file.2`). Nothing is car-verified; see the backlog item.
 
 ## Verification seal
 
