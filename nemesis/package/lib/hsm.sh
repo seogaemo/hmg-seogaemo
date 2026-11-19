@@ -262,7 +262,7 @@ hsm_cond() {
 
 hsm_allowed() {
     case "$hsm_kind:$1" in
-        apply:set_prop|apply:put_file|apply:put_files|apply:replace_line) ;;
+        apply:set_prop|apply:put_file|apply:put_files|apply:replace_line|apply:put_partition) ;;
         apply:restart_service|apply:call_service|apply:hook_apps|apply:app_data_dir) ;;
         check:block|check:warn|status:info|status:fail|*:log) ;;
         *) return 1 ;;
@@ -273,7 +273,7 @@ hsm_verb_check() {
     hsm_name=$1
     shift
     case "$hsm_name" in
-        set_prop|put_file|put_files|replace_line|restart_service|call_service|hook_apps|app_data_dir|block|warn|info|fail|log) ;;
+        set_prop|put_file|put_files|replace_line|put_partition|restart_service|call_service|hook_apps|app_data_dir|block|warn|info|fail|log) ;;
         *) hsm_error 110 "unknown verb: $hsm_name"; return ;;
     esac
     hsm_allowed "$hsm_name" || { hsm_error 113 "$hsm_name is not allowed in ${hsm_file##*/}"; return; }
@@ -284,6 +284,7 @@ hsm_verb_check() {
         put_file:2|put_file:3) hsm_ok_path "$1" && hsm_ok_payload "$2" && { [ "$#" -eq 2 ] || hsm_ok_mode "$3"; } ;;
         put_files:2|put_files:3) hsm_ok_dir "$1" && hsm_ok_payload_dir "$2" && { [ "$#" -eq 2 ] || hsm_ok_mode "$3"; } ;;
         replace_line:3) hsm_ok_path "$1" && hsm_ok_value "$2" && hsm_ok_value "$3" ;;
+        put_partition:3) hsm_ok_payload "$3" && sg_partition_claim_ok "$(hsm_partition_claim "$@")" ;;
         restart_service:1) hsm_ok_service "$1" ;;
         call_service:2) hsm_ok_service "$1" && hsm_ok_code "$2" ;;
         hook_apps:[3-9]|hook_apps:[1-9][0-9]) hsm_ok_hook "$@" ;;
@@ -313,6 +314,7 @@ hsm_verb_check() {
                 sg_print "file	$1${hsm_src##*/}"
             done ;;
         replace_line) sg_print "line	$1:$2" ;;
+        put_partition) sg_print "part	$(hsm_partition_claim "$@")" ;;
         restart_service) sg_print "service	$1" ;;
         call_service) sg_print "call	$1:$2" ;;
         hook_apps)
@@ -326,6 +328,9 @@ hsm_put_file() {
     sg_payload_dirs "$1" || return 1
     sg_file_put "$1" "$2" "${3:-644}" 0:0
 }
+
+# The range a put_partition line owns: <name>:<offset>:<payload size>.
+hsm_partition_claim() { sg_print "$1:$2:$(sg_file_size "$HMG_SEOGAEMO_MODULE_DIR/$3")"; }
 
 hsm_module_id() { sg_print "${HSM_MODULE_ID:-${HMG_SEOGAEMO_STATE##*/}}"; }
 hsm_hook_dir() { sg_print "$SG_DATA_ROOT/core/hook/mods/$(hsm_module_id)"; }
@@ -371,6 +376,12 @@ hsm_verb_run() {
             done
             IFS=$hsm_old_ifs ;;
         replace_line) sg_file_replace_line "$1" "$2" "$(hsm_value "$3")" ;;
+        put_partition)
+            if [ "${HSM_RERUN:-0}" = 1 ] && [ ! -f "$(sg_partition_dir "$(hsm_partition_claim "$@")")/ready" ]; then
+                sg_log "rerun refused new baseline for $1"
+                return 1
+            fi
+            sg_partition_put "$1" "$2" "$3" ;;
         restart_service) sg_service_restart "$1" ;;
         call_service) sg_service_call "$1" "$2" ;;
         hook_apps) hsm_hook_apps "$@" ;;

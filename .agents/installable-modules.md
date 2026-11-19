@@ -112,12 +112,13 @@ limits and writes only into the staging extraction directory.
 | `not_with` | csv of module IDs | rare: a specific module that cannot be on together | `excludes` |
 | `conflicts` | csv of external owner names | external tools that already own the feature; same names as `sg_owner_present` | `conflicts` |
 | `stock_file.N` | `<path>:<md5>` or `<product glob>:<path>:<md5>` | stock MD5 required before apply; the glob form applies only to matching firmware, the plain form to every `cars` glob | `known_stock.N` (glob form copied as is) |
+| `stock_partition.N` | `<name>:<offset>:<length>:<md5>` or `<product glob>:<name>:<offset>:<length>:<md5>` | stock MD5 of a partition range; required for every `put_partition` range (Partition ranges) | `known_partition.N` (plain form once per `cars` glob) |
 | `hookpoints` | member name of a text file of stable IDs | | `hookpoints.required` |
 | `setting.N` | `key:type:default` | types `toggle`, `choice(a\|b\|...)`, `number(min..max)` | `Module.settings()` |
 | `raw_shell` | `1` | see Restricted scripts | |
 | `replaces` | module ID list | bundled packages only: take over one renamed bundled module's state, or merge several into this one (runtime contract, "Settings check and module takeover") | |
 | `replaces_setting.<old>` | `key:value` | bundled packages only: when the replaced module `<old>` was on, the takeover sets this module's setting `key` to `value` | |
-| `kind` | `toggle` (default) or `action` | `action`: one-shot module, no on/off state (see Action modules). Refused together with `setting.N`, `hookpoints`, `depends`, `not_with`, `rerun_on`, `stock_file.N`; `apply.sh` may use only `call_service`; `ui.txt` needs a `button` block | `kind` |
+| `kind` | `toggle` (default) or `action` | `action`: one-shot module, no on/off state (see Action modules). Refused together with `setting.N`, `hookpoints`, `depends`, `not_with`, `rerun_on`, `stock_file.N`, `stock_partition.N`; `apply.sh` may use only `call_service`; `ui.txt` needs a `button` block | `kind` |
 | `icon` | one of `box`, `wifi`, `phone`, `terminal`, `car`, `gear`, `display`, `speaker`, `camera`, `map`, `power`, `key`, `skip`, `button`, `link`, `bolt` | app-drawn line icon on the module card and detail panel; default `box`; modules cannot ship images | `icon` |
 
 Example (`wireless-carplay-and-aa`, design sketch): `id`, `version=1.0.0`, `api=1`, `cars=*`,
@@ -153,6 +154,7 @@ Write verbs (`apply.sh` only):
 | `put_file DEST SRC [MODE]` | `sg_payload_dirs` + `sg_file_put` | `owns_files` |
 | `put_files DESTDIR/ SRCDIR/ [MODE]` | `put_file` per regular file, one level | `owns_files` |
 | `replace_line FILE STOCK NEW` | `sg_file_replace_line` | `owns_lines.N` |
+| `put_partition NAME OFFSET SRC` | `sg_partition_put` | `owns_partitions.N` |
 | `restart_service NAME` | `sg_service_restart` | `services` |
 | `call_service SERVICE CODE` | `sg_service_call` | `service_calls` |
 | `hook_apps JAR CLASS PROCESS...` | `core/hook/mods/<id>/` + `sg_core_hook_ensure` | `owns_files` (+ `hooks=1`) |
@@ -180,6 +182,26 @@ replace_line /system/onebin/neev_kr/featurexml.cfg "<stock line>" "<new line>"
 hook_apps files/hook.jar <entry class> com.daudio.app.dipo com.tcc.iap2server
 ```
 
+### Partition ranges
+
+`put_partition NAME OFFSET SRC` writes the payload file `SRC` at byte `OFFSET` of the raw partition `NAME`
+(runtime contract, "Partition regions"). `NAME` must be on the runtime allow-list (today `splash`, the boot
+logo); `OFFSET` and the payload size are multiples of 512; there is no setting substitution. Each range needs
+its stock MD5 so the module only ever overwrites the bytes its author looked at:
+
+```properties
+stock_partition.1=splash:2048:90112:7e6534ceed3b48e5a91dcfc639023c13
+```
+
+```sh
+put_partition splash 2048 files/slot1.bin
+```
+
+Install generates `owns_partitions.N=splash:2048:90112` and one `known_partition.N` per `cars` glob. A
+module owns a whole partition against other modules, and its own ranges never overlap. Turning the module
+off writes the saved stock bytes back. Errors: HSM-E214 a `put_partition` range without a
+`stock_partition.N` entry of the same name, offset and length; HSM-E215 two ranges of the module overlap.
+
 `raw_shell=1` runs the three scripts with mksh after `common.sh`, like current built-in scripts. Built-in
 modules shipped inside the package may use it without developer mode; an installed module needs developer
 mode and a high-risk confirm, and only its verb calls keep the exact-restore guarantee. Its touched list is
@@ -198,7 +220,7 @@ behaviour).
 ## Conflicts
 
 Modules declare what they use, not which modules they dislike. Enable is refused when, against any module
-that is on: touched lists overlap (property, whole file, or stock line); a `uses` resource overlaps by
+that is on: touched lists overlap (property, whole file, stock line, or partition); a `uses` resource overlaps by
 hierarchy and the modes differ, or either side is `only`; `not_with` names it; or a `conflicts` owner is
 present. Enable additionally refuses shared owned properties and `uses` clashes via `sg_module_clash`. The
 refusal names the blocking module in plain language and offers to turn it off through the normal plan and

@@ -116,7 +116,7 @@ for id in $reverse; do
     for item in "$state/modules/$id"/prop.*/ready "$state/modules/$id"/file.*/ready \
         "$state/modules/$id"/line.*/ready "$state/modules/$id"/bind.* \
         "$state/modules/$id"/changes "$state/modules/$id"/dex.cache \
-        "$state/modules/$id"/dir.* "$state/modules/$id"/dir-order; do
+        "$state/modules/$id"/dir.* "$state/modules/$id"/dir-order "$state/modules/$id"/part.*/ready; do
         [ -f "$item" ] && baseline=1
     done
     [ "$baseline" -eq 1 ] || continue

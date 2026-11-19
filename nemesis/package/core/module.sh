@@ -164,6 +164,14 @@ mi_check_props() {
                     ????????????????????????????????) case "${mi_val##*:}" in *[!0-9a-f]*) false;; esac ;;
                     *) false ;;
                 esac ;;
+            stock_partition.[1-9]|stock_partition.[1-9][0-9])
+                # <name>:<offset>:<length>:<md5> applies to every cars glob; a leading <product glob>: to that firmware.
+                mi_sp=$mi_val
+                case "$mi_sp" in *:*:*:*:*) hsm_ok_glob "${mi_sp%%:*}" && mi_sp=${mi_sp#*:} ;; esac &&
+                sg_partition_claim_ok "${mi_sp%:*}" && case "${mi_sp##*:}" in
+                    ????????????????????????????????) case "${mi_sp##*:}" in *[!0-9a-f]*) false;; esac ;;
+                    *) false ;;
+                esac ;;
             hookpoints) [ -f "$mi_pkg/$mi_val" ] && case "$mi_val" in files/*) hsm_ok_src "$mi_val";; *) false;; esac ;;
             setting.[1-9]|setting.[1-9][0-9])
                 hsm_setting_decl "${mi_val%%:*}" && hsm_setting_valid "$hsm_sdefault" ;;
@@ -200,7 +208,7 @@ mi_check_props() {
     if [ "$(mi_field kind "$mi_props")" = action ]; then
         for mi_key in $mi_seen; do
             case "$mi_key" in
-                setting.*|hookpoints|depends|rerun_on|stock_file.*|not_with|hooks|raw_shell|replaces|replaces_setting.*)
+                setting.*|hookpoints|depends|rerun_on|stock_file.*|stock_partition.*|not_with|hooks|raw_shell|replaces|replaces_setting.*)
                     mi_fail "HSM-E211 module.properties: kind=action cannot declare $mi_key" ;;
             esac
         done
@@ -262,7 +270,7 @@ mi_declared_touched() {
 
 # Persistent ownership (stock files, properties, lines, services, hooks) of a generated manifest.
 mi_persistent() {
-    grep -E '^(owns_props|reassert_props|owns_files|owns_generated_dirs|services|service_calls|restore|hooks|owns_lines\.[0-9]+)=' "$1" 2>/dev/null
+    grep -E '^(owns_props|reassert_props|owns_files|owns_generated_dirs|services|service_calls|restore|hooks|owns_lines\.[0-9]+|owns_partitions\.[0-9]+)=' "$1" 2>/dev/null
 }
 
 # replaces=<old>[,<old>...]: a renamed bundled module, or one that merges several, takes over
@@ -280,6 +288,7 @@ mi_items() {
                 for mi_ix in $mi_iv; do [ -z "$mi_ix" ] || sg_print "$mi_ik=$mi_ix"; done
                 IFS=$mi_iifs ;;
             owns_lines.*) sg_print "owns_lines=$mi_iv" ;;
+            owns_partitions.*) sg_print "owns_partitions=$mi_iv" ;;
             *) sg_print "$mi_ik=$mi_iv" ;;
         esac
     done
@@ -416,7 +425,7 @@ mi_replaces_finish() {
 
 # Ownership lines of a generated manifest, compared before replacing a bundled module that is on.
 mi_ownership() {
-    grep -E '^(owns_props|reassert_props|owns_files|owns_generated_dirs|services|service_calls|restore|hooks|owns_lines\.[0-9]+|kmods|daemons|owns_ifaces|kmod\.[^=]*|kmod_params\.[^=]*|daemon\.[^=]*|net_rules\.[0-9]+)=' "$1" 2>/dev/null
+    grep -E '^(owns_props|reassert_props|owns_files|owns_generated_dirs|services|service_calls|restore|hooks|owns_lines\.[0-9]+|owns_partitions\.[0-9]+|kmods|daemons|owns_ifaces|kmod\.[^=]*|kmod_params\.[^=]*|daemon\.[^=]*|net_rules\.[0-9]+)=' "$1" 2>/dev/null
 }
 # Transient declarations (kernel modules, daemons, network rules, interfaces) copied verbatim.
 # Derived programs and daemon users only shape private state-directory files, so they are not
@@ -562,6 +571,40 @@ mi_collides() {
     return 1
 }
 
+# Another module that already owns a range of a partition this package writes.
+mi_partition_collides() {
+    for mi_other in $(sg_module_list "$base"); do
+        [ "$mi_other" != "$mi_id" ] || continue
+        mi_other_props=$(sg_module_props "$base" "$mi_other")
+        [ -f "$mi_other_props" ] || continue
+        while IFS="$(sg_write '	')" read -r mi_kind mi_target; do
+            [ "$mi_kind" = part ] || continue
+            ! grep -q "^owns_partitions\.[0-9]*=${mi_target%%:*}:" "$mi_other_props" || { sg_print "$mi_other"; return 0; }
+        done < "$work.touched"
+    done
+    return 1
+}
+
+# Sets mi_parts to the distinct put_partition ranges of the package, separated by spaces. Every
+# range needs its stock MD5 (stock_partition.N), and two ranges of one partition must not overlap.
+mi_partitions() {
+    mi_parts=
+    while IFS="$(sg_write '	')" read -r mi_kind mi_target; do
+        [ "$mi_kind" = part ] || continue
+        case " $mi_parts " in *" $mi_target "*) continue;; esac
+        grep -Eq "^stock_partition\.[0-9]+=([^:]*:)?$mi_target:[0-9a-f]+\$" "$mi_src" ||
+            mi_fail "HSM-E214 apply.sh: put_partition $mi_target needs a stock_partition entry"
+        mi_rest=${mi_target#*:}; mi_start=$((${mi_rest%%:*} / 512)); mi_end=$((mi_start + ${mi_rest#*:} / 512))
+        for mi_part in $mi_parts; do
+            [ "${mi_part%%:*}" = "${mi_target%%:*}" ] || continue
+            mi_rest=${mi_part#*:}; mi_ostart=$((${mi_rest%%:*} / 512))
+            [ "$mi_start" -ge "$((mi_ostart + ${mi_rest#*:} / 512))" ] || [ "$mi_end" -le "$mi_ostart" ] ||
+                mi_fail "HSM-E215 apply.sh: put_partition ranges $mi_part and $mi_target overlap"
+        done
+        mi_parts="$mi_parts${mi_parts:+ }$mi_target"
+    done < "$work.touched"
+}
+
 mi_generate() {
     mi_src=$work.d/module.properties
     mi_out=$work.properties
@@ -577,10 +620,11 @@ mi_generate() {
             hook) mi_hooks=1 ;;
         esac
     done < "$work.touched"
+    mi_partitions
     mi_action=0
     [ "$(mi_field kind "$mi_src")" != action ] || mi_action=1
     if [ "$mi_action" -eq 1 ]; then
-        if [ -n "$mi_props_csv$mi_reassert$mi_files$mi_services" ] || [ "$mi_lines" -ne 0 ] || [ "$mi_hooks" -ne 0 ]; then
+        if [ -n "$mi_props_csv$mi_reassert$mi_files$mi_services$mi_parts" ] || [ "$mi_lines" -ne 0 ] || [ "$mi_hooks" -ne 0 ]; then
             mi_fail 'HSM-E213 apply.sh: kind=action may only use call_service'
         fi
     fi
@@ -604,7 +648,7 @@ mi_generate() {
             sg_print raw_shell=1
             mi_v=$(mi_field owns_generated_dirs "$mi_src"); [ -z "$mi_v" ] || sg_print "owns_generated_dirs=$mi_v"
             mi_v=$(mi_field restore "$mi_src"); [ -z "$mi_v" ] || sg_print "restore=$mi_v"
-        elif [ "$mi_action" -eq 0 ] && [ -n "$mi_calls" ] && [ -z "$mi_props_csv$mi_files$mi_services" ] && [ "$mi_lines" -eq 0 ]; then
+        elif [ "$mi_action" -eq 0 ] && [ -n "$mi_calls" ] && [ -z "$mi_props_csv$mi_files$mi_services$mi_parts" ] && [ "$mi_lines" -eq 0 ]; then
             sg_print restore=reboot
         fi
         mi_n=0
@@ -613,6 +657,24 @@ mi_generate() {
             mi_n=$((mi_n + 1))
             sg_print "owns_lines.$mi_n=$mi_target"
         done < "$work.touched"
+        mi_n=0
+        for mi_part in $mi_parts; do
+            mi_n=$((mi_n + 1))
+            sg_print "owns_partitions.$mi_n=$mi_part"
+        done
+        mi_n=0
+        while IFS='=' read -r mi_key mi_val; do
+            case "$mi_key" in stock_partition.*) ;; *) continue;; esac
+            case "$mi_val" in
+                *:*:*:*:*) mi_n=$((mi_n + 1)); sg_print "known_partition.$mi_n=$mi_val"; continue ;;
+            esac
+            while IFS= read -r mi_glob; do
+                mi_n=$((mi_n + 1))
+                sg_print "known_partition.$mi_n=$mi_glob:$mi_val"
+            done <<EOF
+$(sg_csv_items "$(mi_field cars "$mi_src")")
+EOF
+        done < "$mi_src"
         mi_n=0
         while IFS='=' read -r mi_key mi_val; do
             case "$mi_key" in stock_file.*) ;; *) continue;; esac
@@ -702,6 +764,7 @@ mi_install_file() {
         hsm_walk "$work.d/apply.sh" apply touched > "$work.touched" || exit 2
     fi
     if mi_other=$(mi_collides); then mi_conflict "Changes the same file or line as $mi_other"; fi
+    if mi_other=$(mi_partition_collides); then mi_conflict "Writes the same partition as $mi_other"; fi
     mi_generate
     mi_replaces_prepare
     if [ -d "$installed/$mi_id" ]; then

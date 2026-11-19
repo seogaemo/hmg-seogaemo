@@ -31,7 +31,7 @@ output redirection to absolute paths outside `$HMG_SEOGAEMO_STATE`, `nemesis rem
 `ip addr|link|rule|route|...`, `insmod`, `rmmod`, `modprobe`, `kill`, `nohup`, `am`, and the
 runtime-internal `sg_tool_*` and transient revert helpers.
 
-Mutation API (each call: validate target against the module's `owns_props`/`owns_files`/`owns_lines.N`,
+Mutation API (each call: validate target against the module's `owns_props`/`owns_files`/`owns_lines.N`/`owns_partitions.N`,
 baseline on first touch, perform, verify, mark applied, append ledger; non-zero on failure):
 
 | Function | Meaning |
@@ -40,6 +40,7 @@ baseline on first touch, perform, verify, mark applied, append ledger; non-zero 
 | `sg_file_put <path> <payload-rel-src> [mode] [owner:group]` | create/replace a file from `$HMG_SEOGAEMO_MODULE_DIR/<src>` atomically (path in `owns_files`); handles `/system` remount |
 | `sg_file_replace_line <path> <exact-old-line> <new-line>` | replace exactly one line that must match exactly once (e.g. comment a `featurexml.cfg` entry) |
 | `sg_file_delete <path>` | remove a file (baseline keeps its bytes) |
+| `sg_partition_put <name> <byte-offset> <payload-rel-src>` | overwrite one byte range of an allow-listed raw partition with a payload file (range in `owns_partitions.N`, stock MD5 in `known_partition.N`; see [Partition regions](#partition-regions)) |
 | `sg_bind_mount <target> <payload-rel-src>` | non-persistent bind mount, recorded; reapplied by reconcile at boot |
 | `sg_service_restart <name>` | `stop`/`start` an init service (allow-listed per module in `module.properties` `services=`) |
 | `sg_service_call <service> <code>` | fixed Binder call, only if the exact `service:code` pair is listed in `service_calls=`; validates both arguments, enforces a 15-second timeout and records every attempted result in the ledger |
@@ -457,6 +458,53 @@ The `wifi` module (built-in client role) and wireless projection never claim the
 radio cannot be a client and serve the stock hotspot), see [wifi.md](wifi.md); file
 safety is independent of it.
 
+## Partition regions
+
+Some stock data is not a file: the boot splash is a raw eMMC partition read by the bootloader.
+`sg_partition_put <name> <offset> <payload-rel-src>` overwrites the byte range that starts at `<offset>`
+and is as long as the payload file. It is the only write path to a block device.
+
+- Allow-list: the runtime lists the partitions that may be written (`sg_partition_allowed`), today only
+  `splash`. Any other name returns 2. Bootloader, kernel and file-system partitions are never listed;
+  adding a name is a runtime and contract change, never a module's choice.
+- The partition is found by name, never by number: exactly one `/sys/class/block/<dev>/uevent` must hold
+  the line `PARTNAME=<name>`. The node is `/dev/block/<dev>`; it must be a block device, not a symlink,
+  with `ro` reading `0`; a unit without exactly that returns 4. Host tests point `HMG_SEOGAEMO_BLOCK_SYS_ROOT` and
+  `HMG_SEOGAEMO_BLOCK_DEV_ROOT` at fixtures (a regular file stands in for the node); on the unit both
+  are unset.
+- Range: decimal byte offset below 1,000,000,000 and payload size from 512 bytes to 16 MiB, both multiples
+  of 512, and the range must end inside the partition (`size` in 512-byte sectors).
+- Claim: `owns_partitions.N=<name>:<offset>:<length>`. Ownership is exclusive per partition: no other
+  module's manifest may claim any range of the same partition, checked at install and at every call (3).
+  Ranges of one module are identical or disjoint. `restore=reboot` and `kind=action` modules cannot
+  own ranges. Only restricted-script packages get the key (generated from `put_partition`); a
+  `raw_shell` manifest that declares it is refused as an unknown key.
+- Stock proof: the manifest needs `known_partition.N=<product glob>:<name>:<offset>:<length>:<md5>` for
+  the range and the running `ro.build.product`, else 4. The first write copies the range into the
+  baseline and refuses (3) unless its MD5 is that value. Raw bytes carry no other evidence that the
+  offsets address what the author meant, and applied bytes are never adopted as stock.
+- State: `part.<MD5-of-claim>/` in the module state directory holds `target` (the claim), `bytes` and
+  `md5` (stock range), `applied` and `applied-md5` (what we wrote), `ready`, and `pending` while a write
+  runs. The `changes` kind is `part`.
+- Write order: `pending`, then `applied`, then the `changes` line, then `dd` with `conv=notrunc`, `sync`,
+  read back and compare the MD5, drop `pending`, ledger `partition_put` (before = stock range, after =
+  payload). Each write checks the size and MD5 of its source and limits dd to the declared sector count. A range that already holds the payload is not written again.
+- A range write is not atomic, unlike a file rename. While `pending` exists the range may hold a mix of
+  both versions, so each sector must match its original or journaled replacement before apply writes the payload again and
+  revert writes the baseline again. Without `pending` the range must hash to the baseline or to the
+  applied bytes, else conflict (3) and nothing is written.
+- Revert (`sg_revert_all`): every range is checked in the restore preflight before the first restore
+  write; then the baseline bytes are written back under the same journal, the MD5 is verified and a
+  `revert` ledger row is appended. Baselines are bound to `ro.build.product` like file baselines.
+- `sg_partition_applied <claim>` is 0 when the range hashes to the applied bytes and no write is pending;
+  installed-module status uses it for every owned range.
+
+Checked on a CN7 KOR `260902` unit (2026-11-14): `PARTNAME=splash` is `mmcblk0p6`, 32768 sectors, `ro` 0
+(read-only look). Install, apply, repeated apply, the conflict on a foreign change, exact restore and the
+stock-proof refusal ran on that unit's mksh R43 and toolbox against a RAM copy of the partition's first 64
+sectors, as the shell user with the two fixture roots set. Writing the real block device as root, and the
+bootloader showing the result, are not verified on a car.
+
 ## Ownership of work areas
 
 | Area | Owner worktree |
@@ -822,8 +870,8 @@ Pane/precheck decisions per module live in [wifi.md](wifi.md) and [wireless-adb.
 
 ## Restore-on-uninstall guarantees (owner priority)
 
-- Every `/system` or `/data` change made by a module is baselined before the first write and
-  restored byte-exactly on revert/uninstall. Nothing outside baselined paths/props may be written.
+- Every `/system`, `/data` or partition-range change made by a module is baselined before the first write and
+  restored byte-exactly on revert/uninstall. Nothing outside baselined paths/props/ranges may be written.
 - Restore is guarded: only undo what we wrote. If the current content is neither our applied copy
   nor the baseline (e.g. an official firmware update replaced `/system`), do not write stock bytes
   from an older firmware; report conflict, keep backups, and let the uninstall fail closed.
