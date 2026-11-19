@@ -69,6 +69,10 @@ hm_stock_ok() {
         set -- $hm_sum
         [ "${1:-}" = "${hm_rest##*:}" ] || return 1
     done < "$manifest"
+    # Every owned partition range must still hold the stock bytes declared for this firmware.
+    while IFS='=' read -r hm_key hm_val; do
+        case "$hm_key" in owns_partitions.*) sg_partition_stock "$hm_val" || return 1;; esac
+    done < "$manifest"
 }
 
 hm_all_applied() {
@@ -78,6 +82,11 @@ hm_all_applied() {
         case "$hm_key" in
             owns_props|owns_files) IFS=, ;;
             owns_lines.*) hm_val=$(sg_line_decl "$hm_val"); hm_val=${hm_val%%:*} ;;
+            owns_partitions.*)
+                [ -f "$(sg_partition_dir "$hm_val")/ready" ] || continue
+                hm_any=1
+                sg_partition_applied "$hm_val" || return 1
+                continue ;;
             *) continue ;;
         esac
         for hm_target in $hm_val; do

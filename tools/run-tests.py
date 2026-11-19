@@ -49,6 +49,7 @@ HOST = (["python3", "tools/test-module-install.py"], ["python3", "tools/test-for
         ["python3", "tools/test-android44-shell.py"], ["python3", "tools/lint-android44-shell.py"],
         ["python3", "tools/lint-module-root.py"], ["python3", "tools/lint-names.py"],
         ["python3", "tools/test-hsm.py"], ["python3", "tools/test-hsm-cli.py"],
+        ["python3", "tools/test-partition.py"], ["python3", "tools/test-n-mode.py"],
         ["python3", "tools/test-update.py"], ["python3", "tools/test-module-switch.py"],
         ["python3", "tools/test-beta-bump.py"],
         ["make", "-s", "test-java"])

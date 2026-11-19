@@ -72,6 +72,15 @@ hsm_ok_path() {
     case "$1" in /*) ;; *) return 1;; esac
     case "$1" in *..*|*//*|*[!a-zA-Z0-9/._+-]*) return 1;; esac
 }
+# Resolve only a complete onebin directory component, without evaluating script text.
+hsm_line_path() (
+    prefix=/system/onebin/@onebin@/
+    case "$1" in
+        "$prefix"*) hsm_ok_path "/${1#"$prefix"}" || exit 2 ;;
+        *) hsm_ok_path "$1" || exit 2 ;;
+    esac
+    sg_onebin_path "$1"
+)
 hsm_ok_dir() { case "$1" in */) hsm_ok_path "$1";; *) return 1;; esac; }
 hsm_ok_src() {
     case "$1" in files/?*) ;; *) return 1;; esac
@@ -228,13 +237,15 @@ hsm_cond() {
     case "$hsm_name:$#" in
         setting_is:2) hsm_setting_decl "$1" && hsm_setting_valid "$2" ;;
         prop_is:2) hsm_ok_prop "$1" && hsm_ok_value "$2" ;;
-        file_exists:1|file_missing:1) hsm_ok_path "$1" ;;
+        file_exists:1|file_missing:1) hsm_line_path "$1" >/dev/null ;;
+        file_has_line:2) hsm_line_path "$1" >/dev/null && sg_line_text "$2" ;;
+        file_md5_is:2) hsm_ok_path "$1" && [ "${#2}" -eq 32 ] && case "$2" in *[!0-9a-f]*) false;; *) true;; esac ;;
         car_is:1) hsm_ok_glob "$1" ;;
         module_on:1) hsm_ok_id "$1" ;;
         hookpoints_ok:0) true ;;
         uses_on:1) hsm_ok_resource "$1" ;;
         action_is:1) hsm_ok_name "$1" ;;
-        setting_is:*|prop_is:*|file_exists:*|file_missing:*|car_is:*|module_on:*|hookpoints_ok:*|uses_on:*|action_is:*)
+        setting_is:*|prop_is:*|file_exists:*|file_missing:*|file_has_line:*|file_md5_is:*|car_is:*|module_on:*|hookpoints_ok:*|uses_on:*|action_is:*)
             hsm_error 111 "wrong argument count for $hsm_name"; return ;;
         *) hsm_error 110 "unknown condition: $hsm_name"; return ;;
     esac || { hsm_error 112 "bad argument for $hsm_name"; return; }
@@ -242,8 +253,10 @@ hsm_cond() {
     case "$hsm_name" in
         setting_is) [ "$(hsm_setting_value "$1")" = "$2" ] ;;
         prop_is) [ "$(getprop "$1")" = "$(hsm_value "$2")" ] ;;
-        file_exists) [ -e "$1" ] ;;
-        file_missing) [ ! -e "$1" ] ;;
+        file_exists) [ -e "$(hsm_line_path "$1")" ] ;;
+        file_missing) [ ! -e "$(hsm_line_path "$1")" ] ;;
+        file_has_line) grep -Fxq -e "$2" "$(hsm_line_path "$1")" ;;
+        file_md5_is) [ -f "$1" ] && [ ! -L "$1" ] && [ "$(sg_md5 "$1")" = "$2" ] ;;
         car_is) case "$(getprop ro.build.product)" in $1) true;; *) false;; esac ;;
         module_on) [ "$(cat "$SG_DATA_ROOT/desired/$1" 2>/dev/null)" = on ] ;;
         hookpoints_ok) hsm_hookpoints_ok ;;
@@ -262,7 +275,7 @@ hsm_cond() {
 
 hsm_allowed() {
     case "$hsm_kind:$1" in
-        apply:set_prop|apply:put_file|apply:put_files|apply:replace_line) ;;
+        apply:set_prop|apply:put_file|apply:patch_file|apply:put_files|apply:replace_line|apply:put_partition) ;;
         apply:restart_service|apply:call_service|apply:hook_apps|apply:app_data_dir) ;;
         check:block|check:warn|status:info|status:fail|*:log) ;;
         *) return 1 ;;
@@ -273,7 +286,7 @@ hsm_verb_check() {
     hsm_name=$1
     shift
     case "$hsm_name" in
-        set_prop|put_file|put_files|replace_line|restart_service|call_service|hook_apps|app_data_dir|block|warn|info|fail|log) ;;
+        set_prop|put_file|patch_file|put_files|replace_line|put_partition|restart_service|call_service|hook_apps|app_data_dir|block|warn|info|fail|log) ;;
         *) hsm_error 110 "unknown verb: $hsm_name"; return ;;
     esac
     hsm_allowed "$hsm_name" || { hsm_error 113 "$hsm_name is not allowed in ${hsm_file##*/}"; return; }
@@ -282,8 +295,10 @@ hsm_verb_check() {
     case "$hsm_name:$#" in
         set_prop:2) hsm_ok_prop "$1" && hsm_ok_value "$2" ;;
         put_file:2|put_file:3) hsm_ok_path "$1" && hsm_ok_payload "$2" && { [ "$#" -eq 2 ] || hsm_ok_mode "$3"; } ;;
+        patch_file:2) hsm_ok_path "$1" && hsm_ok_payload "$2" ;;
         put_files:2|put_files:3) hsm_ok_dir "$1" && hsm_ok_payload_dir "$2" && { [ "$#" -eq 2 ] || hsm_ok_mode "$3"; } ;;
-        replace_line:3) hsm_ok_path "$1" && hsm_ok_value "$2" && hsm_ok_value "$3" ;;
+        replace_line:3) hsm_line_path "$1" >/dev/null && hsm_ok_value "$2" && hsm_ok_value "$3" ;;
+        put_partition:3) hsm_ok_payload "$3" && sg_partition_claim_ok "$(hsm_partition_claim "$@")" ;;
         restart_service:1) hsm_ok_service "$1" ;;
         call_service:2) hsm_ok_service "$1" && hsm_ok_code "$2" ;;
         hook_apps:[3-9]|hook_apps:[1-9][0-9]) hsm_ok_hook "$@" ;;
@@ -306,13 +321,14 @@ hsm_verb_check() {
         set_prop)
             sg_print "prop	$1"
             [ "$hsm_reassert" -eq 0 ] || sg_print "reassert	$1" ;;
-        put_file) sg_print "file	$1" ;;
+        put_file|patch_file) sg_print "file	$1" ;;
         put_files)
             for hsm_src in "$HMG_SEOGAEMO_MODULE_DIR/$2"*; do
                 [ -f "$hsm_src" ] && [ ! -L "$hsm_src" ] || continue
                 sg_print "file	$1${hsm_src##*/}"
             done ;;
-        replace_line) sg_print "line	$1:$2" ;;
+        replace_line) sg_print "line	$(hsm_line_path "$1"):$2" ;;
+        put_partition) sg_print "part	$(hsm_partition_claim "$@")" ;;
         restart_service) sg_print "service	$1" ;;
         call_service) sg_print "call	$1:$2" ;;
         hook_apps)
@@ -326,6 +342,9 @@ hsm_put_file() {
     sg_payload_dirs "$1" || return 1
     sg_file_put "$1" "$2" "${3:-644}" 0:0
 }
+
+# The range a put_partition line owns: <name>:<offset>:<payload size>.
+hsm_partition_claim() { sg_print "$1:$2:$(sg_file_size "$HMG_SEOGAEMO_MODULE_DIR/$3")"; }
 
 hsm_module_id() { sg_print "${HSM_MODULE_ID:-${HMG_SEOGAEMO_STATE##*/}}"; }
 hsm_hook_dir() { sg_print "$SG_DATA_ROOT/core/hook/mods/$(hsm_module_id)"; }
@@ -370,7 +389,14 @@ hsm_verb_run() {
                 hsm_put_file "$1$hsm_src" "$2$hsm_src" "${3:-644}" || return
             done
             IFS=$hsm_old_ifs ;;
-        replace_line) sg_file_replace_line "$1" "$2" "$(hsm_value "$3")" ;;
+        patch_file) sg_file_put_delta "$@" ;;
+        replace_line) sg_file_replace_line "$(hsm_line_path "$1")" "$2" "$(hsm_value "$3")" ;;
+        put_partition)
+            if [ "${HSM_RERUN:-0}" = 1 ] && [ ! -f "$(sg_partition_dir "$(hsm_partition_claim "$@")")/ready" ]; then
+                sg_log "rerun refused new baseline for $1"
+                return 1
+            fi
+            sg_partition_put "$1" "$2" "$3" ;;
         restart_service) sg_service_restart "$1" ;;
         call_service) sg_service_call "$1" "$2" ;;
         hook_apps) hsm_hook_apps "$@" ;;

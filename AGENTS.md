@@ -63,9 +63,9 @@ Hyundai Avante CN7 KOR `260902` and Avante N CN7N KOR `260319` (`maps/hyundai/cn
   Toolbox `mv` accepts no options. Full evidence: `.agents/android44-shell-audit.md`.
 - **Modules never mutate the system directly.** All writes go through the package API in
   `nemesis/package/lib/common.sh` (`sg_prop_set`, `sg_file_put`, `sg_file_replace_line`,
-  `sg_file_delete`, `sg_bind_mount`, `sg_service_restart`, `sg_zygote_install`, `sg_hook_register`,
+  `sg_file_delete`, `sg_partition_put`, `sg_bind_mount`, `sg_service_restart`, `sg_zygote_install`, `sg_hook_register`,
   `sg_dex_cache_track`, `sg_revert_all`), which validates ownership (`module.properties`
-  `owns_props`/`owns_files`/`owns_lines.N`/`services`), baselines, writes, verifies and appends to the ledger.
+  `owns_props`/`owns_files`/`owns_lines.N`/`owns_partitions.N`/`services`), baselines, writes, verifies and appends to the ledger.
   `sg_service_call` accepts only exact `service_calls=` pairs, times out, and records every call.
   Module scripts may only read. Need a new kind of write? Add an API function to the runtime and
   the contract; never work around it in a module.
@@ -255,6 +255,9 @@ Device state lives under `/data/nemesis/backup/hmg-seogaemo/` (desired state, ba
   verified on a car, and only a Mac can be the computer (`.agents/wired-adb.md`).
 - An official firmware OTA while modules are applied makes restores conflict by design.
 - Removing only the APK (not via NEMESIS) skips the uninstall hook; reconcile must clean up.
+- `put_partition` (ranges of the `splash` partition): host-tested, and run on a CN7 KOR `260902` unit only
+  against a RAM copy of the partition. The write to the real block device and the bootloader showing the
+  result are not verified on a car.
 
 ## Working conventions
 

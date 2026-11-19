@@ -91,6 +91,7 @@ class Sandbox:
             path.mkdir()
         (self.live / "ro.build.product").write_text(product)
         (self.live / "ro.build.version.sdk").write_text("19")
+        (self.live / "ro.mobis.onebindir").write_text("fixture_onebin")
         classes = temp / "classes"
         compiled = subprocess.run(["javac", "-nowarn", "-d", str(classes), str(EXTRACTOR)], capture_output=True, text=True)
         if compiled.returncode != 0:

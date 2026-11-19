@@ -243,7 +243,7 @@ _sg_restore_preflight() {
     sg_persistent=0
     for sg_check in "$HMG_SEOGAEMO_STATE"/prop.*/ready "$HMG_SEOGAEMO_STATE"/file.*/ready \
         "$HMG_SEOGAEMO_STATE"/line.*/ready "$HMG_SEOGAEMO_STATE"/bind.* "$HMG_SEOGAEMO_STATE"/dex.cache \
-        "$HMG_SEOGAEMO_STATE"/dir.* "$HMG_SEOGAEMO_STATE"/dir-order; do
+        "$HMG_SEOGAEMO_STATE"/dir.* "$HMG_SEOGAEMO_STATE"/dir-order "$HMG_SEOGAEMO_STATE"/part.*/ready; do
         [ ! -f "$sg_check" ] || sg_persistent=1
     done
     if [ "$sg_persistent" -eq 1 ] || [ -f "$HMG_SEOGAEMO_STATE/build" ]; then
@@ -267,6 +267,12 @@ _sg_restore_preflight() {
         sg_dir=${sg_check%/ready}
         sg_path=$(cat "$sg_dir/path") || return 1
         sg_file_guard "$sg_path" || { sg_restore_conflict "file preflight: $sg_path"; return 3; }
+    done
+    for sg_check in "$HMG_SEOGAEMO_STATE"/part.*/ready; do
+        [ -f "$sg_check" ] || continue
+        sg_dir=${sg_check%/ready}
+        sg_partition_guard "$sg_dir" ||
+            { sg_restore_conflict "partition preflight: $(cat "$sg_dir/target" 2>/dev/null)"; return 3; }
     done
 }
 sg_remount() { case "$1" in rw|ro) nemesis remount "$1";; *) return 2;; esac; }
@@ -360,7 +366,8 @@ sg_zygote_sweep() (
 sg_baseline_clear() { sg_glob_on _sg_baseline_clear "$@"; }
 _sg_baseline_clear() {
     [ -n "$HMG_SEOGAEMO_STATE" ] || return 2
-    rm -rf "$HMG_SEOGAEMO_STATE"/prop.* "$HMG_SEOGAEMO_STATE"/file.* "$HMG_SEOGAEMO_STATE"/bind.*
+    rm -rf "$HMG_SEOGAEMO_STATE"/prop.* "$HMG_SEOGAEMO_STATE"/file.* "$HMG_SEOGAEMO_STATE"/bind.* \
+        "$HMG_SEOGAEMO_STATE"/part.*
     rm -f "$HMG_SEOGAEMO_STATE/build" "$HMG_SEOGAEMO_STATE/changes"
     rm -rf "$HMG_SEOGAEMO_STATE/zygote-upgrade"
     sg_zygote_sweep
@@ -941,6 +948,222 @@ sg_file_put() {
     sg_validate owns_files "$1" && sg_payload "$2" || return 2
     sg_commit_file "$1" "$sg_source" "${3:-}" "${4:-}"
 }
+# Build a checked replacement in private state and commit it like a normal file.
+sg_file_put_delta() (
+    sg_validate owns_files "$1" && sg_payload "$2" && sg_whole_exclusive "$1" || exit 2
+    sg_path_safe "$1" && [ -f "$1" ] || exit 3
+    saved=$HMG_SEOGAEMO_STATE/file.$(sg_file_key "$1") || exit 1
+    if [ "${HSM_RERUN:-0}" = 1 ] && [ ! -f "$saved/ready" ]; then exit 3; fi
+    sg_file_baseline "$1" && sg_file_guard "$1" || exit 3
+    staged=$HMG_SEOGAEMO_STATE/delta.$$
+    [ ! -e "$staged" ] && [ ! -L "$staged" ] || exit 1
+    trap 'rm -f "$staged"' EXIT
+    vm=$SG_DATA_ROOT/core/vm
+    sg_vm_prepare "$vm" || exit 1
+    if boot=$(sg_bootclasspath); then BOOTCLASSPATH=$boot; export BOOTCLASSPATH; fi
+    ANDROID_DATA="$vm" CLASSPATH="$HMG_SEOGAEMO_BASE/core/hsm/hmg-seogaemo-hsm.jar" app_process /system/bin \
+        com.seogaemo.hmg.core.hsm.HmgSeogaemoStockDelta "$saved/bytes" "$sg_source" "$staged" < /dev/null &
+    sg_bounded_wait "$!" 60 || exit 3
+    if sg_file_applied "$1" && sg_equal "$staged" "$1"; then exit 0; fi
+    sg_commit_file "$1" "$staged" "" ""
+)
+# Raw partition ranges (runtime contract, "Partition regions"). A claim is
+# <name>:<byte offset>:<byte length>. A range write is not atomic, so the pending
+# journal marks the only time the range may hold neither version.
+# Partitions a module may write ranges of. Bootloader, kernel and file-system
+# partitions are never listed: a bad write there cannot be undone from Android.
+sg_partition_allowed() { case "$1" in splash) return 0;; esac; return 2; }
+sg_partition_offset() {
+    case "$1" in ''|*[!0-9]*) return 2;; 0) return 0;; 0*) return 2;; esac
+    [ "${#1}" -le 9 ] && [ "$(($1 % 512))" -eq 0 ] || return 2
+}
+sg_partition_length() {
+    case "$1" in ''|0*|*[!0-9]*) return 2;; esac
+    [ "${#1}" -le 8 ] && [ "$1" -le 16777216 ] && [ "$(($1 % 512))" -eq 0 ] || return 2
+}
+sg_partition_claim_ok() {
+    case "$1" in *:*:*) ;; *) return 2;; esac
+    sg_pc_rest=${1#*:}
+    sg_partition_allowed "${1%%:*}" && sg_partition_offset "${sg_pc_rest%%:*}" && sg_partition_length "${sg_pc_rest#*:}"
+}
+sg_md5() {
+    sg_md5_out=$(md5 "$1") || return 1
+    set -- $sg_md5_out
+    [ "$#" -ge 1 ] && [ "${#1}" -eq 32 ] || return 1
+    case "$1" in *[!0-9a-f]*) return 1;; esac
+    sg_write "$1"
+}
+# The block node of a claim, only when the kernel names exactly one partition so,
+# it is writable and the range ends inside it; 4 when this unit has no such range.
+sg_partition_node() (
+    set +f
+    sg_partition_claim_ok "$1" || exit 2
+    name=${1%%:*}; rest=${1#*:}; offset=${rest%%:*}; length=${rest#*:}
+    sys=${HMG_SEOGAEMO_BLOCK_SYS_ROOT:-/sys/class/block}
+    dev=
+    for uevent in "$sys"/*/uevent; do
+        [ -f "$uevent" ] && grep -Fxq "PARTNAME=$name" "$uevent" || continue
+        [ -z "$dev" ] || exit 4
+        dev=${uevent%/uevent}; dev=${dev##*/}
+    done
+    case "$dev" in ''|*[!a-z0-9]*) exit 4;; esac
+    node=${HMG_SEOGAEMO_BLOCK_DEV_ROOT:-/dev/block}/$dev
+    sg_path_safe "$node" || exit 4
+    # Host tests name a fixture directory; there a regular file stands in for the node.
+    if [ -n "${HMG_SEOGAEMO_BLOCK_DEV_ROOT:-}" ]; then [ -f "$node" ] || exit 4
+    else [ -b "$node" ] || exit 4; fi
+    [ "$(cat "$sys/$dev/ro" 2>/dev/null)" = 0 ] || exit 4
+    sectors=$(cat "$sys/$dev/size" 2>/dev/null)
+    case "$sectors" in ''|0*|*[!0-9]*) exit 4;; esac
+    [ "${#sectors}" -le 9 ] && [ "$((offset / 512 + length / 512))" -le "$sectors" ] || exit 4
+    sg_print "$node"
+)
+# MD5 of the range of claim $1 on node $2.
+sg_partition_md5() (
+    rest=${1#*:}; offset=${rest%%:*}; length=${rest#*:}
+    out=$(dd if="$2" bs=512 skip="$((offset / 512))" count="$((length / 512))" 2>/dev/null | md5 /proc/self/fd/0) || exit 1
+    set -- $out
+    [ "$#" -ge 1 ] && [ "${#1}" -eq 32 ] || exit 1
+    sg_write "$1"
+)
+# Writes file $3 over the range of claim $1 on node $2.
+sg_partition_write() {
+    sg_pw_offset=${1#*:}; sg_pw_offset=${sg_pw_offset%%:*}
+    sg_pw_length=${1##*:}
+    [ -f "$3" ] && [ ! -L "$3" ] && [ "$(sg_file_size "$3")" = "$sg_pw_length" ] &&
+        [ "$(sg_md5 "$3")" = "$4" ] || return 1
+    sync && dd if="$3" of="$2" bs=512 seek="$((sg_pw_offset / 512))" count="$((sg_pw_length / 512))" conv=notrunc 2>/dev/null && sync
+}
+sg_partition_claimed() (
+    manifest=$(sg_manifest_file) || exit 2
+    while IFS='=' read -r key value; do
+        case "$key" in owns_partitions.*) [ "$value" != "$1" ] || exit 0;; esac
+    done < "$manifest"
+    exit 2
+)
+# The stock MD5 the manifest declares for claim $1 on this firmware; 4 without one.
+sg_partition_known() (
+    manifest=$(sg_manifest_file) || exit 2
+    product=$(getprop ro.build.product)
+    while IFS='=' read -r key value; do
+        case "$key" in known_partition.*) ;; *) continue;; esac
+        case "$product" in ${value%%:*}) ;; *) continue;; esac
+        rest=${value#*:}
+        [ "${rest%:*}" = "$1" ] || continue
+        sg_print "${rest##*:}"
+        exit 0
+    done < "$manifest"
+    exit 4
+)
+# One module owns a whole partition: no other manifest may claim any range of it.
+sg_partition_exclusive() (
+    while IFS= read -r manifest; do
+        [ -n "$manifest" ] || continue
+        [ "${manifest##*/}" != "${HMG_SEOGAEMO_STATE##*/}.properties" ] || continue
+        while IFS='=' read -r key value; do
+            case "$key" in owns_partitions.*) [ "${value%%:*}" != "$1" ] || exit 3;; esac
+        done < "$manifest"
+    done <<EOF
+$(sg_all_manifests)
+EOF
+)
+# 0 when the range of claim $1 still holds its declared stock bytes (read-only).
+sg_partition_stock() (
+    known=$(sg_partition_known "$1") || exit $?
+    node=$(sg_partition_node "$1") || exit $?
+    [ "$(sg_partition_md5 "$1" "$node")" = "$known" ] || exit 3
+)
+sg_partition_dir() {
+    sg_pd_key=$(sg_file_key "$1") || return 1
+    sg_print "$HMG_SEOGAEMO_STATE/part.$sg_pd_key"
+}
+# 0 when the recorded range $1 (a part.* directory) holds bytes we may replace: the
+# baseline, what we wrote, or anything while our own write is pending.
+sg_partition_guard() (
+    [ -f "$1/ready" ] || exit 1
+    claim=$(cat "$1/target") || exit 1
+    node=$(sg_partition_node "$claim") || exit 3
+    current=$(sg_partition_md5 "$claim" "$node") || exit 1
+    [ "$current" = "$(cat "$1/md5")" ] && exit 0
+    if [ -f "$1/applied-md5" ] && [ "$current" = "$(cat "$1/applied-md5")" ]; then exit 0; fi
+    [ -f "$1/pending" ] && [ -f "$1/applied" ] || exit 3
+    # During recovery accept only sectors from the two journaled versions.
+    rest=${claim#*:}; offset=${rest%%:*}; length=${rest#*:}
+    position=0
+    while [ "$position" -lt "$length" ]; do
+        sector=$(sg_partition_md5 "splash:$((offset + position)):512" "$node") || exit 3
+        original=$(sg_partition_md5 "splash:$position:512" "$1/bytes") || exit 3
+        if [ "$sector" != "$original" ]; then
+            written=$(sg_partition_md5 "splash:$position:512" "$1/applied") || exit 3
+            [ "$sector" = "$written" ] || exit 3
+        fi
+        position=$((position + 512))
+    done
+)
+sg_partition_applied() (
+    sg_check_build || exit 3
+    dir=$(sg_partition_dir "$1") || exit 1
+    [ -f "$dir/ready" ] && [ ! -f "$dir/pending" ] && [ -f "$dir/applied-md5" ] || exit 1
+    node=$(sg_partition_node "$1") || exit 3
+    [ "$(sg_partition_md5 "$1" "$node")" = "$(cat "$dir/applied-md5")" ]
+)
+sg_partition_put() (
+    sg_partition_allowed "$1" && sg_partition_offset "$2" && sg_payload "$3" || exit 2
+    length=$(sg_file_size "$sg_source") || exit 1
+    sg_partition_length "$length" || exit 2
+    claim=$1:$2:$length
+    sg_partition_claimed "$claim" || exit 2
+    sg_partition_exclusive "$1" || exit 3
+    node=$(sg_partition_node "$claim") || exit $?
+    sg_bind_build || exit 1
+    dir=$(sg_partition_dir "$claim") || exit 1
+    if [ ! -f "$dir/ready" ]; then
+        known=$(sg_partition_known "$claim") || exit $?
+        offset=$2
+        mkdir -p "$dir" || exit 1
+        dd if="$node" of="$dir/bytes.tmp.$$" bs=512 skip="$((offset / 512))" count="$((length / 512))" 2>/dev/null &&
+            [ "$(sg_file_size "$dir/bytes.tmp.$$")" = "$length" ] || { rm -f "$dir/bytes.tmp.$$"; exit 1; }
+        # Never adopt bytes that are not the declared stock as a baseline.
+        if [ "$(sg_md5 "$dir/bytes.tmp.$$")" != "$known" ]; then
+            rm -f "$dir/bytes.tmp.$$"
+            sg_log "conflict: partition range $claim is not the declared stock" || :
+            exit 3
+        fi
+        rm -f "$dir/pending" "$dir/applied" "$dir/applied-md5"
+        mv "$dir/bytes.tmp.$$" "$dir/bytes" &&
+            sg_write "$known" > "$dir/md5.tmp.$$" && mv "$dir/md5.tmp.$$" "$dir/md5" &&
+            sg_write "$claim" > "$dir/target.tmp.$$" && mv "$dir/target.tmp.$$" "$dir/target" &&
+            sg_write 1 > "$dir/ready.tmp.$$" && mv "$dir/ready.tmp.$$" "$dir/ready" || exit 1
+    fi
+    [ "$(cat "$dir/target")" = "$claim" ] || exit 1
+    sg_partition_guard "$dir" || { sg_restore_conflict "partition apply: $claim"; exit 3; }
+    wanted=$(sg_md5 "$sg_source") || exit 1
+    if [ ! -f "$dir/pending" ] && [ "$(cat "$dir/applied-md5" 2>/dev/null)" = "$wanted" ] &&
+        [ "$(sg_partition_md5 "$claim" "$node")" = "$wanted" ]; then
+        sg_changed part "$claim"
+        exit $?
+    fi
+    sg_write 1 > "$dir/pending" || exit 1
+    sg_copy "$sg_source" "$dir/applied" &&
+        sg_write "$wanted" > "$dir/applied-md5.tmp.$$" && mv "$dir/applied-md5.tmp.$$" "$dir/applied-md5" &&
+        sg_changed part "$claim" || exit 1
+    sg_partition_write "$claim" "$node" "$dir/applied" "$wanted" &&
+        [ "$(sg_partition_md5 "$claim" "$node")" = "$wanted" ] || exit 1
+    rm -f "$dir/pending" || exit 1
+    sg_ledger partition_put "$claim" "$dir/bytes" "$dir/applied" "" || exit 1
+)
+sg_partition_restore() (
+    sg_check_build || exit 3
+    dir=$(sg_partition_dir "$1") || exit 1
+    [ -f "$dir/ready" ] && [ "$(cat "$dir/target")" = "$1" ] || exit 1
+    sg_partition_guard "$dir" || { sg_restore_conflict "partition restore: $1"; exit 3; }
+    node=$(sg_partition_node "$1") || exit 3
+    stock=$(cat "$dir/md5") || exit 1
+    if [ ! -f "$dir/pending" ] && [ "$(sg_partition_md5 "$1" "$node")" = "$stock" ]; then exit 0; fi
+    sg_write 1 > "$dir/pending" || exit 1
+    sg_partition_write "$1" "$node" "$dir/bytes" "$stock" && [ "$(sg_partition_md5 "$1" "$node")" = "$stock" ] || exit 1
+    rm -f "$dir/pending"
+)
 # Shared text transactions. Subshells keep their scratch variables out of the
 # existing whole-file runtime. The dispatcher holds the global operation lock.
 sg_line_text() {
@@ -2557,7 +2780,7 @@ _sg_restore_material() {
     for sg_material in "$HMG_SEOGAEMO_STATE"/prop.*/ready "$HMG_SEOGAEMO_STATE"/file.*/ready \
         "$HMG_SEOGAEMO_STATE"/line.*/ready "$HMG_SEOGAEMO_STATE"/bind.* \
         "$HMG_SEOGAEMO_STATE"/changes "$HMG_SEOGAEMO_STATE"/dex.cache \
-        "$HMG_SEOGAEMO_STATE"/dir.* "$HMG_SEOGAEMO_STATE"/dir-order; do
+        "$HMG_SEOGAEMO_STATE"/dir.* "$HMG_SEOGAEMO_STATE"/dir-order "$HMG_SEOGAEMO_STATE"/part.*/ready; do
         [ ! -f "$sg_material" ] || return 0
     done
     return 1
@@ -2629,6 +2852,13 @@ sg_revert_all_run() {
                 if [ "$sg_system" -eq 1 ]; then sg_remount_ro; fi
                 [ "$sg_rc" -eq 0 ] || return "$sg_rc"
                 sg_ledger revert "$sg_target" "$sg_revert_before" "$sg_saved/bytes" "$sg_saved/meta" || return 1 ;;
+            part)
+                sg_saved=$(sg_partition_dir "$sg_target") || return 1
+                if [ -f "$sg_saved/applied" ]; then
+                    sg_copy "$sg_saved/applied" "$sg_revert_before" || return 1
+                else rm -f "$sg_revert_before"; fi
+                sg_partition_restore "$sg_target" || return $?
+                sg_ledger revert "$sg_target" "$sg_revert_before" "$sg_saved/bytes" "" || return 1 ;;
             *) return 1 ;;
         esac
         rm -f "$sg_revert_before"

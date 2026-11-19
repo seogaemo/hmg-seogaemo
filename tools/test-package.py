@@ -3,6 +3,7 @@
 import argparse
 import configparser
 import hashlib
+import io
 import os
 from pathlib import Path
 import re
@@ -12,7 +13,7 @@ import tempfile
 import time
 import zipfile
 
-from package import DIST, ROOT, HOST_SHELL, apk_version, verify
+from package import DIST, ROOT, HOST_SHELL, apk_version, n_mode_package, verify
 from version import read_label, read_version
 from testlib import car_env, SHELL, host_shell_script
 
@@ -86,7 +87,13 @@ def run():
         for script_name in ("core/update.sh", "core/hmg-seogaemo-map.sh", "svc/reconcile.sh", "svc/watcher.sh"):
             body = package.read(script_name).decode()
             assert not re.search(r"\b(?:printf|awk|sed|tail|head|cut|tr|wc|sort|uniq|xargs|find|stat|sha256sum|sha1sum|tar|unzip|busybox|toybox)\b", body), script_name
-        assert set(usb.namelist()) == {"NEMESIS.data", "install.sh", "packages/hmg-seogaemo.zip"}
+        module, module_name = n_mode_package()
+        module_entry = f"HSM/{module_name}"
+        assert set(usb.namelist()) == {"NEMESIS.data", "install.sh", "packages/hmg-seogaemo.zip", module_entry}
+        with zipfile.ZipFile(io.BytesIO(usb.read(module_entry))) as optional:
+            source = {p.relative_to(module).as_posix(): p.read_bytes() for p in module.rglob("*") if p.is_file()}
+            assert set(source) == set(optional.namelist())
+            assert all(optional.read(name) == data for name, data in source.items())
         assert usb.read("packages/hmg-seogaemo.zip") == package_path.read_bytes()
         assert b'install --update "${0%/*}/packages/hmg-seogaemo.zip"' in usb.read("install.sh")
         assert ota.read("VERSION") == (version + "\n").encode()
