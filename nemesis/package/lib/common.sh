@@ -948,6 +948,25 @@ sg_file_put() {
     sg_validate owns_files "$1" && sg_payload "$2" || return 2
     sg_commit_file "$1" "$sg_source" "${3:-}" "${4:-}"
 }
+# Build a checked replacement in private state and commit it like a normal file.
+sg_file_put_delta() (
+    sg_validate owns_files "$1" && sg_payload "$2" && sg_whole_exclusive "$1" || exit 2
+    sg_path_safe "$1" && [ -f "$1" ] || exit 3
+    saved=$HMG_SEOGAEMO_STATE/file.$(sg_file_key "$1") || exit 1
+    if [ "${HSM_RERUN:-0}" = 1 ] && [ ! -f "$saved/ready" ]; then exit 3; fi
+    sg_file_baseline "$1" && sg_file_guard "$1" || exit 3
+    staged=$HMG_SEOGAEMO_STATE/delta.$$
+    [ ! -e "$staged" ] && [ ! -L "$staged" ] || exit 1
+    trap 'rm -f "$staged"' EXIT
+    vm=$SG_DATA_ROOT/core/vm
+    sg_vm_prepare "$vm" || exit 1
+    if boot=$(sg_bootclasspath); then BOOTCLASSPATH=$boot; export BOOTCLASSPATH; fi
+    ANDROID_DATA="$vm" CLASSPATH="$HMG_SEOGAEMO_BASE/core/hsm/hmg-seogaemo-hsm.jar" app_process /system/bin \
+        com.seogaemo.hmg.core.hsm.HmgSeogaemoStockDelta "$saved/bytes" "$sg_source" "$staged" < /dev/null &
+    sg_bounded_wait "$!" 60 || exit 3
+    if sg_file_applied "$1" && sg_equal "$staged" "$1"; then exit 0; fi
+    sg_commit_file "$1" "$staged" "" ""
+)
 # Raw partition ranges (runtime contract, "Partition regions"). A claim is
 # <name>:<byte offset>:<byte length>. A range write is not atomic, so the pending
 # journal marks the only time the range may hold neither version.

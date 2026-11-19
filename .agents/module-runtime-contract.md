@@ -458,6 +458,21 @@ The `wifi` module (built-in client role) and wireless projection never claim the
 radio cannot be a client and serve the stock hotspot), see [wifi.md](wifi.md); file
 safety is independent of it.
 
+## Stock-relative module payloads
+
+A restricted module may use `patch_file PATH DELTA` during apply. It claims
+exclusive file ownership just like `put_file`. The runtime validates the exact
+stock SHA-256 and resulting SHA-256 from the HSD1 payload, builds at most 8 MiB
+in a private staging file, then uses the normal guarded file commit and restore.
+A missing or changed source fails before the target is written. No module code
+runs while decoding the delta. A boot watcher cannot create a new baseline.
+
+The read-only conditions `file_has_line PATH LITERAL` and `file_md5_is PATH MD5`
+match an exact line and an exact lowercase MD5 respectively. The fixed directory
+component `/system/onebin/@onebin@/` in line and file checks and `replace_line`
+is resolved with the same validated stock property during install and apply.
+An unusable onebin fails closed. Claims always contain the resolved path.
+
 ## Partition regions
 
 Some stock data is not a file: the boot splash is a raw eMMC partition read by the bootloader.

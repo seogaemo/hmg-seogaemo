@@ -1,0 +1,7 @@
+name=N Mode
+summary=Show this vehicle's built-in N Mode app in the home menu.
+note=Uses the vehicle's stock app and signals. Compatible CN7 units also get the additional gauges.
+restart_note=Restart the head unit after enabling or disabling the module.
+missing_app=This firmware has no stock N Mode app.
+missing_list=The app list for this vehicle is missing.
+no_hide_entry=The stock app list has no N Mode exclusion for this module to change.

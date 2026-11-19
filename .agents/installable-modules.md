@@ -152,6 +152,7 @@ Write verbs (`apply.sh` only):
 | --- | --- | --- |
 | `set_prop [--reassert] KEY VALUE` | `sg_prop_set` | `owns_props` (+ `reassert_props`) |
 | `put_file DEST SRC [MODE]` | `sg_payload_dirs` + `sg_file_put` | `owns_files` |
+| `patch_file DEST DELTA` | `sg_file_put_delta` verifies the HSD1 stock and result digests before committing | `owns_files` |
 | `put_files DESTDIR/ SRCDIR/ [MODE]` | `put_file` per regular file, one level | `owns_files` |
 | `replace_line FILE STOCK NEW` | `sg_file_replace_line` | `owns_lines.N` |
 | `put_partition NAME OFFSET SRC` | `sg_partition_put` | `owns_partitions.N` |
@@ -161,8 +162,10 @@ Write verbs (`apply.sh` only):
 | `app_data_dir NAME PACKAGE...` | generated-dir cleanup | `owns_generated_dirs` |
 
 Checks (all scripts): `setting_is KEY VALUE`, `prop_is KEY VALUE`, `file_exists PATH`, `file_missing PATH`,
-`car_is GLOB`, `module_on ID`, `hookpoints_ok`, `uses_on RESOURCE[:MODE]`, `action_is NAME`. Settings reach
+`file_has_line PATH LINE`, `file_md5_is PATH MD5`, `car_is GLOB`, `module_on ID`, `hookpoints_ok`, `uses_on RESOURCE[:MODE]`, `action_is NAME`. Settings reach
 scripts only through `setting_is` and `{setting:KEY}`, validated against `module.properties`.
+The path for file existence, line lookup and line replacement can use the current onebin under
+`/system/onebin/@onebin@/`. The installer resolves ownership against the vehicle’s directory.
 Other verbs: `log TEXT` (module log, not the ledger; all scripts); `block @string` (refuse enable) and
 `warn @string` (shown in the confirm dialog) in `check.sh`; `info KEY prop NAME`, `info KEY setting KEY`,
 `fail @string` in `status.sh`.

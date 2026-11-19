@@ -39,6 +39,12 @@ def add_zip(path, files):
 HSM_TOP = {"module.properties", "apply.sh", "check.sh", "module.sh", "status.sh", "ui.txt", "README.md"}
 
 
+def n_mode_package():
+    module = ROOT / "extras/n-mode"
+    fields = dict(line.split("=", 1) for line in (module / "module.properties").read_text().splitlines())
+    return module, f"{fields['id']}-{fields['version']}.hsm"
+
+
 def bundled_hsm(module, version):
     """A module in package form, packed like tools/hsm pack, with the package version filled in."""
     members = {}
@@ -134,7 +140,11 @@ def build(aapt):
                     name = f"modules/{module.name}.d/{source.relative_to(payload).as_posix()}"
                     files[name] = source
     add_zip(package_zip, files)
+    module, name = n_mode_package()
+    standalone = io.BytesIO()
+    add_zip(standalone, {p.relative_to(module).as_posix(): p for p in module.rglob("*") if p.is_file()})
     add_zip(usb_zip, {
+        f"HSM/{name}": standalone.getvalue(),
         "NEMESIS.data": ROOT / "nemesis/usb/NEMESIS.data",
         "install.sh": ROOT / "nemesis/usb/install.sh",
         "packages/hmg-seogaemo.zip": package_zip,
