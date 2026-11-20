@@ -1,0 +1,103 @@
+{
+  "android": "4.4.2",
+  "app_files": {
+    "btsettings": {
+      "files": [
+        "/system/app/HKMC_BtSettings.odex"
+      ],
+      "package": "com.android.btsettings"
+    },
+    "buttonsettings": {
+      "files": [
+        "/system/app/ButtonSettings.odex"
+      ],
+      "package": "com.android.buttonsettings"
+    },
+    "dipo": {
+      "files": [
+        "/system/app/HKMC_DiPO.odex",
+        "/system/framework/com.tcc.iap2.odex",
+        "/system/framework/com.broadcom.bt.jar"
+      ],
+      "package": "com.daudio.app.dipo"
+    },
+    "framework": {
+      "files": [
+        "/system/framework/framework.odex",
+        "/system/framework/core.odex",
+        "/system/framework/framework2.odex",
+        "/system/framework/automotive.odex",
+        "/system/framework/com.hkmc.ext.hcan.odex",
+        "/system/framework/automotive-service.odex"
+      ],
+      "package": null
+    },
+    "gpm": {
+      "files": [
+        "/system/app/HKMC_GPM.odex"
+      ],
+      "package": "com.google.android.projection.sink"
+    },
+    "homesetting": {
+      "files": [
+        "/system/app/HKMC_HomeSetting_WP.odex"
+      ],
+      "package": "com.hkmc.system.app.homesetting"
+    },
+    "iap2": {
+      "files": [
+        "/system/app/Iap2ServerApp.odex"
+      ],
+      "package": "com.tcc.iap2server"
+    },
+    "launcher": {
+      "files": [
+        "/system/app/Launcher_WP3.odex"
+      ],
+      "package": "com.android.launcher3"
+    },
+    "panel": {
+      "files": [
+        "/system/app/RightScreenHome.odex"
+      ],
+      "package": "com.mobis.splitscreen.right"
+    },
+    "settings": {
+      "files": [
+        "/system/app/Settings_W.odex"
+      ],
+      "package": "com.android.settings"
+    },
+    "themesettings": {
+      "files": [
+        "/system/app/ThemeSettings.odex"
+      ],
+      "package": "com.android.themesettings"
+    }
+  },
+  "by_reference": [],
+  "files": {
+    "/system/app/ButtonSettings.odex": "11e5bba572d2257207a538b658800f64",
+    "/system/app/HKMC_BtSettings.odex": "31fa31cce337fbb0c8874531e203ce36",
+    "/system/app/HKMC_DiPO.odex": "bbda8ef8d0847cfb477d9725e12075a2",
+    "/system/app/HKMC_GPM.odex": "6f0fe85bcf1930267734a614653dba11",
+    "/system/app/HKMC_HomeSetting_WP.odex": "ce924759123556570614e72b5861c1ef",
+    "/system/app/Iap2ServerApp.odex": "ca4df8f1034fa3991b4ea7c38d3e10c7",
+    "/system/app/Launcher_WP3.odex": "ebb05f90b4f178078af14231f676af7d",
+    "/system/app/RightScreenHome.odex": "2d93c66fc1b892016d9460defb129c5b",
+    "/system/app/Settings_W.odex": "bc92e8a90db2be357a75277cf92c46c2",
+    "/system/app/ThemeSettings.odex": "a43f6a08184f48c9f12658339967721a",
+    "/system/framework/automotive-service.odex": "3e59e6c83546e0e07627813f21eee0c5",
+    "/system/framework/automotive.odex": "2e86536759f7f00c16ad111c69f6b41e",
+    "/system/framework/com.broadcom.bt.jar": "dbf374aa8bde80fad95746a67719ce51",
+    "/system/framework/com.hkmc.ext.hcan.odex": "58cc645ac6c3f8a949d2e78342911769",
+    "/system/framework/com.tcc.iap2.odex": "eb31466e927346a32e95e71339956c95",
+    "/system/framework/core.odex": "6ffe1827275fb6109d58573f46923638",
+    "/system/framework/framework.odex": "485d91670a6385c1a02677cf1c00b721",
+    "/system/framework/framework2.odex": "59a082b1a31b332ad4bfa313d9fa8ddd"
+  },
+  "missing": {},
+  "onebin": "cn7npe_kr",
+  "product": "CN7NPE.KOR.0000.V039.001.260902",
+  "schema": 1
+}
