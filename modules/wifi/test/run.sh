@@ -62,7 +62,20 @@ cat > "$work/base/lib/common.sh" <<'EOF'
 sg_log() { :; }
 # Daemon start/stop polls and the scan wait keep their retry counts; each step is
 # shortened (mksh's builtin sleep cannot be replaced through PATH).
-sleep() { /bin/sleep 0.25; }
+# While the user port's VBUS is off, the adapter loses power: a wedged one recovers and,
+# with the driver loaded, binds again as a new netdev.
+sleep() {
+    if [ "$(cat "$TEST_WORK/vbus" 2>/dev/null)" = off ]; then
+        echo "vbus off" >> "$TEST_WORK/kernel/calls"
+        rm -f "$TEST_WORK/wedged"
+        if [ -s "$TEST_WORK/proc/modules" ] && [ -d "$TEST_WORK/sys/bus/usb/devices/1-1" ]; then
+            mkdir -p "$TEST_WORK/sys/class/net/rtwlan0"
+            echo 0x1002 > "$TEST_WORK/sys/class/net/rtwlan0/flags"
+            echo 13 > "$TEST_WORK/sys/class/net/rtwlan0/ifindex"
+        fi
+    fi
+    /bin/sleep 0.25
+}
 sg_snapshot() {
     name=${1##*/}
     if [ ! -e "$HMG_SEOGAEMO_STATE/$name.saved" ] && [ ! -e "$HMG_SEOGAEMO_STATE/$name.absent" ]; then
@@ -167,6 +180,9 @@ work = os.environ["TEST_WORK"]
 open(work + "/kernel/calls", "a").write("insmod " + " ".join(sys.argv[1:]) + "\n")
 name = os.path.basename(sys.argv[1])[:-3]
 open(work + "/proc/modules", "a").write(name + " 16384 0 - Live 0xbf000000\n")
+# A wedged adapter answers no register request, so the driver creates no netdev.
+if os.path.exists(work + "/wedged"):
+    sys.exit(0)
 os.makedirs(work + "/sys/class/net/rtwlan0", exist_ok=True)
 open(work + "/sys/class/net/rtwlan0/flags", "w").write("0x1002\n")
 open(work + "/sys/class/net/rtwlan0/ifindex", "w").write("10\n")
@@ -290,7 +306,10 @@ sed -e "s|^xml=/system/|xml=$work/system/|" \
 export TEST_WORK=$work HMG_SEOGAEMO_BASE=$work/base HMG_SEOGAEMO_STATE=$state HMG_SEOGAEMO_MODULE_DIR=$module \
     SG_DATA_ROOT=$data SG_PROC_ROOT=$work/proc SG_SYS_NET_ROOT=$work/sys/class/net SG_BOOT_ID_FILE=$work/boot_id \
     HMG_SEOGAEMO_TOOL_ROOT=$work/tools SG_USB_DEVICES_DIR=$work/sys/bus/usb/devices \
-    HMG_SEOGAEMO_WIFI_INBOX=$work/inbox SG_UUID_FILE=$work/uuid
+    HMG_SEOGAEMO_WIFI_INBOX=$work/inbox SG_UUID_FILE=$work/uuid \
+    SG_USB_VBUS_FILE=$work/vbus SG_USB_VBUS_ENABLE_FILE=$work/vbus_control_enable
+sg_print 'dwc_otg vbus - on' > "$work/vbus"
+sg_print 1 > "$work/vbus_control_enable"
 # Keep the test harness on the host PATH, but execute the module with only
 # toolbox-like commands. Forbidden names are explicit failing stubs.
 mkdir "$work/allowed"
@@ -572,7 +591,9 @@ grep -Fxq 'wpa_passphrase=6f1d2e3c4b5a49688776' "$state/usb-hostapd.conf"
 grep -Fxq 'driver=nl80211' "$state/usb-hostapd.conf"
 grep -Fxq 'interface=rtwlan0' "$state/usb-hostapd.conf"
 [ "$(cat "$work/kernel/addr.rtwlan0")" = 192.168.50.1/24 ]
-[ "$(cat "$work/kernel/iptables")" = 'filter INPUT -i rtwlan0 -j ACCEPT' ]
+grep -Fxq 'filter INPUT -i rtwlan0 -j ACCEPT' "$work/kernel/iptables"
+grep -Fxq 'filter OUTPUT -o rtwlan0 -j ACCEPT' "$work/kernel/iptables"
+[ "$(grep -c . "$work/kernel/iptables")" -eq 2 ]
 [ -d "$work/proc/$(daemon_pid usb-hostapd)" ] && [ -d "$work/proc/$(daemon_pid usb-dnsmasq)" ]
 # hostapd runs as a private copy that keeps its station list out of the stock hotspot's file.
 [ -x "$state/bin/hostapd" ] && grep -q ' /data/misc/wifi/all_sta.list usb_sta.list$' "$state/bin/hostapd.source"
@@ -631,7 +652,7 @@ run apply; assert_state on
 run revert; assert_state off
 [ ! -s "$work/kernel/iptables" ] && [ ! -s "$work/kernel/addr.rtwlan0" ] && [ ! -s "$work/proc/modules" ]
 [ -z "$(ls "$work/proc" | grep '^[0-9]')" ] && [ ! -e "$data/peer/wifi" ]
-grep -q '	net_rule_del	1	' "$data/ledger/ledger.tsv"
+grep -q '	net_rule_del	1	' "$data/ledger/ledger.tsv" && grep -q '	net_rule_del	2	' "$data/ledger/ledger.tsv"
 
 # A restart drops every transient effect; the next apply makes them again, stale records are not ours.
 run apply; assert_state on
@@ -652,6 +673,61 @@ fails apply; assert_state failed
 [ ! -e "$state/changes" ] && [ ! -e "$xml" ]
 cp "$work/insmod.saved" "$work/tools/system/bin/insmod"
 
+# --- An adapter the stock USB stack reached first answers no register request (no netdev) ---
+# A user-port VBUS off/on with the driver loaded re-enumerates it; the port ends powered.
+plug 0bda b812
+: > "$work/kernel/calls"; : > "$work/wedged"
+run apply; assert_state on
+[ "$(calls | grep -c '^vbus off$')" -eq 1 ] && [ ! -e "$work/wedged" ]
+[ "$(cat "$work/vbus")" = on ] && [ "$(peer ready)" = 1 ]
+grep -q '	usb_port_power_cycle	user	' "$data/ledger/ledger.tsv"
+run revert; assert_state off
+# Stock left the port unpowered or VBUS control disabled: the port is not touched.
+for blocked in 'vbus:dwc_otg vbus - off' 'vbus_control_enable:0'; do
+    sg_print 'dwc_otg vbus - on' > "$work/vbus"; sg_print 1 > "$work/vbus_control_enable"
+    sg_print "${blocked#*:}" > "$work/${blocked%%:*}"
+    : > "$work/wedged"
+    fails apply; assert_state failed
+    [ "$(calls | grep -c '^vbus off$')" -eq 1 ] && [ ! -s "$work/proc/modules" ]
+done
+sg_print 'dwc_otg vbus - on' > "$work/vbus"; sg_print 1 > "$work/vbus_control_enable"
+rm -f "$state/usb-vbus-cycle"
+# At most three cuts per boot; then a first enable leaves nothing and says how to recover.
+for n in 1 2 3; do
+    : > "$work/wedged"; run apply; assert_state on; run revert; assert_state off
+done
+[ "$(calls | grep -c '^vbus off$')" -eq 4 ]
+: > "$work/wedged"
+fails apply; assert_state failed
+assert_line 'detail=Unplug the USB Wi-Fi adapter, turn Wi-Fi on, then plug the adapter in'
+[ ! -s "$work/proc/modules" ] && [ ! -e "$state/changes" ] && [ "$(calls | grep -c '^vbus off$')" -eq 4 ]
+# A new boot allows cuts again.
+sg_print boot-c > "$work/boot_id"
+run apply; assert_state on
+[ "$(calls | grep -c '^vbus off$')" -eq 5 ] && [ "$(peer ready)" = 1 ]
+run revert; assert_state off
+# Turned on without the adapter, the last adapter's driver is loaded ahead, so the kernel binds
+# the adapter as it enumerates.
+unplug; rm -f "$work/wedged"; : > "$work/kernel/calls"
+run apply; assert_state on; assert_line 'detail=USB Wi-Fi adapter not connected'
+calls | grep -Fxq "insmod $module/files/kmod/tcc803x/88x2bu.ko"
+sg_write on > "$data/desired/wifi"
+plug 0bda b812
+run watch usb_change; assert_state on
+[ "$(peer ready)" = 1 ] && [ "$(calls | grep -c insmod)" -eq 1 ]
+# A wedged replug while on keeps the driver loaded for the next replug once the cuts are used up.
+sg_print "boot-c 3" > "$state/usb-vbus-cycle"
+unplug; plug 0bda b812; rm -rf "$work/sys/class/net/rtwlan0"
+fails watch usb_change; assert_state failed
+assert_line 'detail=Unplug the USB Wi-Fi adapter and plug it in again'
+[ -s "$work/proc/modules" ]
+fails status; assert_line 'detail=Unplug the USB Wi-Fi adapter and plug it in again'
+unplug; plug 0bda b812
+run watch usb_change; assert_state on
+[ "$(peer ready)" = 1 ] && [ "$(calls | grep -c insmod)" -eq 1 ]
+rm "$data/desired/wifi"
+run revert; assert_state off
+unplug
 # The built-in hotspot role is published as the stock hotspot.
 roles carplay_ap off
 run apply; assert_state on

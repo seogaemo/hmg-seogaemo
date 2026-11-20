@@ -199,6 +199,14 @@ units report, and that the phone then joins. The DiPO and PhoneProjection logs s
 
 ## Still unverified on a car
 
+0. CN7NPE KOR 260902 with an ipTIME A3000mini (RTL8812BU `0bda:b812`, 2026-11-19/20): `88x2bu` loads, but an adapter left
+   with the stock USB stack before the driver was loaded answers no register request (`-110`, `Chip id is undefined`).
+   With the driver loaded, a replug bound at once and the USB hotspot served (car, 2026-11-20). The module now preloads the
+   last adapter's driver and cuts the user port's VBUS when needed ([wifi.md](wifi.md), USB roles). Car-verified
+   2026-11-20: the cut ran at boot, `rtwlan0` and the hotspot served ~38-52 s after boot, a phone got a DHCP address and
+   wireless Android Auto connected over it, and a laptop on the hotspot reached wireless ADB. Still open on a car: the first
+   start after a power-on connected only after a Bluetooth reconnect (PhoneProjection asked for the AP state ~20 s before
+   the hotspot served); `ReadyResend` ([wireless-carplay-and-aa.md](wireless-carplay-and-aa.md)) is host-tested only.
 1. USB recovery after unplug/replug (including a quick replug while the display stays on), daemon release before
    reprobe, truthful readiness/status and wireless Android Auto reconnection without restarting the head unit.
    The owner reports the initial USB hotspot/Android Auto connection working. The iPhone joining with the credentials iAP2 sends, and whether

@@ -56,6 +56,19 @@ again while the module is on):
   the same driver-retaining cleanup (module on) or `sg_revert_all` (first enable). Driver operations are bounded
   to 15 seconds plus signal grace; a timeout retains records and requires restart before another driver operation.
   These recovery paths are host-tested, unverified on a car.
+- Pre-bind access (CN7NPE KOR 260902, RTL8812BU `0bda:b812`, 2026-11-19/20): an adapter the stock USB/Android Auto stack
+  reached before our driver was loaded answers no register request (`reg 0xfc, usb read 1 fail, status:-110`, `Chip id is
+  undefined`, no `rtwlan0`) until its power is cut. This is the normal boot case: stock powers the port at ~7.5 s, the
+  adapter enumerates at ~10 s, boot reconcile loads the driver at ~22 s. The external reference package reports the same
+  cause (Android Auto AOA probing) and loads its driver right at boot. So the module remembers the last adapter's driver
+  (`usb-kmod` in its state) and loads it while no adapter is plugged in, and when the interface does not appear it cuts the
+  user port's power with the driver loaded (`sg_usb_port_power_cycle`, `usb_port=power_cycle`; up to three per boot).
+  The stock micom `ISystemService.requestVBusOffOn` (transaction 25) was tried first: it returned ok but the 2026-11-20
+  dmesg shows no port disconnect, so it is not used. After a cut that still leaves no interface it reports "Unplug the
+  USB Wi-Fi adapter and plug it in again" (module on: driver kept) or asks to turn Wi-Fi on before plugging the adapter in
+  (first enable: nothing kept). Car-verified 2026-11-20: with the driver loaded, a replug bound at once and the hotspot
+  served (hostapd/dnsmasq up); the port power cut at boot is car-verified too (2026-11-20: cut, then `rtwlan0` and the
+  hotspot ~38-52 s after boot).
 - Client: `usb-wpa.conf` in the module state holds `ctrl_interface=<state>/wpa` and the chosen network. The app's picker
   runs `action wifi_scan` (needs `/system/bin/wpa_cli`, absent on the owner's car; then only "Other network" with a typed
   name works) and `action wifi_join`, which reads the fixed app file `files/wifi/usb-join` (`ssid=<hex>`,
@@ -64,6 +77,10 @@ again while the module is on):
 - CarPlay hotspot: SSID `HMG-Seogaemo-<4 hex>` and a 20-hex passphrase from `/proc/sys/kernel/random/uuid`, kept in the
   module state (`usb-ap`); `hw_mode=g`, 2.4 GHz channel 6 (`ap_channel`; 5 GHz channel 36 made hostapd exit on the tester's RTL8831BU), `country_code=KR`, WPA2-PSK CCMP, `rtwlan0` up with `192.168.50.1/24` before hostapd starts, hostapd run as `wifi` in its own run directory. Published with
   `sg_peer_publish` (contract "Peer info").
+- Firewall: `net_rules.1` accepts INPUT on `rtwlan0`; `net_rules.2` accepts OUTPUT on `rtwlan0`. CN7NPE KOR 260902 loads
+  `mobis_iptables.rule` (filter OUTPUT policy DROP, `WLIST_OUT` without `rtwlan0`); its dmesg shows `NFLOG_OUT ... OUT=rtwlan0`,
+  so new outbound packets such as dnsmasq's DHCP offers were dropped (replies to accepted inbound connections pass as
+  ESTABLISHED). Car-verified with the rule (2026-11-20): a phone and a laptop got DHCP addresses on the hotspot.
 
 ## UI
 

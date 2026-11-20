@@ -235,7 +235,7 @@ usb_wpa_conf() {
 wait_iface() {
     wi_n=0
     while [ ! -d "$net_root/$usb_iface" ]; do
-        [ "$wi_n" -lt 10 ] || return 1
+        [ "$wi_n" -lt "${1:-10}" ] || return 1
         sleep 1
         wi_n=$((wi_n + 1))
     done
@@ -245,6 +245,29 @@ usb_kmod() {
     uk_adapter=$(usb_adapter) || return 1
     set -f; set -- $uk_adapter; set +f
     sg_write "$2"
+}
+# The driver of the last adapter seen, loaded ahead while none is plugged in (usb_apply).
+usb_kmod_known() {
+    uk_known=$(cat "$HMG_SEOGAEMO_STATE/usb-kmod" 2>/dev/null) || return 1
+    case ",$(sg_manifest_value kmods)," in *",$uk_known,"*) sg_write "$uk_known" ;; *) return 1 ;; esac
+}
+
+# An RTL8812BU the stock USB stack reached before our driver bound it answers no register request
+# until its power is cut (CN7NPE KOR 260902, 2026-11-19/20: "reg 0xfc, usb read 1 fail, status:-110",
+# "Chip id is undefined"). At boot the port is powered at ~7.5 s and the adapter enumerates at ~10 s,
+# before boot reconcile loads the driver (~22 s), so this is the normal boot case. With the driver
+# loaded, a user-port VBUS off/on makes it enumerate again and bind at once. The stock micom
+# requestVBusOffOn returned ok but left the port powered (2026-11-20 dmesg), so the port's own VBUS
+# attribute is used. At most three per boot, so a dead adapter cannot keep cutting the port.
+usb_vbus_cycle() {
+    uv_boot=$(sg_boot_id) || return 1
+    uv_count=0
+    uv_line=$(cat "$HMG_SEOGAEMO_STATE/usb-vbus-cycle" 2>/dev/null) || uv_line=
+    case "$uv_line" in "$uv_boot "[0-9]) uv_count=${uv_line##* } ;; esac
+    [ "$uv_count" -lt 3 ] || return 1
+    sg_ready && sg_print "$uv_boot $((uv_count + 1))" > "$HMG_SEOGAEMO_STATE/usb-vbus-cycle" || return 1
+    sg_log "no $usb_iface after loading the driver: power-cycling the USB port" || :
+    sg_usb_port_power_cycle
 }
 
 # A surviving PID says nothing about which incarnation of the netdev it uses.
@@ -280,13 +303,24 @@ usb_live() {
 }
 
 # Brings the USB role up; every step is idempotent while it runs. An absent adapter is
-# not an error (boot reconcile must not fail): usb_change watches for its return.
+# not an error (boot reconcile must not fail): usb_change watches for its return, and the
+# last adapter's driver stays loaded so the kernel binds the adapter as it enumerates.
+# Returns 5 when the adapter is present but its interface never appears.
 usb_apply() {
     [ "$usb_role" != off ] || return 0
-    ua_kmod=$(usb_kmod) || { usb_disconnect || return $?; sg_log 'USB Wi-Fi adapter not connected'; return 0; }
+    ua_kmod=$(usb_kmod) || {
+        usb_disconnect || return $?
+        if ua_known=$(usb_kmod_known); then
+            sg_kmod_load "$ua_known" || { ua_failed $? "preload $ua_known"; return $?; }
+        fi
+        sg_log 'USB Wi-Fi adapter not connected'; return 0
+    }
+    sg_ready && sg_print "$ua_kmod" > "$HMG_SEOGAEMO_STATE/usb-kmod" || return 1
     if ! usb_generation_current; then usb_disconnect || return $?; fi
     sg_kmod_load "$ua_kmod" || { ua_failed $? "load $ua_kmod"; return $?; }
-    wait_iface || { sg_log "no $usb_iface after loading $ua_kmod"; return 1; }
+    if ! wait_iface; then
+        usb_vbus_cycle && wait_iface 20 || { sg_log "no $usb_iface after loading $ua_kmod"; return 5; }
+    fi
     ua_generation=$(usb_generation) || return 1
     # A replug after the first check must not adopt surviving old-generation PIDs.
     if [ "$(cat "$HMG_SEOGAEMO_STATE/usb-generation" 2>/dev/null)" != "$ua_generation" ]; then
@@ -303,7 +337,11 @@ usb_apply() {
             sg_iface_addr "$usb_iface" "$ap_ip/24" || { ua_failed $? "address $usb_iface"; return $?; }
             sg_daemon_start usb-hostapd || { ua_rc=$?; hostapd_logcat; ua_failed "$ua_rc" 'start usb-hostapd'; return $?; }
             sg_daemon_start usb-dnsmasq || { ua_failed $? 'start usb-dnsmasq'; return $?; }
-            sg_net_rule 1 || { ua_failed $? 'add INPUT rule'; return $?; } ;;
+            sg_net_rule 1 || { ua_failed $? 'add INPUT rule'; return $?; }
+            # Some units load a filter table with OUTPUT policy DROP and an allow list without
+            # rtwlan0 (CN7NPE KOR 260902 mobis_iptables.rule; NFLOG_OUT OUT=rtwlan0 in dmesg), which
+            # drops new outbound packets such as dnsmasq's DHCP offers.
+            sg_net_rule 2 || { ua_failed $? 'add OUTPUT rule'; return $?; } ;;
     esac
     # Unplug during startup must not publish readiness for another generation.
     [ "$(usb_generation)" = "$ua_generation" ] || return 1
@@ -402,7 +440,11 @@ status() {
         result conflict none 'Built-in Wi-Fi client is still applied'
     if [ "$usb_role" != off ]; then
         usb_adapter >/dev/null || result on none 'USB Wi-Fi adapter not connected'
-        usb_live || result failed none 'USB Wi-Fi is not running'
+        if ! usb_live; then
+            [ -d "$net_root/$usb_iface" ] || ! sg_kmod_loaded "$(usb_kmod)" ||
+                result failed none 'Unplug the USB Wi-Fi adapter and plug it in again'
+            result failed none 'USB Wi-Fi is not running'
+        fi
     fi
     result on none ''
 }
@@ -416,6 +458,9 @@ usb_failed() {
     case "$uf_code" in
         3) result conflict none 'USB Wi-Fi driver or interface is used by something else' ;;
         4) result incompatible none 'USB Wi-Fi driver does not match this kernel' ;;
+        # A running module keeps the driver, so the adapter binds as soon as it is plugged in again.
+        5) if desired_file_on; then result failed none 'Unplug the USB Wi-Fi adapter and plug it in again'; fi
+            result failed none 'Unplug the USB Wi-Fi adapter, turn Wi-Fi on, then plug the adapter in' ;;
         *) result failed none 'Could not bring up USB Wi-Fi' ;;
     esac
 }
