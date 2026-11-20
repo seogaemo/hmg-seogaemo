@@ -49,9 +49,15 @@ Upstream facts kept for reference:
 
 ## Pane and enable rules
 
-- The pane shows the car hotspot (`info.hotspot_ip`, `info.adb_endpoint` = `<hotspot ip>:5555`; `info.hotspot_ssid` omitted, see above) with a note that ADB works for a computer joined to that hotspot, plus the action "Connect to another Wi-Fi" = `enable module=wifi`. When `wifi` is on with the built-in client role it also shows `info.client_ip` and `info.client_adb_endpoint`. Independent of `wifi` (no `depends`). Off by default; fixed port 5555; `192.168.0.1:5555` applies only while the hotspot runs.
+- The pane shows the car hotspot (`info.hotspot_ip`, `info.adb_endpoint` = `<hotspot ip>:5555`; `info.hotspot_ssid` omitted, see above) with a note that ADB works for a computer joined to that hotspot, plus the action "Connect to another Wi-Fi" = `enable module=wifi`. When `wifi` is on with the built-in client role it also shows `info.client_ip` and `info.client_adb_endpoint`. While the `wifi` module publishes a serving USB hotspot (peer `radio=usb`, `ready=1`) it shows `info.usb_hotspot_ip` and `info.usb_adb_endpoint` (`192.168.50.1:5555`); adbd already listens on every interface and the `wifi` module's `rtwlan0` INPUT/OUTPUT rules let a laptop on that hotspot reach it (car-verified on CN7NPE KOR 260902, 2026-11-20: `adb connect 192.168.50.1:5555` → `device`). Independent of `wifi` (no `depends`). Off by default; fixed port 5555; `192.168.0.1:5555` applies only while the hotspot runs.
 - Block enable if NEMESIS `adb.tcp` is installed (opposite switch value; edits `/system/build.prop`: `tmp/hmg_nemesis/Sources/packages/adb-tcp/NEMESIS.data:1-12`, `scripts/common.sh:288-300`). Also detect leftover HMG-API `adb` ownership and Leafia's `wireless.carplay.aa` ADB marker (`tmp/HMG-Leafia-Plus/packages/wireless-carplay-aa/scripts/common.sh:313-335`); ambiguous ownership → conflict, no change.
 - Stock adbd has no key authentication: anyone able to reach the TCP port may connect. Owner accepts this for the stock daemon; the separate `wired-adb` module ([wired-adb.md](wired-adb.md)) runs its own key-checking daemon over a USB cable. USB ADB through the stock USB mode (`persist.sys.usb.config`) is out of scope (it can disrupt wired phone projection and USB drives; needs its own design).
+- Unverified per car: CN7NPE KOR 260902 ships `ro.adb.secure=1`, `ro.secure=1`, `ro.build.type=user` (`default.prop`, 2026-11-19
+  getprop) and init creates `/data/misc/adb`. The "no key check" finding is HMG-API's for these units' `/sbin/adbd`
+  (`CLAUDE.md:53`); that binary was not collected from CN7NPE. If its adbd checks keys, an unlisted computer stays
+  `unauthorized` (no on-screen prompt is known); a public key in `/data/misc/adb/adb_keys` (system:shell 0640) admits it.
+  2026-11-20 the laptop connected as `device` (uid 2000), but its key had been added to `adb_keys` first, so whether this
+  adbd checks keys is still not separated.
 - Do not infer success from property readback alone.
 
 ## Restart rule

@@ -13,3 +13,5 @@ restore_note=끄면 기존 ADB 스위치 설정이 복원됩니다. 원래 켜�
 connect_other_wifi=다른 Wi-Fi에 연결
 on_result=차량 핫스팟에 연결한 컴퓨터에서 adb connect를 할 수 있습니다.
 off_result=원래 ADB 설정으로 돌아갑니다.
+usb_hotspot_ip=USB Wi-Fi 핫스팟 IP
+usb_adb_endpoint=USB Wi-Fi ADB 연결 주소

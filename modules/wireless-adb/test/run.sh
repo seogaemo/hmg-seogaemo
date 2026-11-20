@@ -129,7 +129,7 @@ for name in awk sed tail head cut tr wc sort uniq xargs find stat readlink \
     sha256sum sha1sum tar unzip busybox toybox; do
     ln -s "$tmp/bin/forbidden" "$tmp/restricted-bin/$name"
 done
-export FAKE_ROOT="$tmp" HMG_SEOGAEMO_BASE="$tmp/base" HMG_SEOGAEMO_STATE="$tmp/state"
+export FAKE_ROOT="$tmp" HMG_SEOGAEMO_BASE="$tmp/base" HMG_SEOGAEMO_STATE="$tmp/state" SG_DATA_ROOT="$tmp/data"
 script="$tmp/wireless-adb.sh"
 python3 - "$module_dir/module.sh" "$script" "$tmp" <<'PYFIXTURE'
 from pathlib import Path
@@ -248,6 +248,18 @@ run status
 has 'info.client_ip=10.0.0.23'
 has 'info.client_adb_endpoint=10.0.0.23:5555'
 [ ! -e "$tmp/forbidden-calls" ] || { cat "$tmp/forbidden-calls"; exit 1; }
+
+# The wifi module's USB hotspot: its address is shown only while it serves.
+reset
+mkdir -p "$tmp/data/peer"
+sg_print radio=usb interface=rtwlan0 ip=192.168.50.1 ready=0 > "$tmp/data/peer/wifi"
+run status
+! grep -q 'info.usb_adb_endpoint=' "$tmp/output"
+sg_print radio=usb interface=rtwlan0 ip=192.168.50.1 ready=1 > "$tmp/data/peer/wifi"
+run status
+has 'info.usb_hotspot_ip=192.168.50.1'
+has 'info.usb_adb_endpoint=192.168.50.1:5555'
+rm -rf "$tmp/data/peer"
 
 
 reset

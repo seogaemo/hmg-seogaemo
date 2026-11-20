@@ -6,6 +6,8 @@ value label=@hotspot_ip key=hotspot_ip
 value label=@adb_endpoint key=adb_endpoint
 value label=@client_ip key=client_ip
 value label=@client_adb_endpoint key=client_adb_endpoint
+value label=@usb_hotspot_ip key=usb_hotspot_ip
+value label=@usb_adb_endpoint key=usb_adb_endpoint
 info @connect_note
 info @security_note
 info @restore_note

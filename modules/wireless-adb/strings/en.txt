@@ -13,3 +13,5 @@ restore_note=Disabling restores the original ADB switch. If it was on, the car h
 connect_other_wifi=Connect to another Wi-Fi
 on_result=Computers on the car hotspot can run adb connect.
 off_result=The original ADB setting is restored.
+usb_hotspot_ip=USB Wi-Fi hotspot IP
+usb_adb_endpoint=ADB address over USB Wi-Fi

@@ -118,6 +118,11 @@ wa_facts() {
             sg_print "info.client_ip=$wlan_ip" "info.client_adb_endpoint=$wlan_ip:5555"
         fi
     fi
+    # The wifi module's USB hotspot (peer info); adbd listens on every interface.
+    if [ "$(sg_peer_info wifi radio 2>/dev/null)" = usb ] && [ "$(sg_peer_info wifi ready 2>/dev/null)" = 1 ]; then
+        usb_ip=$(sg_peer_info wifi ip 2>/dev/null) || usb_ip=
+        if wa_ipv4 "$usb_ip"; then sg_print "info.usb_hotspot_ip=$usb_ip" "info.usb_adb_endpoint=$usb_ip:5555"; fi
+    fi
 }
 
 wa_report() {
