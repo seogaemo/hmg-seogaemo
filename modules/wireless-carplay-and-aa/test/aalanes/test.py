@@ -20,8 +20,8 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = os.path.abspath(os.path.join(HERE, "..", ".."))
-RECIPES = ("aa-tbt-48ee793a", "aa-tbt-a0bea1c4")
-UPSTREAM_LEN = {"aa-tbt-48ee793a": 5546, "aa-tbt-a0bea1c4": 5640}
+RECIPES = ("aa-tbt-48ee793a", "aa-tbt-a0bea1c4", "aa-tbt-dbfe7bd2")
+UPSTREAM_LEN = {"aa-tbt-48ee793a": 5546, "aa-tbt-a0bea1c4": 5640, "aa-tbt-dbfe7bd2": 5546}
 # segment offset, bytes as patched (little-endian halfwords): the upstream bytes are in payload/recipes/apply-aa-lane-routes.py
 SITES = ((0xF7E, 4), (0xFF2, 6), (0x101C, 4), (0x1598, 1))
 MAIN = 0x7EC

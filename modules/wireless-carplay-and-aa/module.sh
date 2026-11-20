@@ -104,7 +104,7 @@ compatibility() {
 
 put_assets() {
     sg_file_put /system/lib/libleafiaaac.so files/libleafiaaac.so 644 0:0 || return 1
-    for name in aa-tbt-48ee793a aa-tbt-a0bea1c4 carplay-core-wifi carplay-audio-formats carplay-utils-converter iap2-lane-msgid; do
+    for name in aa-tbt-48ee793a aa-tbt-a0bea1c4 aa-tbt-dbfe7bd2 carplay-core-wifi carplay-audio-formats carplay-utils-converter iap2-lane-msgid; do
         sg_file_put "$ASSET/recipes/$name.recipe" "files/recipes/$name.recipe" 644 0:0 || return 1
     done
     for name in com.hkmc.software.connectivity.carplay_wireless com.hkmc.software.connectivity.androidauto_wireless com.hkmc.software.wifihotspot; do
@@ -121,7 +121,7 @@ put_assets() {
 }
 
 assets_readable() {
-    for recipe in aa-tbt-48ee793a aa-tbt-a0bea1c4 carplay-core-wifi carplay-audio-formats carplay-utils-converter iap2-lane-msgid; do
+    for recipe in aa-tbt-48ee793a aa-tbt-a0bea1c4 aa-tbt-dbfe7bd2 carplay-core-wifi carplay-audio-formats carplay-utils-converter iap2-lane-msgid; do
         sg_public_readable "$(path "$ASSET/recipes/$recipe.recipe")" || return 1
     done
     sg_public_readable "$(path /system/lib/libleafiaaac.so)"
@@ -132,7 +132,7 @@ repair_assets() {
         # DiPO registers once: retain restart intent even if repair is interrupted.
         sg_restart_required || return 1
     fi
-    for recipe in aa-tbt-48ee793a aa-tbt-a0bea1c4 carplay-core-wifi carplay-audio-formats carplay-utils-converter iap2-lane-msgid; do
+    for recipe in aa-tbt-48ee793a aa-tbt-a0bea1c4 aa-tbt-dbfe7bd2 carplay-core-wifi carplay-audio-formats carplay-utils-converter iap2-lane-msgid; do
         sg_payload_dirs "$ASSET/recipes/$recipe.recipe" || return 1
     done
     put_assets || return 1

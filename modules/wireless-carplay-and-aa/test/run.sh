@@ -453,6 +453,7 @@ grep -q '^state=conflict$' "$T/output" || fail sweep-failure-state
 rm -f "$T/state/guard-sweep-fails"
 sh "$HERE/test/runtime/run.sh" > "$T/runtime.out" 2>&1 || { cat "$T/runtime.out"; fail runtime; }
 sh "$HERE/test/consumer/run.sh" > "$T/consumer.out" 2>&1 || { cat "$T/consumer.out"; fail consumer; }
+sh "$HERE/test/readyresend/run.sh" > "$T/readyresend.out" 2>&1 || { cat "$T/readyresend.out"; fail readyresend; }
 sh "$HERE/test/cpturns/run.sh" > "$T/cpturns.out" 2>&1 || { cat "$T/cpturns.out"; fail cpturns; }
 sh "$HERE/test/usbhotspot/run.sh"
 sh "$HERE/test/stockhotspot/run.sh"

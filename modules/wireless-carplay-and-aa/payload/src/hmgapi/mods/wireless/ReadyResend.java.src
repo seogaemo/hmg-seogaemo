@@ -1,0 +1,149 @@
+// Modified by HMG-Seogaemo: wireless Android Auto ready report sent again once the USB hotspot serves.
+package hmgapi.mods.wireless;
+
+import java.lang.reflect.Method;
+
+/**
+ * PhoneProjection's wireless listener (IWLDeviceListener.requestWLDeviceReadyStatusUpdate, called by GPM after
+ * the Bluetooth negotiation) asks for the hotspot once: no hotspot gives APMode.UNKNOWN and nothing starts until
+ * Bluetooth connects again. After a power-on the USB adapter's hotspot serves ~20 s after the phone's Bluetooth
+ * (CN7NPE 260902: Bluetooth +32 s, hotspot +52 s), so the first start never connected. A wireless ready (1) that
+ * met no hotspot is kept; once the hotspot serves, the same listener gets 0 then 1 again. PhoneProjection skips a
+ * repeated 1 for a device already marked ready; 0 for a wireless device only clears that mark.
+ * Any later report for the device (0, or 1 with the hotspot up) drops the kept one.
+ */
+final class ReadyResend {
+    interface Log {
+        void log(String message);
+    }
+
+    interface Probe {
+        boolean apUp();
+    }
+
+    static long waitMs = 180000L, pollMs = 1000L, settleMs = 2000L;
+    /** UsbHotspot.apUp in the app, set before the hook goes in; replaced by the host test */
+    static Probe probe;
+
+    private static Object listener, info;
+    private static Method method;
+    private static String addr;
+    private static Log log;
+    private static Thread worker;
+    private static boolean resending;
+
+    private ReadyResend() {}
+
+    static synchronized boolean resending() {
+        return resending;
+    }
+
+    static synchronized boolean pending() {
+        return listener != null;
+    }
+
+    /** a report PhoneProjection's listener got (after the stock code ran) */
+    static synchronized void seen(Log l, Object target, Method m, Object devInfo, int ready) {
+        if (resending || devInfo == null) return;
+        String a = text(devInfo, "getWLDevBtAddr");
+        if (ready == 1 && number(devInfo, "getWLTransferType") == 1 && !probe.apUp()) {
+            listener = target;
+            method = m;
+            info = devInfo;
+            addr = a;
+            log = l;
+            l.log("AA ready with the USB hotspot not serving yet: sent again when it serves");
+            if (worker == null) {
+                worker = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        work();
+                    }
+                }, "hmg-seogaemo-aa-ready");
+                worker.setDaemon(true);
+                worker.start();
+            }
+        } else if (listener != null && (a == null || addr == null || a.equalsIgnoreCase(addr))) {
+            clear();
+        }
+    }
+
+    private static void clear() {
+        listener = null;
+        info = null;
+        method = null;
+        addr = null;
+    }
+
+    static void work() {
+        long end = System.currentTimeMillis() + waitMs;
+        while (true) {
+            sleep(pollMs);
+            synchronized (ReadyResend.class) {
+                if (listener == null) {
+                    worker = null;
+                    return;
+                }
+                if (System.currentTimeMillis() > end) {
+                    log.log("AA ready not sent again: the USB hotspot did not serve within " + waitMs / 1000 + " s");
+                    clear();
+                    worker = null;
+                    return;
+                }
+            }
+            if (!probe.apUp()) continue;
+            sleep(settleMs);
+            Object target, devInfo;
+            Method m;
+            Log l;
+            synchronized (ReadyResend.class) {
+                target = listener;
+                devInfo = info;
+                m = method;
+                l = log;
+                clear();
+                worker = null;
+                if (target == null) return;
+                resending = true;
+            }
+            try {
+                m.invoke(target, devInfo, Integer.valueOf(0));
+                m.invoke(target, devInfo, Integer.valueOf(1));
+                l.log("AA ready sent again after the USB hotspot came up");
+            } catch (Throwable t) {
+                l.log("AA ready not sent again (" + t + ")");
+            } finally {
+                synchronized (ReadyResend.class) {
+                    resending = false;
+                }
+            }
+            return;
+        }
+    }
+
+    private static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    static String text(Object o, String getter) {
+        try {
+            Object v = o.getClass().getMethod(getter).invoke(o);
+            return v == null ? null : v.toString();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    static int number(Object o, String getter) {
+        try {
+            Object v = o.getClass().getMethod(getter).invoke(o);
+            return v instanceof Integer ? (Integer) v : -1;
+        } catch (Throwable t) {
+            return -1;
+        }
+    }
+}

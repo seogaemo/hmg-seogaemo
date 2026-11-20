@@ -39,6 +39,7 @@ public final class WirelessSupport {
             if ("libautoreceiver_infobank.so".equals(lib)) {
                 recipes.add(NativePatch.readOne(new File(ASSETS, "recipes/aa-tbt-48ee793a.recipe")));
                 recipes.add(NativePatch.readOne(new File(ASSETS, "recipes/aa-tbt-a0bea1c4.recipe")));
+                recipes.add(NativePatch.readOne(new File(ASSETS, "recipes/aa-tbt-dbfe7bd2.recipe")));
             } else if ("libCarPlayCore.so".equals(lib)) recipes.add(NativePatch.readOne(new File(ASSETS, "recipes/carplay-core-wifi.recipe")));
             else if ("libCarPlayAudio.so".equals(lib)) recipes.add(NativePatch.readOne(new File(ASSETS, "recipes/carplay-audio-formats.recipe")));
             else if ("libCarPlayUtils.so".equals(lib)) recipes.add(NativePatch.readOne(new File(ASSETS, "recipes/carplay-utils-converter.recipe")));

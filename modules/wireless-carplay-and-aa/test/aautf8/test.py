@@ -18,7 +18,7 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = os.path.abspath(os.path.join(HERE, "..", ".."))
-RECIPES = ("aa-tbt-48ee793a", "aa-tbt-a0bea1c4")
+RECIPES = ("aa-tbt-48ee793a", "aa-tbt-a0bea1c4", "aa-tbt-dbfe7bd2")
 SLOT, SLOT_LEN = 0x17A, 32
 LIMIT = 96
 # The helper as upstream HMG-API 1.0.2 and our recipes shipped it (the bug).

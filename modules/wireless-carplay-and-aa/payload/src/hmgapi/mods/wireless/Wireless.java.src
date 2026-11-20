@@ -422,6 +422,7 @@ public final class Wireless extends ModEntry {
             } catch (Throwable t) {
                 mod.error("USB hotspot stock switch", t);
             }
+            readyResend(mod, app.classLoader);
         }
         if (GPM.equals(app.packageName)) {
             try {
@@ -440,6 +441,40 @@ public final class Wireless extends ModEntry {
             Hooks.findAndHookMethod(NetworkInterface.class, "getDisplayName", rename);
         }
         mod.log("USB hotspot " + UsbHotspot.iface() + " for wireless projection in " + app.processName);
+    }
+
+    /**
+     * PhoneProjection's wireless listener (ReadyResend): a phone reported ready while the USB hotspot was not serving
+     * yet (first start after a power-on) gets its ready report again once the hotspot serves. The listener class is
+     * PhoneProjection's own (obfuscated, by name; not a hookpoint): if it is not there, nothing is hooked.
+     */
+    private static void readyResend(final ModContext mod, ClassLoader cl) {
+        final String cls = "com.daudio.app.phoneprojection.wireless.service.a";
+        ReadyResend.probe = new ReadyResend.Probe() {
+            @Override
+            public boolean apUp() {
+                return UsbHotspot.apUp();
+            }
+        };
+        final ReadyResend.Log log = new ReadyResend.Log() {
+            @Override
+            public void log(String message) {
+                mod.log(message);
+            }
+        };
+        try {
+            Hooks.findAndHookMethod(cls, cl, "requestWLDeviceReadyStatusUpdate", "android.phoneprojection.WLDeviceInfo", int.class,
+                new MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(Param p) {
+                        if (!(p.args[1] instanceof Integer)) return;
+                        ReadyResend.seen(log, p.thisObject, (java.lang.reflect.Method) p.method, p.args[0], (Integer) p.args[1]);
+                    }
+                });
+            mod.log("AA ready resend hook in " + cls);
+        } catch (Throwable t) {
+            mod.log("AA ready resend hook not installed (" + t + ")");
+        }
     }
 
     /**

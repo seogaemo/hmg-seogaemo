@@ -15,6 +15,15 @@ Hotspot: the module starts one only through DiPO's `setWifiApEnabledForConnectiv
 or nothing (phone gets the normal hotspot's credentials, AA sees mode 2, the normal hotspot is started 10 s after an
 unanswered request). Rules: contract "Peer info"; details and open car checks: [external-wifi.md](external-wifi.md).
 
+First start after a power-on with the USB hotspot (`ReadyResend`, test `test/readyresend`): PhoneProjection asks for the
+hotspot once, when GPM reports the phone ready (`IWLDeviceListener.requestWLDeviceReadyStatusUpdate`, its class
+`com.daudio.app.phoneprojection.wireless.service.a` by name, not a hookpoint; missing → only a log line). On CN7NPE 260902
+the phone's Bluetooth came at +32 s and the adapter's hotspot at +52 s, so the answer was `APMode.UNKNOWN` and wireless AA
+started only after a Bluetooth reconnect. A wireless ready 1 that met no serving hotspot is kept; when the hotspot serves
+(polled 1 s, 2 s settle, up to 180 s) the same listener gets 0 then 1 (a repeated 1 is skipped by PhoneProjection for a
+device already marked ready; 0 for a wireless device only clears that mark). Any later report for the device drops it.
+Same idea as korea-projection's GPM-side ready resend (its binary only seen, not copied). Not yet confirmed on the car.
+
 The host `test/stockhotspot` waits for the scheduled worker to terminate between scenarios. Its log callback runs
 before the `finally` block clears `pending`; receiving the log alone does not mean another check can be scheduled.
 
@@ -101,7 +110,7 @@ The package API must baseline each owned path before writing it, record applied 
 | `/system/etc/permissions/com.hkmc.software.connectivity.androidauto_wireless.xml` | Same. |
 | `/system/etc/permissions/com.hkmc.software.wifihotspot.xml` | Same. |
 | `/system/lib/libleafiaaac.so` | Put rebuilt converter; restore bytes or absence. |
-| `/system/etc/hmg-seogaemo/wireless-carplay-and-aa/recipes/aa-tbt-48ee793a.recipe`, `aa-tbt-a0bea1c4.recipe`, `carplay-core-wifi.recipe`, `carplay-audio-formats.recipe`, `carplay-utils-converter.recipe`, `iap2-lane-msgid.recipe` | Put six recipes; restore each exact original or absence and remove newly created empty directories. |
+| `/system/etc/hmg-seogaemo/wireless-carplay-and-aa/recipes/aa-tbt-48ee793a.recipe`, `aa-tbt-a0bea1c4.recipe`, `aa-tbt-dbfe7bd2.recipe`, `carplay-core-wifi.recipe`, `carplay-audio-formats.recipe`, `carplay-utils-converter.recipe`, `iap2-lane-msgid.recipe` | Put seven recipes; restore each exact original or absence and remove newly created empty directories. |
 | `/system/framework/hmg-seogaemo-wireless-parts.jar` | Put the mod jar for app parts (apps cannot read the core copy); restore absence. Not rewritten on reapply when identical. |
 | `$SG_DATA_ROOT/core/hook/mods/wireless-carplay-and-aa/{hook.jar,entry,processes}` | `sg_hook_register`; restore absence, then `sg_core_hook_release` restores stock `app_process` when no hook module remains. |
 | `/system/bin/app_process`, `app_process.hmg-seogaemo-stock`, `libhmg_seogaemo_wireless_hook.so`, `hmg-seogaemo-wireless-hook.jar`, guard files `enable`/`enabled`/`starts`/`disable` | Legacy (0.1.33 and earlier self-installed wrapper): kept in `owns_files` only so apply can restore them exactly before moving to the core host. The core host owns its own `app_process` swap and guard files under `modules/core-hook`. |
@@ -162,6 +171,7 @@ Copied HMG-API paths (destinations relative to this module's `payload/`):
 - `core/loader/loader.c`, `core/zygote/zygote.c`, `core/loader/syslib-stubs.sh` → `native/`, modified for HMG-Seogaemo paths and without `hmgapid` spawning.
 - `mods/wireless-carplay-aa/native/leafiaaac/{leafiaaac.c,build.sh}` → `native/`; output path modified. `data/libleafiaaac.so` is rebuilt from source, not an upstream binary copy.
 - `mods/wireless-carplay-aa/recipes/{aa-tbt-48ee793a,aa-tbt-a0bea1c4,carplay-core-wifi,carplay-audio-formats,carplay-utils-converter}.recipe` → `recipes/`; `carplay-*` unchanged, the two `aa-tbt-*` recipes modified (UTF-8 length helper, below).
+- `recipes/aa-tbt-dbfe7bd2.recipe` is ours, not upstream: `aa-tbt-48ee793a` ported to the Avante N KOR library (`CN7NPE.KOR.0000.V039.001.260902`, stock md5 `dbfe7bd2e36152a50f97fed612cf6326`, 1,837,108 bytes). Same segment bytes; the hooked message dispatcher is instruction-identical at +0x1720 (hook `0xb7f38`, return `0xb7f3d`), protocol byte `0xb3e9a` (stock 1.4), navigation status `0x144eba`. rel32 slots: the two `NavigationStatusCallbacks` thunks by dynamic symbol (`0xa7211`, `0xa715b`), string construct/dispose by the same call sites in the dispatcher (`0xa679d`, `0xa7efd`; same object layout: end `+0x10`, begin `+0x14`, inline buffer at the object, which the segment initialises before construct). Without it this library matched no recipe (`native.libautoreceiver_infobank.so` failed, cluster got only the current turn). Checked by applying it to the captured stock file in the `MemRecipe` way (every verify before/after); not yet confirmed on the car.
 - `mods/wireless-carplay-aa/stubs/com/{broadcom,tcc}/...` (six Java compile-time signature stubs and README) → `stubs/` as `.java.src`, unchanged, not in the runtime JAR.
 
 Original headers remain; modified files have a `Modified by HMG-Seogaemo` marker. Root `NOTICE.md` credits HMG-API (VysseCodes), NEMESIS (xwtk), HMG Leafia Plus, and Xposed design lineage. The repository is GNU AGPL-3.0 (`LICENSE`). The core mapper is an independent implementation; `UPSTREAM.md` tracks the HMG-API reference paths.
