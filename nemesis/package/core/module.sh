@@ -185,6 +185,8 @@ mi_check_props() {
                     *) false ;;
                 esac ;;
             hooks) [ "$mi_mode" = bundled ] && [ "$mi_val" = 1 ] && mi_raw "$mi_pkg" || mi_fail "HSM-E203 module.properties: unknown key $mi_key" ;;
+            usb_port) [ "$mi_mode" = bundled ] && mi_raw "$mi_pkg" || mi_fail "HSM-E203 module.properties: unknown key $mi_key"
+                [ "$mi_val" = power_cycle ] ;;
             owns_props|reassert_props|owns_files|owns_generated_dirs|services|service_calls|restore|owns_lines.[1-9]|owns_lines.[1-9][0-9])
                 [ "$mi_mode" = bundled ] || mi_fail "HSM-E203 module.properties: unknown key $mi_key"
                 mi_check_owned "$mi_key" "$mi_val" ;;

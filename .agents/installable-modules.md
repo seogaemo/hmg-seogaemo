@@ -64,7 +64,9 @@ class, no Android resources and no `modules.list` entry.
 - `module list` reports `bundled` as the source; the app treats it like an installed package.
 - All six former built-ins (`raw_shell=1` with their former root scripts). The user-button broadcast receiver is
   app code (`com.seogaemo.hmg.UserButtonReceiver`), not module code. A bundled raw_shell package may declare
-  `hooks=1` (CarPlay): it registers with the core hook host through `sg_hook_register`.
+  `hooks=1` (CarPlay): it registers with the core hook host through `sg_hook_register`. A bundled raw_shell package may
+  declare `usb_port=power_cycle` (`wifi`): it may call `sg_usb_port_power_cycle` (runtime contract); a direct install refuses
+  the key (HSM-E203).
 - The packer (`tools/package.py`) packs only `.hsm` members (`module.properties`, scripts, `ui.txt`,
   `README.md`, `strings/*`, `files/*`); sources, build scripts and tests stay in the repository. Bundled
   modules' declared `module.properties` is also copied to the package's `modules/<id>.properties` (the

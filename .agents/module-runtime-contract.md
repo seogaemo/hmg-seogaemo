@@ -55,6 +55,7 @@ baseline on first touch, perform, verify, mark applied, append ledger; non-zero 
 | `sg_revert_transient [keep_kmods]` | undo this module's transient effects, newest first, and drop them from `changes`; optional `keep_kmods` retains drivers and their records for USB reprobe; files and properties stay applied |
 | `sg_daemon_restart <name>` | stop our running `daemon.<name>` (if any) and start it again, e.g. after rewriting its state-directory config |
 | `sg_peer_publish [key=value...]` | replace this module's published facts (see [Peer info](#peer-info)); no argument removes them |
+| `sg_usb_port_power_cycle` | user USB port VBUS off for 2 s then on through the DWC OTG `vbus` attribute stock init uses (`sys.usb.vbus_ctrl`), only while stock left it on and `vbus_control_enable=1`; the port always ends powered (retried); bundled `raw_shell` modules with `usb_port=power_cycle` only; ledgered as `usb_port_power_cycle`; see [wifi.md](wifi.md) |
 | `sg_revert_all` | undo every change this module made, newest first, with the guarded restore rules below; clears baselines only after every item verified |
 
 Read/report helpers: `sg_log <msg>`, `sg_owner_present <name>` (`nemesis-adb-tcp`, `hmgapi`,

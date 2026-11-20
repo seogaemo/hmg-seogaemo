@@ -122,6 +122,8 @@ def test_install_validation(car):
     assert "digest mismatch" in car.root("module", "install", wrong, code=1)
     bad_key = variant(**{"module.properties": SAMPLE["module.properties"] + "owns_props=persist.x\n"})
     assert "HSM-E203" in car.root("module", "install", car.offer(bad_key), code=1)
+    bad_port = variant(**{"module.properties": SAMPLE["module.properties"] + "usb_port=power_cycle\n"})
+    assert "HSM-E203 module.properties: unknown key usb_port" in car.root("module", "install", car.offer(bad_port), code=1)
     bad_icon = variant(**{"module.properties": SAMPLE["module.properties"].replace("icon=wifi", "icon=../x.png")})
     assert "HSM-E204 module.properties: bad value for icon" in car.root("module", "install", car.offer(bad_icon), code=1)
     builtin = variant(**{"module.properties": SAMPLE["module.properties"].replace("id=sample", "id=builtin-a")})

@@ -1389,6 +1389,45 @@ sg_service_call_this_boot() {
 sg_service_call_ok_this_boot() {
     sg_service_call_this_boot && [ "$(cat "$HMG_SEOGAEMO_STATE/last-call-result" 2>/dev/null)" = ok ]
 }
+# The user USB port's VBUS (Telechips DWC OTG; ehci-mux/ohci-mux share its PHY). Stock init switches
+# it through this attribute (init.tcc803x.usb.rc, sys.usb.vbus_ctrl); the driver honours it only while
+# its vbus_control_enable parameter is 1, which stock init sets at boot. The modem's EHCI is never touched.
+sg_usb_vbus_state() {
+    sg_uv_file=${SG_USB_VBUS_FILE:-/sys/devices/11980000.dwc_otg/vbus}
+    sg_uv_line=
+    [ -f "$sg_uv_file" ] && { read -r sg_uv_line < "$sg_uv_file" || [ -n "$sg_uv_line" ]; } || return 1
+    case "$sg_uv_line" in *' - on'|on) sg_print on ;; *' - off'|off) sg_print off ;; *) return 1 ;; esac
+}
+# Cuts the user port's power for two seconds, so every device on it starts from power-up and
+# enumerates again. Only when stock left the port powered and VBUS control enabled; the port always
+# ends powered (retried). Bundled raw_shell modules with usb_port=power_cycle only; ledgered.
+sg_usb_port_power_cycle() {
+    [ "$#" -eq 0 ] || return 2
+    sg_validate usb_port power_cycle || return 2
+    sg_uv_file=${SG_USB_VBUS_FILE:-/sys/devices/11980000.dwc_otg/vbus}
+    sg_uv_enable=
+    read -r sg_uv_enable < "${SG_USB_VBUS_ENABLE_FILE:-/sys/module/tcc_dwc_otg/parameters/vbus_control_enable}" ||
+        [ -n "$sg_uv_enable" ] || return 1
+    [ "$sg_uv_enable" = 1 ] || return 1
+    [ "$(sg_usb_vbus_state)" = on ] || return 1
+    sg_ready || return 1
+    sg_uv_before=$HMG_SEOGAEMO_STATE/usb-port.$$.before
+    sg_uv_after=$HMG_SEOGAEMO_STATE/usb-port.$$.after
+    sg_print vbus=on > "$sg_uv_before" || return 1
+    sg_uv_result=ok
+    sg_write off > "$sg_uv_file" || sg_uv_result=failed
+    sleep 2
+    sg_uv_try=0
+    until sg_write on > "$sg_uv_file" && [ "$(sg_usb_vbus_state)" = on ]; do
+        sg_uv_try=$((sg_uv_try + 1))
+        [ "$sg_uv_try" -lt 3 ] || { sg_uv_result=failed; break; }
+        sleep 1
+    done
+    sg_print "vbus=$(sg_usb_vbus_state || sg_print unknown)" > "$sg_uv_after" || return 1
+    sg_ledger usb_port_power_cycle user "$sg_uv_before" "$sg_uv_after" "" "$sg_uv_result" || return 1
+    rm -f "$sg_uv_before" "$sg_uv_after"
+    [ "$sg_uv_result" = ok ]
+}
 # Transient effects: kernel modules, background daemons, network rules and
 # interface addresses. A head-unit restart removes all of them. Every record
 # starts with the boot id it was made in; a record from an earlier boot is
