@@ -33,6 +33,9 @@ their reviewed steps without replanning.
   `state=on`, else tries fixed `map verify` once per pass. Unverified modules and their transitive dependents stay desired on
   and are deferred; independent modules continue. Pause, APK presence, desired state and selected payload are re-checked
   after verification. Reverse restore discovery includes every restore-material class, including directory-only partial applies.
+- An apply refused only with `detail=Module operation busy` (another module held the 10 s operation lock, e.g. Wi-Fi powering its
+  USB adapter at boot) is deferred like a map deferral, not failed: seen on CN7NPE, where wireless ADB lost the boot race to Wi-Fi
+  and stock adbd (started only for USB device configurations, the car runs `host`) stayed stopped all boot.
 - The NEMESIS once service and OTA health return after the initial bounded pass; map deferral is not a health failure (real
   module failures still fail).
 - One private, deduplicated detached worker retries deferred IDs every 30 s: ignores HUP, disconnects stdio via internal exec

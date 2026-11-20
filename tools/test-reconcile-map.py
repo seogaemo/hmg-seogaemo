@@ -50,6 +50,7 @@ case "$RETRY_MODE" in
     missing) : > "$SG_DATA_ROOT/apk-missing";;
     off) echo off > "$SG_DATA_ROOT/desired/mapped"; echo off > "$SG_DATA_ROOT/desired/dependent";;
     selection) ln -s "$NEXT_PACKAGE" "$SG_DATA_ROOT/update/current";;
+    busy) : > "$SG_DATA_ROOT/busy-cleared";;
     *) echo unexpected-retry >&2; exit 99;;
 esac
 ''')
@@ -72,11 +73,14 @@ if [ "$2" = apply ]; then
         [ -f "$SG_DATA_ROOT/verified" ] || exit 77
     fi
     [ "$APPLY_FAIL" != "$1" ] || exit 1
+    if [ "$APPLY_BUSY" = "$1" ] && [ ! -f "$SG_DATA_ROOT/busy-cleared" ]; then
+        echo state=failed; echo 'detail=Module operation busy'; exit 1
+    fi
 fi
 echo state=on
 ''')
     env = dict(car_env(), PATH=str(fake) + ":" + car_env()["PATH"],
-               SG_DATA_ROOT=str(state), VERIFY_MODE="success", RETRY_MODE="unexpected", APPLY_FAIL="")
+               SG_DATA_ROOT=str(state), VERIFY_MODE="success", RETRY_MODE="unexpected", APPLY_FAIL="", APPLY_BUSY="")
     (state / "release-retry").touch()
     return base, state, env
 
@@ -147,6 +151,18 @@ def test_reconcile(folder):
         if mode != "off":
             assert (state / "desired/mapped").read_text() == "on\n"
             assert (state / "desired/dependent").read_text() == "on\n"
+
+    # An apply refused only because another module held the operation lock is retried, not failed.
+    base, state, env = reconcile_fixture(folder / "busy")
+    (state / "verified").touch()
+    env["APPLY_BUSY"] = "independent"
+    env["RETRY_MODE"] = "busy"
+    assert invoke(base, env).returncode == 0
+    wait_for(lambda: not (state / "reconcile-retry").exists())
+    assert (state / "calls").read_text().splitlines() == [
+        "map status", "mapped apply", "dependent apply", "independent apply",
+        "retry", "independent apply"], (state / "calls").read_text()
+    assert "deferred independent: module operation busy" in (state / "reconcile.log").read_text()
 
     base, state, env = reconcile_fixture(folder / "initial-paused")
     (state / "stock").mkdir()

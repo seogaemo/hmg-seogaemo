@@ -177,9 +177,19 @@ apply_pending() {
                 continue
             fi
         fi
-        if HMG_SEOGAEMO_RECONCILE=1 /system/bin/sh "$root" "$id" apply >> "$log" 2>&1; then
+        if apply_out=$(HMG_SEOGAEMO_RECONCILE=1 /system/bin/sh "$root" "$id" apply 2>&1); then
+            echo "$apply_out" >> "$log"
             echo "applied $id" >> "$log"
-        else echo "apply failed: $id" >> "$log"; failed=1; fi
+        else
+            echo "$apply_out" >> "$log"
+            # Another module held the operation lock (e.g. Wi-Fi bringing its adapter up at boot): retry later.
+            case "$apply_out" in
+                *'detail=Module operation busy'*)
+                    deferred="$deferred $id"
+                    echo "deferred $id: module operation busy" >> "$log";;
+                *) echo "apply failed: $id" >> "$log"; failed=1;;
+            esac
+        fi
     done
 }
 retry_cleanup() {
